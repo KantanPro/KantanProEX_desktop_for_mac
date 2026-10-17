@@ -103,7 +103,9 @@ add_action(
 			wp_set_current_user( $admins[0]->ID );
 			wp_set_auth_cookie( $admins[0]->ID, true );
 		}
-		wp_safe_redirect( home_url( '/' ) );
+		// 戻り先（ログインが切れて入り直したとき）。このアプリの中の URL だけ
+		$back = isset( $_GET['redirect_to'] ) ? wp_validate_redirect( esc_url_raw( wp_unslash( $_GET['redirect_to'] ) ), home_url( '/' ) ) : home_url( '/' );
+		wp_safe_redirect( $back );
 		exit;
 	},
 	1
@@ -479,6 +481,51 @@ add_action(
 		// Electron 以外から開かれたとき（念のため）はアプリの画面に戻すだけ
 		if ( isset( $_GET['ktp_desktop_quit'] ) ) {
 			wp_safe_redirect( home_url( '/' ) );
+			exit;
+		}
+	},
+	0
+);
+
+/**
+ * WordPress のログイン画面は出さない（ロゴ入りで、パスワードも誰も知らない）。
+ *
+ * ログイン画面、またはログインが切れた状態でアプリの画面に来たら、「入り直し」の合図
+ * （/?ktp_desktop_relogin=1）へ転送する。Electron（main.js）がそれを止めて、新しい使い捨ての鍵で
+ * 自動ログインし直す。Electron 以外から開かれたときは、案内の文だけを出す。
+ */
+function ktp_desktop_relogin_url( $redirect_to = '' ) {
+	$args = array( 'ktp_desktop_relogin' => '1' );
+	if ( $redirect_to !== '' ) {
+		$args['redirect_to'] = rawurlencode( $redirect_to );
+	}
+	return add_query_arg( $args, home_url( '/' ) );
+}
+
+add_action(
+	'login_init',
+	function () {
+		$redirect_to = isset( $_REQUEST['redirect_to'] ) ? esc_url_raw( wp_unslash( $_REQUEST['redirect_to'] ) ) : '';
+		wp_safe_redirect( ktp_desktop_relogin_url( $redirect_to ) );
+		exit;
+	},
+	0
+);
+
+add_action(
+	'template_redirect',
+	function () {
+		if ( isset( $_GET['ktp_desktop_relogin'] ) ) {
+			// Electron がこの URL への移動を止めるので、ここに来るのはアプリの外から開かれたときだけ
+			status_header( 200 );
+			header( 'Content-Type: text/html; charset=utf-8' );
+			echo '<!doctype html><html lang="ja"><meta charset="utf-8"><title>KantanProEX</title>'
+				. '<body style="font-family:-apple-system,\'Hiragino Sans\',sans-serif;background:#fff;color:#333;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">'
+				. '<p>KantanProEX のアプリを開き直してください。</p></body></html>';
+			exit;
+		}
+		if ( ! is_user_logged_in() && ! wp_doing_ajax() ) {
+			wp_safe_redirect( ktp_desktop_relogin_url( home_url( add_query_arg( array() ) ) ) );
 			exit;
 		}
 	},

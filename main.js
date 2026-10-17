@@ -102,10 +102,21 @@ async function stopPhp() {
 }
 
 /** 使い捨てトークンを書き出し、自動ログイン用の URL を返す */
-function loginUrl() {
+function loginUrl(redirectTo = '') {
   const token = crypto.randomBytes(32).toString('hex');
   fs.writeFileSync(paths.tokenFile, token, { mode: 0o600 });
-  return `${server.baseUrl}/?ktp_desktop_login=${token}`;
+  const back = redirectTo && isAppUrl(redirectTo) ? `&redirect_to=${encodeURIComponent(redirectTo)}` : '';
+  return `${server.baseUrl}/?ktp_desktop_login=${token}${back}`;
+}
+
+/** ログインが切れたとき（ktp-desktop.php が「入り直し」の合図へ転送する）: 自動ログインし直して元の画面へ */
+function relogin(contents, url) {
+  let back = '';
+  try {
+    back = new URL(url).searchParams.get('redirect_to') || '';
+  } catch {}
+  log('ログインが切れていたので自動ログインし直す');
+  contents.loadURL(loginUrl(back));
 }
 
 function isAppUrl(url) {
@@ -144,9 +155,21 @@ function guardNavigation(contents) {
       confirmQuit();
       return;
     }
+    if (isAppUrl(url) && url.includes('ktp_desktop_relogin=')) {
+      e.preventDefault();
+      relogin(contents, url);
+      return;
+    }
     if (!isAppUrl(url)) {
       e.preventDefault();
       if (/^(https?|mailto|tel):/.test(url)) shell.openExternal(url);
+    }
+  });
+  // サーバーからの転送（302）で来た場合はこちら
+  contents.on('will-redirect', (e, url) => {
+    if (isAppUrl(url) && url.includes('ktp_desktop_relogin=')) {
+      e.preventDefault();
+      relogin(contents, url);
     }
   });
   contents.setWindowOpenHandler(({ url }) => {

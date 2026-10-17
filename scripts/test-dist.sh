@@ -16,6 +16,8 @@ node scripts/app-dummy-check.mjs 9556 2>&1 | cut -c1-220   # ダミーデータ�
 node work/app-e2e-dist.mjs work/dist-e2e 2>&1 | cut -c1-110 | grep -E "✓|!|問題|pageerror|http|dialog|Error"
 node work/app-js-errors-dist.mjs "/?tab_name=list" "/?tab_name=client" "/?tab_name=service" "/?tab_name=report" "/wp-admin/admin.php?page=ktp-settings" "/wp-admin/profile.php"; echo "(JS例外ここまで)"
 node work/ext.mjs 9556
+node scripts/app-relogin-check.mjs 9556 2>&1 | cut -c1-200
+grep "自動ログインし直す" "$TEST_DIR/logs/app.log" | wc -l | sed "s/^/入り直した回数: /"
 node scripts/app-quit-check.mjs 9556 2>&1 | cut -c1-200   # 最後に押す（確認ダイアログが出る）
 grep "アプリを終了" "$TEST_DIR/logs/app.log" | tail -1
 kill "$APP_PID"; sleep 4; kill -0 "$APP_PID" 2>/dev/null && kill -9 "$APP_PID"
