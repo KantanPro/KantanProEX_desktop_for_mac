@@ -144,3 +144,91 @@ add_filter(
 		return $args;
 	}
 );
+
+/**
+ * アプリ画面ではテーマ（Twenty Twenty-Five）とブロックのスタイルを読み込まない。
+ * 入ると本文が 22px になり、見出しのフォントなども変わる（WP 版の Cocoon と見た目がずれる）。
+ * 代わりの基本スタイルは ktp-desktop/app-template.php に持つ。
+ */
+add_action(
+	'wp_enqueue_scripts',
+	function () {
+		if ( is_admin() ) {
+			return;
+		}
+		foreach ( array( 'global-styles', 'wp-block-library', 'wp-block-library-theme', 'classic-theme-styles', 'core-block-supports', 'core-block-supports-duotone', 'twentytwentyfive-style', 'wp-img-auto-sizes-contain' ) as $handle ) {
+			wp_dequeue_style( $handle );
+		}
+	},
+	1000
+);
+remove_action( 'wp_enqueue_scripts', 'wp_enqueue_global_styles' );
+remove_action( 'wp_footer', 'wp_enqueue_global_styles', 1 );
+remove_action( 'wp_body_open', 'wp_global_styles_render_svg_filters' );
+add_filter( 'should_load_separate_core_block_assets', '__return_false' );
+
+/**
+ * 管理画面は KantanProEX の設定だけにする（WordPress 標準のメニューは出さない）。
+ *
+ * - 左メニューは「← アプリに戻る」と KantanProEX だけ
+ * - 上部の WordPress バー・フッターの WordPress 表記・ヘルプタブは隠す
+ * - ダッシュボードや投稿など WordPress 標準の画面を直接開いたらアプリへ戻す
+ *   （プロフィール・ユーザー編集はプラグインがリンクしているので開けるまま残す）
+ */
+add_action(
+	'admin_menu',
+	function () {
+		global $menu;
+		foreach ( (array) $menu as $item ) {
+			$slug = isset( $item[2] ) ? (string) $item[2] : '';
+			if ( $slug !== '' && $slug !== 'ktp-settings' ) {
+				remove_menu_page( $slug );
+			}
+		}
+		add_menu_page( 'アプリに戻る', 'アプリに戻る', 'read', 'ktp-desktop-back', '__return_null', 'dashicons-arrow-left-alt', 0 );
+		remove_submenu_page( 'ktp-settings', 'ktp-developer-settings' );
+	},
+	PHP_INT_MAX
+);
+
+add_action(
+	'admin_init',
+	function () {
+		if ( wp_doing_ajax() ) {
+			return;
+		}
+		global $pagenow;
+		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
+		if ( $page === 'ktp-desktop-back' ) {
+			wp_safe_redirect( home_url( '/' ) );
+			exit;
+		}
+		$wp_screens = array( 'index.php', 'edit.php', 'post.php', 'post-new.php', 'edit-tags.php', 'term.php', 'upload.php', 'media-new.php', 'edit-comments.php', 'comment.php', 'themes.php', 'site-editor.php', 'customize.php', 'widgets.php', 'nav-menus.php', 'plugins.php', 'plugin-install.php', 'plugin-editor.php', 'theme-editor.php', 'tools.php', 'import.php', 'export.php', 'site-health.php', 'export-personal-data.php', 'erase-personal-data.php', 'options-writing.php', 'options-reading.php', 'options-discussion.php', 'options-media.php', 'options-permalink.php', 'options-privacy.php', 'update-core.php', 'about.php' );
+		$is_bare_options = ( $pagenow === 'options-general.php' && $page === '' );
+		if ( $page === '' && ( in_array( $pagenow, $wp_screens, true ) || $is_bare_options ) ) {
+			wp_safe_redirect( home_url( '/' ) );
+			exit;
+		}
+	}
+);
+
+add_action(
+	'admin_head',
+	function () {
+		echo '<style id="ktp-desktop-admin">'
+			. '#wpadminbar{display:none!important}html.wp-toolbar{padding-top:0!important}'
+			. '#contextual-help-link-wrap,#screen-options-link-wrap,#wpfooter,.update-nag,#wp-admin-bar-wp-logo{display:none!important}'
+			. '#adminmenu .toplevel_page_ktp-desktop-back .wp-menu-name{font-weight:600}'
+			. '</style>';
+	}
+);
+add_filter( 'admin_footer_text', '__return_empty_string', PHP_INT_MAX );
+add_filter( 'update_footer', '__return_empty_string', PHP_INT_MAX );
+add_filter(
+	'admin_title',
+	function ( $admin_title, $title ) {
+		return $title . ' ‹ KantanProEX';
+	},
+	10,
+	2
+);

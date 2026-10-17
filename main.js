@@ -3,7 +3,7 @@
 const path = require('node:path');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
-const { app, BrowserWindow, Menu, dialog, shell, session } = require('electron');
+const { app, BrowserWindow, Menu, dialog, shell, session, nativeTheme } = require('electron');
 
 // 開発中はインストール版とデータを分ける
 if (!app.isPackaged) {
@@ -47,8 +47,7 @@ function log(msg) {
 // ---- 準備中の画面 ----
 const LOADING_HTML = `<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>KantanProEX</title>
 <style>
-:root{--bg:#f5f7fb;--fg:#1f2937;--sub:#6b7280}
-@media (prefers-color-scheme: dark){:root{--bg:#111827;--fg:#f3f4f6;--sub:#9ca3af}}
+:root{--bg:#ffffff;--fg:#1f2937;--sub:#6b7280;color-scheme:light}
 html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,"Hiragino Sans",sans-serif}
 .w{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}
 h1{font-size:22px;margin:0} #m{color:var(--sub);font-size:14px}
@@ -131,7 +130,7 @@ function createWindow() {
     minWidth: 900,
     minHeight: 600,
     title: 'KantanProEX',
-    backgroundColor: '#f5f7fb',
+    backgroundColor: '#ffffff',
     show: false,
     webPreferences: webPreferences(),
   });
@@ -271,6 +270,9 @@ async function boot() {
 }
 
 app.whenReady().then(() => {
+  // 背景は常に白。Mac がダークモードでも画面をダーク表示にしない（プラグインのダーク用 CSS も効かせない）
+  nativeTheme.themeSource = 'light';
+
   // 画面から外部への読み込みは一切させない（127.0.0.1 の自分自身だけ）。
   // プラグインや WordPress が外部の画像・スクリプトを読もうとしても通信が出ないことを、ここで保証する
   session.defaultSession.webRequest.onBeforeRequest({ urls: ['http://*/*', 'https://*/*', 'ws://*/*', 'wss://*/*'] }, (details, cb) => {

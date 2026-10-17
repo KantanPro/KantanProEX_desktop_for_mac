@@ -1,6 +1,12 @@
 <?php
 /**
  * デスクトップ版の画面テンプレート（テーマを使わない）。
+ *
+ * KantanProEX の見た目は、WP 版で使われている Cocoon の基本スタイルを前提にしている
+ * （本文 18px、表のセル 0.8em、全要素の余白リセットなど）。テーマを通さない代わりに、
+ * その前提の部分だけをここに持つ。ブロックテーマ（Twenty Twenty-Five）の全体スタイルは
+ * ktp-desktop.php で読み込まないようにしている（入ると本文が 22px になる）。
+ * 背景は常に白（ダークモードにしない）。
  */
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -10,14 +16,30 @@ if ( ! defined( 'ABSPATH' ) ) {
 <head>
 <meta charset="<?php bloginfo( 'charset' ); ?>">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
 <link rel="icon" href="data:,"><?php // アプリのウィンドウなのでファビコンは不要（/favicon.ico の 404 を防ぐ） ?>
 <?php wp_head(); ?>
-<style>
-	html, body { margin: 0; padding: 0; background: #fff; }
+<style id="ktp-desktop-base">
+	/* Cocoon の基本表示に合わせる（cocoon-master/style.css の「基本表示」） */
+	* { padding: 0; margin: 0; box-sizing: border-box; word-wrap: break-word; overflow-wrap: break-word; }
+	html { margin-top: 0 !important; background: #fff; }
+	body {
+		font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+		font-size: 18px;
+		line-height: 1.8;
+		color: #333;
+		background: #fff;
+	}
+	a { color: #1967d2; }
+	img { max-width: 100%; height: auto; }
+	input, select, textarea, button { font-family: inherit; }
+	table { margin-bottom: 20px; max-width: 100%; width: 100%; border-collapse: collapse; border-spacing: 0; }
+	table th, table td { position: relative; padding: 0.5em; font-size: 0.8em; }
+	table th { background-color: #f5f6f7; }
+	table tr:nth-of-type(2n+1) { background-color: #fafbfc; }
+	table :where(th, td) { border: 1px solid #eee; }
 	#wpadminbar { display: none !important; }
-	html { margin-top: 0 !important; }
-	.ktp-desktop-main { max-width: none; margin: 0; padding: 12px 16px 24px; box-sizing: border-box; }
-	@media (prefers-color-scheme: dark) { html, body { background: #111827; } }
+	.ktp-desktop-main { max-width: none; margin: 0; padding: 12px 16px 24px; }
 </style>
 </head>
 <body <?php body_class( 'ktp-desktop' ); ?>>
