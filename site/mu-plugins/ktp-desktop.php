@@ -457,3 +457,30 @@ add_action(
 	},
 	PHP_INT_MAX
 );
+
+/**
+ * ヘッダーのログアウトボタンを「アプリを終了」にする。
+ *
+ * デスクトップ版は起動時の自動ログインだけで入っていて、パスワードを使わない。
+ * ログアウトするとログイン画面から戻れなくなるので、ログアウトの URL を終了の合図に差し替える。
+ * Electron（main.js）がこの URL への移動を止めて、確認のうえアプリを終了する。
+ * ボタンの見た目（電源マーク・「アプリを終了」）は ktp-desktop/app-template.php で差し替える。
+ */
+add_filter(
+	'logout_url',
+	function () {
+		return home_url( '/?ktp_desktop_quit=1' );
+	},
+	PHP_INT_MAX
+);
+add_action(
+	'init',
+	function () {
+		// Electron 以外から開かれたとき（念のため）はアプリの画面に戻すだけ
+		if ( isset( $_GET['ktp_desktop_quit'] ) ) {
+			wp_safe_redirect( home_url( '/' ) );
+			exit;
+		}
+	},
+	0
+);

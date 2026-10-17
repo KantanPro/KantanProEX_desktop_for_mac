@@ -117,6 +117,19 @@ function isAppUrl(url) {
   }
 }
 
+async function confirmQuit() {
+  log('ヘッダーの「アプリを終了」が押された');
+  const r = await dialog.showMessageBox(mainWindow, {
+    type: 'question',
+    message: 'KantanProEX を終了しますか？',
+    detail: '入力した内容はその都度保存されています。',
+    buttons: ['終了', 'キャンセル'],
+    defaultId: 0,
+    cancelId: 1,
+  });
+  if (r.response === 0) app.quit();
+}
+
 // ---- ウィンドウ ----
 function webPreferences() {
   return { contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: false };
@@ -125,6 +138,12 @@ function webPreferences() {
 function guardNavigation(contents) {
   // アプリ以外のページはウィンドウ内で開かず、普段のブラウザに渡す
   contents.on('will-navigate', (e, url) => {
+    // ヘッダーの「アプリを終了」（WordPress のログアウトの代わり。ktp-desktop.php が URL を差し替えている）
+    if (isAppUrl(url) && url.includes('ktp_desktop_quit=')) {
+      e.preventDefault();
+      confirmQuit();
+      return;
+    }
     if (!isAppUrl(url)) {
       e.preventDefault();
       if (/^(https?|mailto|tel):/.test(url)) shell.openExternal(url);
