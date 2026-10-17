@@ -46,15 +46,24 @@ function log(msg) {
 }
 
 // ---- 準備中の画面 ----
+// 起動中の画面に出すアイコン（data: のページなので画像は埋め込む）
+const ICON_DATA_URL = (() => {
+  try {
+    return `data:image/png;base64,${fs.readFileSync(path.join(__dirname, 'assets', 'icon', 'icon-256.png')).toString('base64')}`;
+  } catch {
+    return '';
+  }
+})();
 const LOADING_HTML = `<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>KantanProEX</title>
 <style>
 :root{--bg:#ffffff;--fg:#1f2937;--sub:#6b7280;color-scheme:light}
 html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,"Hiragino Sans",sans-serif}
-.w{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}
+.w{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}
 h1{font-size:22px;margin:0} #m{color:var(--sub);font-size:14px}
-.s{width:28px;height:28px;border:3px solid #c7d2fe;border-top-color:#4f46e5;border-radius:50%;animation:r 1s linear infinite}
+.s{width:20px;height:20px;border:2px solid #c7d2fe;border-top-color:#4f46e5;border-radius:50%;animation:r 1s linear infinite}
 @keyframes r{to{transform:rotate(360deg)}}
-</style></head><body><div class="w"><div class="s"></div><h1>KantanProEX</h1><div id="m">起動しています…</div></div></body></html>`;
+img{width:88px;height:88px}
+</style></head><body><div class="w"><img src="${ICON_DATA_URL}" alt=""><h1>KantanProEX</h1><div class="s"></div><div id="m">起動しています…</div></div></body></html>`;
 
 function setLoadingMessage(msg) {
   log(msg);
@@ -320,6 +329,9 @@ async function boot() {
 app.whenReady().then(() => {
   // 背景は常に白。Mac がダークモードでも画面をダーク表示にしない（プラグインのダーク用 CSS も効かせない）
   nativeTheme.themeSource = 'light';
+  if (!app.isPackaged && process.platform === 'darwin' && ICON_DATA_URL) {
+    app.dock.setIcon(path.join(__dirname, 'assets', 'icon', 'icon-1024.png'));
+  }
 
   // 画面から外部への読み込みは一切させない（127.0.0.1 の自分自身だけ）。
   // プラグインや WordPress が外部の画像・スクリプトを読もうとしても通信が出ないことを、ここで保証する

@@ -10,7 +10,8 @@
     "prepare:php": "scripts/fetch-php.sh",
     "prepare:site": "scripts/build-site.sh",
     "start": "env -u ELECTRON_RUN_AS_NODE electron .",
-    "build:mac": "scripts/build-site.sh && env -u ELECTRON_RUN_AS_NODE electron-builder --mac dmg --x64"
+    "build:mac": "scripts/build-site.sh && env -u ELECTRON_RUN_AS_NODE electron-builder --mac dmg --x64",
+    "build:icon": "node scripts/build-icon.mjs"
   },
   "devDependencies": {
     "electron": "35.7.5",
@@ -20,19 +21,48 @@
     "appId": "com.kantanpro.kantanproex.desktop",
     "productName": "KantanProEX",
     "copyright": "KantanPro",
-    "directories": { "output": "dist" },
-    "files": ["main.js", "lib/**/*", "package.json"],
-    "extraResources": [
-      { "from": "bin", "to": "bin" },
-      { "from": "php", "to": "php" },
-      { "from": "site-template", "to": "site-template" }
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "lib/**/*",
+      "package.json",
+      "assets/icon/icon-256.png"
     ],
-    "electronLanguages": ["ja", "en"],
+    "extraResources": [
+      {
+        "from": "bin",
+        "to": "bin"
+      },
+      {
+        "from": "php",
+        "to": "php"
+      },
+      {
+        "from": "site-template",
+        "to": "site-template"
+      }
+    ],
+    "electronLanguages": [
+      "ja",
+      "en"
+    ],
     "mac": {
       "category": "public.app-category.business",
-      "target": [{ "target": "dmg", "arch": ["x64"] }],
-      "identity": null
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "identity": null,
+      "icon": "build/icon.icns"
     },
-    "dmg": { "title": "KantanProEX" }
+    "dmg": {
+      "title": "KantanProEX"
+    }
   }
 }
