@@ -40,6 +40,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 	table :where(th, td) { border: 1px solid #eee; }
 	#wpadminbar { display: none !important; }
 	.ktp-desktop-main { max-width: none; margin: 0; padding: 12px 16px 24px; }
+
+	/* デスクトップ版では使わないもの（表示しないだけで、データはそのまま） */
+	/* 規約画面の「ホームへ」: トップページがこの画面そのものなので、押しても同じ画面に戻るだけ */
+	.ktpwp-terms-modal .ktpwp-home-link { display: none !important; }
+	/* サービスの公開商品の欄: 公開の販売ページ（外部サイト）が前提 */
+	.ktpwp-service-public-field,
+	.ktpwp-service-field-block--stock,
+	.ktpwp-service-field-block--public-quantity,
+	.ktpwp-service-field-block--instant-purchase,
+	.ktpwp-service-field-block--public-html { display: none !important; }
 </style>
 </head>
 <body <?php body_class( 'ktp-desktop' ); ?>>

@@ -137,12 +137,27 @@ add_filter( 'wp_resource_hints', function ( $urls, $relation ) {
 
 add_filter(
 	'pre_get_avatar_data',
-	function ( $args ) {
-		// data: URL は esc_url() が許可せず空になるので、同梱のファイルを指す
-		$args['url']          = WPMU_PLUGIN_URL . '/ktp-desktop/avatar.svg';
+	function ( $args, $id_or_email ) {
+		// 本人が選んだ画像（なければ同梱の人型）。data: URL は esc_url() が許可せず空になるのでファイルを指す
+		$user_id = 0;
+		if ( is_numeric( $id_or_email ) ) {
+			$user_id = (int) $id_or_email;
+		} elseif ( $id_or_email instanceof WP_User ) {
+			$user_id = $id_or_email->ID;
+		} elseif ( $id_or_email instanceof WP_Post ) {
+			$user_id = (int) $id_or_email->post_author;
+		} elseif ( $id_or_email instanceof WP_Comment ) {
+			$user_id = (int) $id_or_email->user_id;
+		} elseif ( is_string( $id_or_email ) && is_email( $id_or_email ) ) {
+			$u       = get_user_by( 'email', $id_or_email );
+			$user_id = $u ? $u->ID : 0;
+		}
+		$args['url']          = ktp_desktop_avatar_url_for( $user_id );
 		$args['found_avatar'] = true;
 		return $args;
-	}
+	},
+	10,
+	2
 );
 
 /**
@@ -232,3 +247,178 @@ add_filter(
 	10,
 	2
 );
+
+/**
+ * デスクトップ版では使わない設定を隠す（設定値は消さない。表示しないだけ）。
+ *
+ * - ショートコード関連: 業務画面はアプリの1画面に固定なので、ページの指定・ページ幅・ショートコード一覧は不要
+ * - 外部サイトが前提の機能: Contact Form 7 からの受注、Stripe 請求連携、公開商品ページ、問い合わせブロック
+ *   （デスクトップ版には外から受け付けるサイトがなく、外部とも通信しない）
+ * 郵便番号 API と SMTP は、ネットにつないだときに使えるので残す。
+ */
+function ktp_desktop_hidden_settings() {
+	return array(
+		'sections' => array( 'ショートコード', '問い合わせフォーム（Contact Form 7）設定', 'Stripe 請求連携', 'プラグイン削除時のデータ保持設定' ),
+		'rows'     => array( '業務画面ページ', '公開商品カードの背景色', '固定ページの幅' ),
+	);
+}
+
+add_action(
+	'admin_menu',
+	function () {
+		remove_submenu_page( 'ktp-settings', 'ktp-inquiry-block-list' );
+	},
+	PHP_INT_MAX
+);
+
+add_action(
+	'admin_footer',
+	function () {
+		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
+		if ( strpos( $page, 'ktp' ) !== 0 ) {
+			return;
+		}
+		?>
+<script id="ktp-desktop-hide-settings">
+(function () {
+	var conf = <?php echo wp_json_encode( ktp_desktop_hidden_settings() ); ?>;
+	var root = document.getElementById('wpbody-content');
+	if (!root) { return; }
+	// 見出し（h2）ごと、次の見出しまでを隠す
+	root.querySelectorAll('h2').forEach(function (h) {
+		if (conf.sections.indexOf(h.textContent.trim()) === -1) { return; }
+		var el = h;
+		// 次の見出し、または保存ボタンを含む要素（.ktp-submit-button / p.submit）の手前で止める
+		var stop = function (n) { return !n || n.tagName === 'H2' || n.querySelector('h2') || n.matches('[type=submit], .submit, .ktp-submit-button') || n.querySelector('[type=submit]'); };
+		do { el.style.display = 'none'; el = el.nextElementSibling; } while (!stop(el));
+	});
+	// 表の行（項目名が一致する tr）を隠す
+	root.querySelectorAll('tr').forEach(function (tr) {
+		var th = tr.querySelector('th');
+		if (th && conf.rows.indexOf(th.textContent.trim()) !== -1) { tr.style.display = 'none'; }
+	});
+})();
+</script>
+		<?php
+	}
+);
+
+/**
+ * プロフィール画面で自分のアイコン画像を選べるようにする（Gravatar の代わり。画像は Mac の中だけに保存）。
+ * 画像は uploads/ktp-desktop-avatars/ に 128px 角で保存するので、アプリのバックアップにも入る。
+ */
+// 保存するのはファイル名だけ（ポート番号は起動ごとに変わるので URL は持たない）
+function ktp_desktop_avatar_file_for( $user_id ) {
+	$name = basename( (string) get_user_meta( (int) $user_id, 'ktp_desktop_avatar', true ) );
+	if ( $name === '' ) {
+		return '';
+	}
+	$uploads = wp_upload_dir( null, false );
+	$path    = trailingslashit( $uploads['basedir'] ) . 'ktp-desktop-avatars/' . $name;
+	return is_file( $path ) ? $path : '';
+}
+
+function ktp_desktop_avatar_url_for( $user_id ) {
+	$path = ktp_desktop_avatar_file_for( $user_id );
+	if ( $path === '' ) {
+		return WPMU_PLUGIN_URL . '/ktp-desktop/avatar.svg';
+	}
+	$uploads = wp_upload_dir( null, false );
+	return trailingslashit( $uploads['baseurl'] ) . 'ktp-desktop-avatars/' . basename( $path );
+}
+
+add_action( 'user_edit_form_tag', function () {
+	echo ' enctype="multipart/form-data"';
+} );
+
+add_filter(
+	'user_profile_picture_description',
+	function ( $description, $profileuser ) {
+		$has = ktp_desktop_avatar_file_for( $profileuser->ID ) !== '';
+		ob_start();
+		?>
+<p><input type="file" name="ktp_desktop_avatar" accept="image/png,image/jpeg,image/gif,image/webp"></p>
+<p class="description">画像を選んで「プロフィールを更新」を押すと、画面右上のアイコンになります。画像はこの Mac の中だけに保存されます。</p>
+		<?php if ( $has ) : ?>
+<p><label><input type="checkbox" name="ktp_desktop_avatar_remove" value="1"> 画像を外す（人型のアイコンに戻す）</label></p>
+		<?php endif; ?>
+		<?php
+		return ob_get_clean();
+	},
+	10,
+	2
+);
+
+function ktp_desktop_save_avatar( $user_id ) {
+	if ( ! current_user_can( 'edit_user', $user_id ) ) {
+		return;
+	}
+	$old_file = ktp_desktop_avatar_file_for( $user_id );
+	$remove   = ! empty( $_POST['ktp_desktop_avatar_remove'] );
+	$has_new  = ! empty( $_FILES['ktp_desktop_avatar']['name'] ) && (int) $_FILES['ktp_desktop_avatar']['error'] === UPLOAD_ERR_OK;
+	if ( ! $remove && ! $has_new ) {
+		return;
+	}
+	if ( $old_file !== '' && is_file( $old_file ) ) {
+		@unlink( $old_file );
+	}
+	delete_user_meta( $user_id, 'ktp_desktop_avatar' );
+	if ( ! $has_new ) {
+		return;
+	}
+
+	$tmp  = $_FILES['ktp_desktop_avatar']['tmp_name'];
+	$type = wp_check_filetype_and_ext( $tmp, $_FILES['ktp_desktop_avatar']['name'] );
+	if ( ! in_array( $type['type'], array( 'image/png', 'image/jpeg', 'image/gif', 'image/webp' ), true ) ) {
+		return;
+	}
+	$uploads = wp_upload_dir();
+	$dir     = trailingslashit( $uploads['basedir'] ) . 'ktp-desktop-avatars';
+	wp_mkdir_p( $dir );
+	$editor = wp_get_image_editor( $tmp );
+	if ( is_wp_error( $editor ) ) {
+		return;
+	}
+	$editor->resize( 128, 128, true );
+	$name  = 'user-' . (int) $user_id . '-' . time() . '.png';
+	$saved = $editor->save( $dir . '/' . $name, 'image/png' );
+	if ( is_wp_error( $saved ) || empty( $saved['path'] ) ) {
+		return;
+	}
+	update_user_meta( $user_id, 'ktp_desktop_avatar', basename( $saved['path'] ) );
+}
+add_action( 'personal_options_update', 'ktp_desktop_save_avatar' );
+add_action( 'edit_user_profile_update', 'ktp_desktop_save_avatar' );
+
+// 「プロフィール写真」の行を出すため、アバター表示は常に有効にしておく
+add_filter( 'pre_option_show_avatars', function () {
+	return '1';
+} );
+
+// プロフィール画面の WordPress 特有の項目は隠す（名前・メール・アイコン・パスワードは残す）
+add_action(
+	'admin_head-profile.php',
+	'ktp_desktop_profile_css'
+);
+add_action(
+	'admin_head-user-edit.php',
+	'ktp_desktop_profile_css'
+);
+function ktp_desktop_profile_css() {
+	echo '<style id="ktp-desktop-profile">'
+		. '.user-rich-editing-wrap,.user-syntax-highlighting-wrap,.user-admin-color-wrap,.user-comment-shortcuts-wrap,.show-admin-bar,.user-language-wrap,'
+		. '.user-url-wrap,.user-description-wrap,#application-passwords-section,.user-sessions-wrap,.user-generate-reset-link-wrap{display:none!important}'
+		. '</style>';
+	echo '<script>document.addEventListener("DOMContentLoaded",function(){'
+		// 中身がすべて隠れた見出し（個人設定など）も隠す
+		. 'document.querySelectorAll("#your-profile h2").forEach(function(h){var t=h.nextElementSibling;'
+		. 'while(t&&t.tagName!=="TABLE"&&t.tagName!=="H2"){t=t.nextElementSibling;}'
+		. 'if(!t||t.tagName!=="TABLE"){return;}'
+		. 'var rows=[].filter.call(t.querySelectorAll("tr"),function(r){return getComputedStyle(r).display!=="none";});'
+		. 'if(rows.length===0){h.style.display="none";t.style.display="none";}});'
+		// 自動ログインなのでパスワード関連の見出しは丸ごと隠す（次の見出しまで）
+		. 'var drop=["アカウント管理","アプリケーションパスワード"];'
+		. 'document.querySelectorAll("#your-profile h2").forEach(function(h){if(drop.indexOf(h.textContent.trim())===-1){return;}'
+		. 'var e=h;do{e.style.display="none";e=e.nextElementSibling;}while(e&&e.tagName!=="H2"&&!e.matches(".submit, [type=submit]")&&!e.querySelector("[type=submit]"));});'
+		. '});</script>';
+}

@@ -6,10 +6,16 @@ const crypto = require('node:crypto');
 const { app, BrowserWindow, Menu, dialog, shell, session, nativeTheme } = require('electron');
 
 // 開発中はインストール版とデータを分ける
-if (!app.isPackaged) {
+// 自動テスト用: KTP_TEST_USER_DATA を指定すると、配布版でも本人のデータとは別の場所で動く。
+// （配布版の確認で本人のデータ・バックアップを消してしまった 2026-10-17 の事故の再発防止）
+if (process.env.KTP_TEST_USER_DATA) {
+  app.setPath('userData', process.env.KTP_TEST_USER_DATA);
+} else if (!app.isPackaged) {
   app.setPath('userData', path.join(app.getPath('appData'), 'KantanProEX-dev'));
-  // 自動テスト用（開発時のみ）: KTP_DEBUG_PORT=9555 npm start で Playwright から接続できる
-  if (process.env.KTP_DEBUG_PORT) app.commandLine.appendSwitch('remote-debugging-port', process.env.KTP_DEBUG_PORT);
+}
+// 自動テスト用: KTP_DEBUG_PORT（開発時、またはテスト用データ指定時のみ）で Playwright から接続できる
+if (process.env.KTP_DEBUG_PORT && (!app.isPackaged || process.env.KTP_TEST_USER_DATA)) {
+  app.commandLine.appendSwitch('remote-debugging-port', process.env.KTP_DEBUG_PORT);
 }
 app.setName('KantanProEX');
 
