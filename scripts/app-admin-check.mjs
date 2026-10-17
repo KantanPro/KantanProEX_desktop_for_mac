@@ -7,6 +7,7 @@ const browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
 const page = browser.contexts().flatMap(c => c.pages()).find(p => p.url().startsWith('http://127.0.0.1:'));
 const base = new URL(page.url()).origin;
 await page.goto(`${base}/wp-admin/admin.php?page=ktp-settings`, { waitUntil: 'networkidle' });
+console.log('KantanProEX のサブメニュー:', (await page.locator('#adminmenu .wp-submenu a').allInnerTexts()).join(' / '));
 console.log('左メニュー:', (await page.locator('#adminmenu > li.menu-top .wp-menu-name').allInnerTexts()).join(' / '));
 const notices = await page.locator('#wpbody-content .notice, #wpbody-content .updated, #wpbody-content .error').evaluateAll(ns => ns.filter(n => n.offsetParent).map(n => n.innerText.trim().replace(/\s+/g, ' ').slice(0, 80)));
 console.log('通知:', notices.length ? notices.join(' | ') : 'なし');

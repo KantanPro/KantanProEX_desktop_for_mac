@@ -443,3 +443,17 @@ add_action(
 		remove_action( 'admin_notices', 'ktpwp_show_update_complete_guide', 1 );
 	}
 );
+
+/**
+ * ダミーデータ作成のスクリプトは配布物に入らない（開発・検証用）。無いときはメニューを出さない。
+ * （プラグイン本体にも同じ修正を入れてあるが、本体の修正が入る前の版でも出ないようにここでも外す）
+ */
+add_action(
+	'admin_menu',
+	function () {
+		if ( defined( 'KTPWP_PLUGIN_DIR' ) && ! file_exists( KTPWP_PLUGIN_DIR . 'create_dummy_data.php' ) ) {
+			remove_submenu_page( 'ktp-settings', 'ktpwp-dummy-data' );
+		}
+	},
+	PHP_INT_MAX
+);
