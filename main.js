@@ -23,6 +23,7 @@ const { getPaths } = require('./lib/paths');
 const { findPort, startServer } = require('./lib/php');
 const { syncSite, writeWpConfig, setupIfNeeded } = require('./lib/site');
 const { createBackup, autoBackupIfDue, restoreBackup } = require('./lib/backup');
+const { checkForUpdates, isAutoCheckEnabled, setAutoCheckEnabled } = require('./lib/update');
 
 const PREFERRED_PORT = 47321;
 const CRON_INTERVAL_MS = 5 * 60 * 1000;
@@ -197,6 +198,8 @@ function openApp() {
       .executeJavaScript("JSON.stringify({app: !!document.querySelector('.ktp_plugin_container'), terms: document.querySelectorAll('.ktpwp-terms-modal').length})")
       .then((st) => log(`アプリの画面を表示 ${st}`))
       .catch(() => {});
+    // 新しい版のお知らせ（1日1回まで。オフにできる）
+    setTimeout(() => checkForUpdates(paths, mainWindow, { log }).catch((e) => log(`アップデート確認失敗 ${e.message}`)), 3000);
   };
   wc.once('did-finish-load', () => setTimeout(show, 400));
   setTimeout(show, 15000); // 読み込みが終わらなくても出す
@@ -256,6 +259,13 @@ function buildMenu() {
       label: 'KantanProEX',
       submenu: [
         { role: 'about', label: 'KantanProEX について' },
+        { label: 'アップデートを確認…', click: () => checkForUpdates(paths, mainWindow, { manual: true, log }) },
+        {
+          label: '起動時にアップデートを確認する',
+          type: 'checkbox',
+          checked: isAutoCheckEnabled(paths),
+          click: (item) => setAutoCheckEnabled(paths, item.checked),
+        },
         { type: 'separator' },
         { role: 'hide', label: 'KantanProEX を隠す' },
         { role: 'hideOthers', label: 'ほかを隠す' },
