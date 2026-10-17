@@ -39,6 +39,8 @@ rm -rf "$BUILD_TMP"
 ( cd "$EX_DIR" && KTPWP_RELEASE_DEST_PARENT="$ROOT/work" KTPWP_RELEASE_DEST_DIR_NAME=ex-build bash create_release_zip.sh pro >/dev/null )
 unzip -q -o "$BUILD_TMP"/KantanProEX_*.zip -d "$OUT/wp-content/plugins"
 grep -q "define( 'KTPWP_EDITION', 'pro' )" "$OUT/wp-content/plugins/KantanProEX/ktpwp.php"
+# ダミーデータ作成はデスクトップ版にだけ入れる（WP 版の配布 ZIP は開発用として外している。お試し用に使う）
+cp "$EX_DIR/create_dummy_data.php" "$OUT/wp-content/plugins/KantanProEX/create_dummy_data.php"
 
 echo "[5/5] デスクトップ用の追加分"
 cp -R "$ROOT/site/mu-plugins" "$OUT/wp-content/"

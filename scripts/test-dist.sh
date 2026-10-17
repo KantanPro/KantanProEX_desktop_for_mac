@@ -12,6 +12,7 @@ APP_PID=$!
 for i in $(seq 1 120); do grep -q "アプリの画面を表示" "$TEST_DIR/logs/app.log" 2>/dev/null && break; sleep 1; done
 grep -E "PHP server|アプリの画面を表示" "$TEST_DIR/logs/app.log"
 node scripts/app-admin-check.mjs 9556 2>&1 | cut -c1-200   # 初回の通知は有効化から60秒だけ出るので最初に見る
+node scripts/app-dummy-check.mjs 9556 2>&1 | cut -c1-220   # ダミーデータは空の DB で作るので e2e より前
 node work/app-e2e-dist.mjs work/dist-e2e 2>&1 | cut -c1-110 | grep -E "✓|!|問題|pageerror|http|dialog|Error"
 node work/app-js-errors-dist.mjs "/?tab_name=list" "/?tab_name=client" "/?tab_name=service" "/?tab_name=report" "/wp-admin/admin.php?page=ktp-settings" "/wp-admin/profile.php"; echo "(JS例外ここまで)"
 node work/ext.mjs 9556
