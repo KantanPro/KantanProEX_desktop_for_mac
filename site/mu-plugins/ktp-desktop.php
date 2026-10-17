@@ -201,6 +201,8 @@ add_action(
 			}
 		}
 		add_menu_page( 'アプリに戻る', 'アプリに戻る', 'read', 'ktp-desktop-back', '__return_null', 'dashicons-arrow-left-alt', 0 );
+		// 自分のプロフィール（名前・アイコン画像）。WordPress の「ユーザー」メニューを外したので入口を作る
+		add_menu_page( 'プロフィール', 'プロフィール', 'read', 'profile.php', '', 'dashicons-admin-users', 1 );
 		remove_submenu_page( 'ktp-settings', 'ktp-developer-settings' );
 	},
 	PHP_INT_MAX
@@ -422,3 +424,22 @@ function ktp_desktop_profile_css() {
 		. 'var e=h;do{e.style.display="none";e=e.nextElementSibling;}while(e&&e.tagName!=="H2"&&!e.matches(".submit, [type=submit]")&&!e.querySelector("[type=submit]"));});'
 		. '});</script>';
 }
+
+/**
+ * WP 版のプラグイン運用（インストール・更新・無料版からの引き継ぎ）向けの通知は出さない。
+ * デスクトップ版はアプリごと入れ替えるので「正常にインストールされました」「プラグイン一覧へ」は意味がない。
+ * 失敗の通知（ktpwp_*_error）は残す。
+ */
+foreach ( array( 'ktpwp_activation_success', 'ktpwp_reactivation_success', 'ktpwp_new_installation_success', 'ktpwp_show_update_complete_guide', 'ktpwp_activation_message', 'ktpwp_reactivation_message', 'ktpwp_new_installation_message', 'ktpwp_upgrade_message' ) as $ktp_desktop_transient ) {
+	// false を返すと「割り込まない」扱いで保存値を読みに行くので、空文字（値なし扱い）を返す
+	add_filter( 'pre_transient_' . $ktp_desktop_transient, '__return_empty_string' );
+}
+unset( $ktp_desktop_transient );
+add_action(
+	'admin_init',
+	function () {
+		remove_action( 'admin_notices', array( 'KTPWP_EX_Free_Data_Import', 'admin_notices' ) );
+		remove_action( 'admin_notices', 'ktpwp_ex_render_auto_deactivated_notice' );
+		remove_action( 'admin_notices', 'ktpwp_show_update_complete_guide', 1 );
+	}
+);
