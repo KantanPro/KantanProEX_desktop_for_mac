@@ -1,0 +1,6 @@
+work/
+node_modules/
+dist/
+bin/
+site-template/
+.DS_Store
