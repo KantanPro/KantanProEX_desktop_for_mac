@@ -8,6 +8,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+// 画面ヘッダー・フッターなどに出るアプリ名（EX 本体は未定義のときだけ 'KantanProEX' を定義する）
+if ( ! defined( 'KANTANPRO_PLUGIN_NAME' ) ) {
+	define( 'KANTANPRO_PLUGIN_NAME', 'KantanProEX（DT）for Mac' );
+}
+
 /**
  * 画面はテーマを通さず、アプリ専用の素のテンプレートで出す。
  *
@@ -39,6 +44,10 @@ add_filter(
  */
 function ktp_desktop_allowed_hosts() {
 	$hosts = array();
+	// ユーザー登録でニュースレターを選んだ、その1回の送信のあいだだけ
+	if ( ! empty( $GLOBALS['ktp_desktop_allow_newsletter'] ) ) {
+		$hosts[] = 'www.kantanpro.com';
+	}
 	if ( class_exists( 'KTPWP_Japanpost_Address_API' ) && KTPWP_Japanpost_Address_API::is_enabled() ) {
 		$hosts[] = (string) wp_parse_url( KTPWP_Japanpost_Address_API::get_base_url(), PHP_URL_HOST );
 	}
@@ -531,3 +540,6 @@ add_action(
 	},
 	0
 );
+
+// ユーザー登録（任意。登録するとメール署名の後ろの宣伝文が入らなくなる）
+require_once __DIR__ . '/ktp-desktop/registration.php';

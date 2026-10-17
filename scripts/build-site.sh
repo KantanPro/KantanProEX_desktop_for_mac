@@ -44,6 +44,14 @@ cp "$EX_DIR/create_dummy_data.php" "$OUT/wp-content/plugins/KantanProEX/create_d
 
 echo "[5/5] デスクトップ用の追加分"
 cp -R "$ROOT/site/mu-plugins" "$OUT/wp-content/"
+# ユーザー登録のニュースレター登録用の秘密（ソースには置かない）をビルド物にだけ差し込む
+REG_SECRET_FILE="${KTP_DESKTOP_REG_SECRET_FILE:-$HOME/.kantanpro/kpdg-desktop-secret.txt}"
+REG_FILE="$OUT/wp-content/mu-plugins/ktp-desktop/registration.php"
+if [ -f "$REG_SECRET_FILE" ]; then
+  KTP_DESKTOP_REG_SECRET="$(tr -d '[:space:]' < "$REG_SECRET_FILE")" perl -pi -e 's/__KTP_DESKTOP_REG_SECRET__(?=\x27;)/$ENV{KTP_DESKTOP_REG_SECRET}/' "$REG_FILE"
+else
+  echo "! $REG_SECRET_FILE が無いので、ニュースレター登録は動かないビルドになります"
+fi
 mkdir -p "$OUT/ktp-desktop"
 cp "$ROOT/assets/baseline-ddl.json" "$ROOT/scripts/baseline.php" "$OUT/ktp-desktop/"
 cp "$EX_DIR/wp-cli.phar" "$OUT/ktp-desktop/wp-cli.phar"
