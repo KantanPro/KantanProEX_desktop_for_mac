@@ -1,0 +1,38 @@
+{
+  "name": "kantanproex-desktop",
+  "productName": "KantanProEX",
+  "version": "0.1.0",
+  "description": "KantanProEX のデスクトップ版（ブラウザもネットも不要）",
+  "main": "main.js",
+  "private": true,
+  "author": "KantanPro",
+  "scripts": {
+    "prepare:php": "scripts/fetch-php.sh",
+    "prepare:site": "scripts/build-site.sh",
+    "start": "env -u ELECTRON_RUN_AS_NODE electron .",
+    "build:mac": "scripts/build-site.sh && env -u ELECTRON_RUN_AS_NODE electron-builder --mac dmg --x64"
+  },
+  "devDependencies": {
+    "electron": "35.7.5",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.kantanpro.kantanproex.desktop",
+    "productName": "KantanProEX",
+    "copyright": "KantanPro",
+    "directories": { "output": "dist" },
+    "files": ["main.js", "lib/**/*", "package.json"],
+    "extraResources": [
+      { "from": "bin", "to": "bin" },
+      { "from": "php", "to": "php" },
+      { "from": "site-template", "to": "site-template" }
+    ],
+    "electronLanguages": ["ja", "en"],
+    "mac": {
+      "category": "public.app-category.business",
+      "target": [{ "target": "dmg", "arch": ["x64"] }],
+      "identity": null
+    },
+    "dmg": { "title": "KantanProEX" }
+  }
+}
