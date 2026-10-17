@@ -24,6 +24,7 @@ const CRON_INTERVAL_MS = 5 * 60 * 1000;
 let paths;
 let server = null; // { baseUrl, stop }
 let mainWindow = null;
+let splashWindow = null; // 起動中の小さな画面
 let cronTimer = null;
 let quitting = false;
 
@@ -57,8 +58,8 @@ h1{font-size:22px;margin:0} #m{color:var(--sub);font-size:14px}
 
 function setLoadingMessage(msg) {
   log(msg);
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.executeJavaScript(`document.getElementById('m')&&(document.getElementById('m').textContent=${JSON.stringify(msg)})`).catch(() => {});
+  if (splashWindow && !splashWindow.isDestroyed()) {
+    splashWindow.webContents.executeJavaScript(`document.getElementById('m')&&(document.getElementById('m').textContent=${JSON.stringify(msg)})`).catch(() => {});
   }
 }
 
@@ -134,12 +135,57 @@ function createWindow() {
     show: false,
     webPreferences: webPreferences(),
   });
-  mainWindow.once('ready-to-show', () => mainWindow.show());
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
   guardNavigation(mainWindow.webContents);
-  mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(LOADING_HTML)}`);
+}
+
+/** 起動中の小さな画面（スプラッシュ）。アプリの画面が描き終わるまで出しておく */
+function createSplash() {
+  splashWindow = new BrowserWindow({
+    width: 420,
+    height: 280,
+    frame: false,
+    resizable: false,
+    movable: true,
+    center: true,
+    backgroundColor: '#ffffff',
+    show: false,
+    webPreferences: webPreferences(),
+  });
+  splashWindow.once('ready-to-show', () => splashWindow && splashWindow.show());
+  splashWindow.on('closed', () => {
+    splashWindow = null;
+  });
+  splashWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(LOADING_HTML)}`);
+}
+
+function closeSplash() {
+  if (splashWindow && !splashWindow.isDestroyed()) splashWindow.close();
+}
+
+/**
+ * アプリの画面を開く。裏で読み込みを終えてから（規約画面などの描画まで済ませてから）表示する。
+ * 先に表示すると「白 → 規約なしの画面 → 規約画面」と切り替わって、2回表示されたように見える
+ */
+function openApp() {
+  const wc = mainWindow.webContents;
+  let shown = false;
+  const show = () => {
+    if (shown || !mainWindow) return;
+    shown = true;
+    mainWindow.show();
+    closeSplash();
+    // 表示した瞬間の画面の状態を記録する（規約画面などが描き終わってから出せているかの確認用）
+    mainWindow.webContents
+      .executeJavaScript("JSON.stringify({app: !!document.querySelector('.ktp_plugin_container'), terms: document.querySelectorAll('.ktpwp-terms-modal').length})")
+      .then((st) => log(`アプリの画面を表示 ${st}`))
+      .catch(() => {});
+  };
+  wc.once('did-finish-load', () => setTimeout(show, 400));
+  setTimeout(show, 15000); // 読み込みが終わらなくても出す
+  mainWindow.loadURL(loginUrl());
 }
 
 app.on('web-contents-created', (_e, contents) => {
@@ -250,6 +296,7 @@ function buildMenu() {
 async function boot() {
   paths = getPaths();
   buildMenu();
+  createSplash();
   createWindow();
   try {
     setLoadingMessage('ファイルを準備しています');
@@ -261,9 +308,10 @@ async function boot() {
     setLoadingMessage('起動しています');
     await startPhp();
     autoBackupIfDue(paths).then((d) => d && log(`自動バックアップ ${d}`)).catch((e) => log(`自動バックアップ失敗 ${e.message}`));
-    mainWindow.loadURL(loginUrl());
+    openApp();
   } catch (e) {
     log(`起動失敗 ${e.stack || e}`);
+    closeSplash();
     dialog.showErrorBox('KantanProEX を起動できませんでした', `${e.message || e}\n\n記録: ${path.join(paths.logs, 'app.log')}`);
     app.quit();
   }
@@ -301,7 +349,7 @@ app.whenReady().then(() => {
 app.on('activate', () => {
   if (!mainWindow && server) {
     createWindow();
-    mainWindow.loadURL(loginUrl());
+    openApp();
   }
 });
 
