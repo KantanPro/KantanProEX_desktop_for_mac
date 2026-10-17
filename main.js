@@ -46,10 +46,10 @@ function log(msg) {
 }
 
 // ---- 準備中の画面 ----
-// 起動中の画面に出すアイコン（data: のページなので画像は埋め込む）
+// 起動中の画面に出すマーク（台なし。data: のページなので画像は埋め込む）
 const ICON_DATA_URL = (() => {
   try {
-    return `data:image/png;base64,${fs.readFileSync(path.join(__dirname, 'assets', 'icon', 'icon-256.png')).toString('base64')}`;
+    return `data:image/png;base64,${fs.readFileSync(path.join(__dirname, 'assets', 'icon', 'mark-256.png')).toString('base64')}`;
   } catch {
     return '';
   }

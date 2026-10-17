@@ -28,7 +28,7 @@
       "main.js",
       "lib/**/*",
       "package.json",
-      "assets/icon/icon-256.png"
+      "assets/icon/mark-256.png"
     ],
     "extraResources": [
       {

@@ -22,6 +22,15 @@ await page.setContent(html);
 await page.waitForTimeout(300);
 const png1024 = path.join(root, 'assets/icon/icon-1024.png');
 await page.screenshot({ path: png1024, omitBackground: true });
+
+// 起動中の画面用: 台なしでマークだけ（透過）
+await page.setViewportSize({ width: 256, height: 256 });
+await page.setContent(`<!doctype html><html><body style="margin:0;background:transparent">
+<div style="position:relative;width:256px;height:256px;overflow:hidden">
+  <img src="data:image/png;base64,${mark}" style="position:absolute;left:50%;top:50%;width:460px;height:460px;transform:translate(-50%,-50%)">
+</div></body></html>`);
+await page.waitForTimeout(300);
+await page.screenshot({ path: path.join(root, 'assets/icon/mark-256.png'), omitBackground: true });
 await browser.close();
 
 const set = path.join(root, 'build/icon.iconset');
