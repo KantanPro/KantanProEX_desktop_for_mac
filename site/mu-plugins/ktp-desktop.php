@@ -544,3 +544,4 @@ add_action(
 // ユーザー登録（任意。登録するとメール署名の後ろの宣伝文が入らなくなる）
 require_once __DIR__ . '/ktp-desktop/registration.php';
 require_once __DIR__ . '/ktp-desktop/order-tasks.php';
+require_once __DIR__ . '/ktp-desktop/invoice-undo.php';
