@@ -8,6 +8,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+// DB の構造を守る（列を消すマイグレーションを止め、消えた列を戻す）。プラグインより先に読み込む
+require_once __DIR__ . '/ktp-desktop/schema-guard.php';
+
 // 画面ヘッダー・フッターなどに出るアプリ名（EX 本体は未定義のときだけ 'KantanProEX' を定義する）
 if ( ! defined( 'KANTANPRO_PLUGIN_NAME' ) ) {
 	// Electron が実行中の OS（Mac / Windows）を環境変数で渡す

@@ -127,8 +127,31 @@ class KTP_DT_KantanBiz_Import {
 		return $this->p . $name;
 	}
 
+	/** @var array<string, array<string, bool>> 表ごとの実在する列 */
+	private $columns = array();
+
+	/** 実在する列だけに絞る（DB の構造が土台と違っても、無い列に書き込んで止まらないように） */
+	private function only_existing_columns( $table, array $row ) {
+		$name = $this->t( $table );
+		if ( ! isset( $this->columns[ $name ] ) ) {
+			$cols = (array) $this->db->get_col( "SHOW COLUMNS FROM `{$name}`", 0 ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$this->columns[ $name ] = array_fill_keys( array_map( 'strtolower', $cols ), true );
+		}
+		if ( ! $this->columns[ $name ] ) {
+			return $row; // 列を調べられなかったときはそのまま
+		}
+		$out = array();
+		foreach ( $row as $k => $v ) {
+			if ( isset( $this->columns[ $name ][ strtolower( $k ) ] ) ) {
+				$out[ $k ] = $v;
+			}
+		}
+		return $out;
+	}
+
 	private function insert( $table, array $row ) {
-		$ok = $this->db->insert( $this->t( $table ), $row );
+		$row = $this->only_existing_columns( $table, $row );
+		$ok  = $this->db->insert( $this->t( $table ), $row );
 		if ( false === $ok ) {
 			throw new RuntimeException( $table . ' に書き込めませんでした: ' . $this->db->last_error );
 		}
