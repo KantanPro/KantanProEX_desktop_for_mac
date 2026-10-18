@@ -23,3 +23,22 @@
   初めて開くときは右クリック →「開く」が要る。
 - データはアプリの外（`~/Library/Application Support/KantanProEX/`）にあるので、入れ直しても消えない。
   アプリ内の WordPress 一式は、版が変わると起動時に自動で入れ替わる。
+
+## Windows 版（インストーラー .exe）
+
+Mac 版と同じリポジトリ・同じソース（`site/mu-plugins/`・`main.js`・`lib/`）から作る。違いは同梱する PHP とビルドだけ。
+
+1. `npm run build:win`（`scripts/fetch-php-win.sh` が公式の PHP 8.3 と VC++ ランタイム、CA 証明書を取り込み、
+   `dist/KantanProEX-Setup-<版>.exe` ができる。この Mac でも作れる）
+2. **実機の Windows で動作確認する**（この Mac では Windows のアプリを動かせないため、自動テストはできない）
+   - インストール → 起動 → 利用規約に同意 → 顧客・受注書を作る → 印刷（PDF 保存）→ 終了
+   - KantanBiz の ZIP を「ファイル → KantanBiz から取り込む…」で取り込む
+3. 配布: kantanpro.com の商品に Windows 版の ZIP を足す（`zip -0 KantanProEX-DT-for-Windows-<版>.zip KantanProEX-Setup-<版>.exe`、
+   Mac 版と同じ手順でアップロード）。商品を分ける場合は ID を `update.json` と案内文に反映する
+4. `update.json` の Windows 用の `version_win` と `url_win` を書き換えて push（Mac 用の `version` / `url` とは別に進められる）
+
+### Windows 版の注意
+- 署名をしていないので、初めて開くとき SmartScreen の警告が出る（「詳細情報」→「実行」）
+- 同梱の PHP は VC++ 2015-2022 ランタイムを必要とする。インストーラーが、入っていない PC にだけ静かに入れる（管理者の確認が 1 回出る）
+- Windows の PHP 内蔵サーバーは同時処理（ワーカー）に未対応で、1 本で動く（`lib/php.js`）
+- データは `%APPDATA%\KantanProEX\`、バックアップは「ドキュメント」の `KantanProEX バックアップ` に置く
