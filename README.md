@@ -11,7 +11,7 @@ KantanProEX（WordPress プラグイン）を、ブラウザも WordPress サイ
 
 - Electron のウィンドウの中で、同梱の PHP 8.3 と WordPress + SQLite を `127.0.0.1` だけで動かし、KantanProEX をそのまま表示します。
 - 外部への通信は行いません（画面からの読み込みは 127.0.0.1 以外を止めています）。
-  例外は、起動時に `update.json` を1回読むアップデートのお知らせ（設定で止められます）と、本人が設定した郵便番号 API・メール送信だけです。
+  例外は、起動時に `update.json` を1回読むアップデートのお知らせ（設定で止められます）と、本人が設定した郵便番号 API・メール送信、任意のユーザー登録（登録したメールアドレスだけを kantanpro.com に送る）だけです。
 - データは `~/Library/Application Support/KantanProEX/` に置き、起動時に1日1回「書類」フォルダへ自動でバックアップします。
 - WordPress 版との違い（デスクトップ版で調整している内容）は `site/mu-plugins/ktp-desktop.php` にまとめています。プラグイン本体は改変しません。
 
