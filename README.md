@@ -35,6 +35,7 @@ npm run prepare:php      # 静的ビルドの PHP を bin/ に取得
 npm run prepare:site     # WordPress 一式を site-template/ に組み立て（KTPEX_SOURCE_DIR でプラグインの場所を指定）
 npm start                # 開発用に起動（データは KantanProEX-dev に分かれる）
 npm run build:mac        # dist/KantanProEX-<版>.dmg を作る
+npm run build:win        # dist/KantanProEX-Setup-<版>.exe を作る（Windows 版。Mac 上でも作れる）
 scripts/test-dist.sh     # 作った配布版を、普段のデータとは別の場所で自動テスト
 ```
 
