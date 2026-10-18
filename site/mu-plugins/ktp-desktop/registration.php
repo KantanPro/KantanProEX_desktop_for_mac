@@ -15,19 +15,25 @@ const KTP_DESKTOP_REG_OPTION = 'ktp_desktop_registration';
 
 // ニュースレター登録の送り先（kantanpro.com の kp-download-gate が受ける）。
 // リストは MailPoet の「KantanProEX（DT）」。秘密はこのリストにしか登録できない。
-const KTP_DESKTOP_NEWSLETTER_ENDPOINT = 'https://www.kantanpro.com/wp-json/kpdg/v1/subscribe';
+const KTP_DESKTOP_NEWSLETTER_ENDPOINT = 'https://www.kantanpro.com/wp-json/kpdg/v1/';
+const KTP_DESKTOP_PENDING_UNSUB       = 'ktp_desktop_registration_unsub'; // 解除したが、まだ kantanpro.com に伝えられていないメールアドレス
 const KTP_DESKTOP_NEWSLETTER_LIST_ID  = 7;
 // ビルド（scripts/build-site.sh）で実際の値に差し替える。ソースには秘密を置かない。
 const KTP_DESKTOP_NEWSLETTER_SECRET   = '__KTP_DESKTOP_REG_SECRET__';
 
-/** ニュースレター登録を送るときだけ、kantanpro.com への通信を許可する（mu-plugin の遮断の例外）。 */
-function ktp_desktop_newsletter_subscribe( $email ) {
+/**
+ * kantanpro.com に登録／解除を伝える（ニュースレターの登録・解除と、お礼・解除のお知らせメールの送信は向こう側で行う）。
+ * この送信のあいだだけ、kantanpro.com への通信を許可する（mu-plugin の遮断の例外）。
+ *
+ * @param string $action 'subscribe' または 'unsubscribe'。
+ */
+function ktp_desktop_newsletter_request( $action, $email ) {
 	if ( KTP_DESKTOP_NEWSLETTER_LIST_ID <= 0 || '' === KTP_DESKTOP_NEWSLETTER_SECRET || false !== strpos( KTP_DESKTOP_NEWSLETTER_SECRET, '__KTP_DESKTOP_REG_SECRET__' ) ) {
 		return false;
 	}
 	$GLOBALS['ktp_desktop_allow_newsletter'] = true;
 	$res = wp_remote_post(
-		KTP_DESKTOP_NEWSLETTER_ENDPOINT,
+		KTP_DESKTOP_NEWSLETTER_ENDPOINT . $action,
 		array(
 			'timeout' => 15,
 			'body'    => array(
@@ -41,6 +47,20 @@ function ktp_desktop_newsletter_subscribe( $email ) {
 	unset( $GLOBALS['ktp_desktop_allow_newsletter'] );
 	return ! is_wp_error( $res ) && 200 === (int) wp_remote_retrieve_response_code( $res );
 }
+
+/** 未送信の登録・解除を kantanpro.com に送る（登録直後・オフラインだったとき用の再送）。 */
+function ktp_desktop_sync_newsletter() {
+	$pending = get_option( KTP_DESKTOP_PENDING_UNSUB );
+	if ( is_string( $pending ) && '' !== $pending && ktp_desktop_newsletter_request( 'unsubscribe', $pending ) ) {
+		delete_option( KTP_DESKTOP_PENDING_UNSUB );
+	}
+	$saved = get_option( KTP_DESKTOP_REG_OPTION );
+	if ( is_array( $saved ) && ! empty( $saved['email'] ) && empty( $saved['newsletter'] ) && ktp_desktop_newsletter_request( 'subscribe', $saved['email'] ) ) {
+		$saved['newsletter'] = true;
+		update_option( KTP_DESKTOP_REG_OPTION, $saved, false );
+	}
+}
+add_action( 'ktp_desktop_newsletter_retry', 'ktp_desktop_sync_newsletter' );
 
 /** 登録済みなら登録したメールアドレス、未登録なら空文字。 */
 function ktp_desktop_registered_email() {
@@ -76,12 +96,22 @@ function ktp_desktop_render_register_page() {
 	$is_error = false;
 	if ( isset( $_POST['ktp_desktop_reg_nonce'] ) && wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['ktp_desktop_reg_nonce'] ) ), 'ktp_desktop_reg' ) ) {
 		if ( isset( $_POST['ktp_desktop_reg_clear'] ) ) {
+			$old = get_option( KTP_DESKTOP_REG_OPTION );
 			delete_option( KTP_DESKTOP_REG_OPTION );
+			if ( is_array( $old ) && ! empty( $old['email'] ) ) {
+				// ニュースレターからの削除と解除のお知らせメールは kantanpro.com 側で行う。通信できなければ後で再送する。
+				update_option( KTP_DESKTOP_PENDING_UNSUB, $old['email'], false );
+				ktp_desktop_sync_newsletter();
+			}
 			$message = '登録を解除しました。';
 		} else {
 			$email = isset( $_POST['ktp_desktop_reg_email'] ) ? sanitize_email( wp_unslash( $_POST['ktp_desktop_reg_email'] ) ) : '';
 			if ( is_email( $email ) ) {
 				// 宣伝文を消す登録は、通信できなくてもその場で完了させる。ニュースレターへの登録は裏で行い、失敗したら後で再送する。
+				// 同じメールアドレスの解除が送信待ちのまま再登録されたら、解除は取り消す。
+				if ( get_option( KTP_DESKTOP_PENDING_UNSUB ) === $email ) {
+					delete_option( KTP_DESKTOP_PENDING_UNSUB );
+				}
 				update_option( KTP_DESKTOP_REG_OPTION, array( 'email' => $email, 'newsletter' => false ), false );
 				ktp_desktop_sync_newsletter();
 				$message = '登録しました。以後、メールの署名の後ろに宣伝文は入りません。';
@@ -118,21 +148,6 @@ function ktp_desktop_render_register_page() {
 	<?php
 }
 
-/**
- * 登録済みなのにニュースレターへ未送信なら送る（登録直後・オフラインだったとき用の再送）。
- * アプリ起動中の wp-cron（5分ごと）から呼ばれるので、ネットにつながった時点で届く。
- */
-function ktp_desktop_sync_newsletter() {
-	$saved = get_option( KTP_DESKTOP_REG_OPTION );
-	if ( ! is_array( $saved ) || empty( $saved['email'] ) || ! empty( $saved['newsletter'] ) ) {
-		return;
-	}
-	if ( ktp_desktop_newsletter_subscribe( $saved['email'] ) ) {
-		$saved['newsletter'] = true;
-		update_option( KTP_DESKTOP_REG_OPTION, $saved, false );
-	}
-}
-add_action( 'ktp_desktop_newsletter_retry', 'ktp_desktop_sync_newsletter' );
 add_action(
 	'init',
 	function () {
