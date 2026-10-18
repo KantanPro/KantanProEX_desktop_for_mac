@@ -731,7 +731,8 @@ class KTP_DT_KantanBiz_Import {
 		$general = get_option( 'ktp_general_settings', array() );
 		$general = is_array( $general ) ? $general : array();
 		if ( '' !== $info ) {
-			$general['company_info'] = nl2br( esc_html( $info ) );
+			// プラグインの会社情報は「改行のある文章」で持つ（メール署名にそのまま入る）。<br /> にしない
+			$general['company_info'] = wp_kses_post( $info );
 		}
 		if ( in_array( $t['tax_mode'] ?? '', array( 'multiple', 'unified', 'abolished' ), true ) ) {
 			$general['tax_mode'] = $t['tax_mode'];

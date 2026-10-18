@@ -10,6 +10,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 // DB の構造を守る（列を消すマイグレーションを止め、消えた列を戻す）。プラグインより先に読み込む
 require_once __DIR__ . '/ktp-desktop/schema-guard.php';
+// 一度だけ行うデータの手直し（取り込みで会社情報に入った <br /> など）
+require_once __DIR__ . '/ktp-desktop/fixups.php';
 
 // 画面ヘッダー・フッターなどに出るアプリ名（EX 本体は未定義のときだけ 'KantanProEX' を定義する）
 if ( ! defined( 'KANTANPRO_PLUGIN_NAME' ) ) {
