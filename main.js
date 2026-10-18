@@ -360,10 +360,14 @@ function buildMenu() {
           click: (item) => setAutoCheckEnabled(paths, item.checked),
         },
         { type: 'separator' },
-        { role: 'hide', label: 'KantanProEX を隠す' },
-        { role: 'hideOthers', label: 'ほかを隠す' },
-        { role: 'unhide', label: 'すべてを表示' },
-        { type: 'separator' },
+        ...(process.platform === 'darwin'
+          ? [
+              { role: 'hide', label: 'KantanProEX を隠す' },
+              { role: 'hideOthers', label: 'ほかを隠す' },
+              { role: 'unhide', label: 'すべてを表示' },
+              { type: 'separator' },
+            ]
+          : []),
         { role: 'quit', label: 'KantanProEX を終了' },
       ],
     },

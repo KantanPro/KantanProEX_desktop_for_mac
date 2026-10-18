@@ -355,7 +355,7 @@ add_filter(
 	}
 );
 
-/** 顧客・協力会社タブにニュースレターへの入口を出す */
+/** 顧客・協力会社タブの操作ボタン（宛名印刷の隣）に「ニュースレター」ボタンを出す */
 add_filter(
 	'do_shortcode_tag',
 	function ( $output, $tag ) {
@@ -366,13 +366,13 @@ add_filter(
 		if ( ! in_array( $tab, array( 'client', 'supplier' ), true ) ) {
 			return $output;
 		}
-		$pos = strpos( $output, '<div class="controller' );
-		if ( false === $pos ) {
-			return $output;
-		}
-		$url  = add_query_arg( array( 'ktp_dt_page' => 'newsletter', 'target' => $tab ), home_url( '/' ) );
-		$link = '<div style="text-align:right;margin:0 0 6px;font-size:13px;"><a href="' . esc_url( $url ) . '">' . ( 'supplier' === $tab ? '協力会社' : '顧客' ) . 'へニュースレターを送る</a></div>';
-		return substr( $output, 0, $pos ) . $link . substr( $output, $pos );
+		$anchor = 'supplier' === $tab ? 'supplierAddressLabelPrintButton' : 'addressLabelPrintButton';
+		$url    = add_query_arg( array( 'ktp_dt_page' => 'newsletter', 'target' => $tab ), home_url( '/' ) );
+		$label  = 'supplier' === $tab ? '協力会社へニュースレターを送る' : '顧客へニュースレターを送る';
+		// 他のボタン（宛名印刷など）と同じ作り: アイコン + 文字
+		$icon   = '<span class="ktp-svg-icon" aria-hidden="true" role="img"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M18 11v2h4v-2h-4zm-2 6.61c.96.71 2.21 1.65 3.2 2.39.4-.53.8-1.07 1.2-1.6-.99-.74-2.24-1.68-3.2-2.4-.4.54-.8 1.08-1.2 1.61zM20.4 5.6c-.4-.53-.8-1.07-1.2-1.6-.99.74-2.24 1.68-3.2 2.4.4.53.8 1.07 1.2 1.6.96-.72 2.21-1.65 3.2-2.4zM4 9c-1.1 0-2 .9-2 2v2c0 1.1.9 2 2 2h1v4h2v-4h1l5 3V6L8 9H4zm11.5 3c0-1.33-.58-2.53-1.5-3.35v6.69c.92-.81 1.5-2.01 1.5-3.34z"/></svg></span>';
+		$btn    = '<button type="button" id="ktpDtNewsletterButton" class="ktp-client-address-label-btn" onclick="window.location.href=' . esc_attr( wp_json_encode( $url ) ) . ';return false;" title="' . esc_attr( $label ) . '">' . $icon . '<span class="btn-label">ニュースレター</span></button>';
+		return preg_replace( '#(<button[^>]*id="' . $anchor . '"[^>]*>.*?</button>)#s', '$1' . $btn, $output, 1 );
 	},
 	13,
 	2

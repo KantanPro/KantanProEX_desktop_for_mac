@@ -10,7 +10,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 // 画面ヘッダー・フッターなどに出るアプリ名（EX 本体は未定義のときだけ 'KantanProEX' を定義する）
 if ( ! defined( 'KANTANPRO_PLUGIN_NAME' ) ) {
-	define( 'KANTANPRO_PLUGIN_NAME', 'KantanProEX（DT）for Mac' );
+	// Electron が実行中の OS（Mac / Windows）を環境変数で渡す
+	define( 'KANTANPRO_PLUGIN_NAME', 'KantanProEX（DT）for ' . ( 'Windows' === getenv( 'KTP_DESKTOP_OS' ) ? 'Windows' : 'Mac' ) );
 }
 
 /**

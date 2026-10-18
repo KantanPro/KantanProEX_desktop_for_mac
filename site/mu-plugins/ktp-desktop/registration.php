@@ -76,7 +76,7 @@ add_filter(
 		if ( ktp_desktop_registered_email() !== '' ) {
 			return $signature;
 		}
-		return $signature . "\n\n――\nこのメールは「KantanProEX（DT）for Mac」で作成しています。\nhttps://www.kantanpro.com/";
+		return $signature . "\n\n――\nこのメールは「" . KANTANPRO_PLUGIN_NAME . "」で作成しています。\nhttps://www.kantanpro.com/";
 	}
 );
 
@@ -131,7 +131,7 @@ function ktp_desktop_render_register_page() {
 		<p>ユーザー登録は任意です。登録しなくても、すべての機能をそのまま使えます。</p>
 		<p>ユーザー登録をすると、次のメリットがあります。</p>
 		<ul style="list-style:disc;margin-left:1.5em">
-			<li>顧客・協力会社へのメールの署名の後ろに入る「このメールは KantanProEX（DT）for Mac で作成しています」の宣伝文が、最初から入らなくなります（毎回消さなくて済みます）。</li>
+			<li>顧客・協力会社へのメールの署名の後ろに入る「このメールは <?php echo esc_html( KANTANPRO_PLUGIN_NAME ); ?> で作成しています」の宣伝文が、最初から入らなくなります（毎回消さなくて済みます）。</li>
 			<li>アップデート情報や、便利な活用方法などをメールでお届けします（配信の停止は、届いたメールのリンクからいつでもできます）。</li>
 		</ul>
 		<form method="post">

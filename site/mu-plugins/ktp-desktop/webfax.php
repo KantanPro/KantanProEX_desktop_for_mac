@@ -257,7 +257,10 @@ add_filter(
 		if ( ! preg_match( '#(<button[^>]*id="orderPreviewButton"[^>]*data-order-id="(\d+)"[^>]*>.*?</button>)#s', $output, $m ) ) {
 			return $output;
 		}
-		$btn = '<button type="button" id="ktpDtFaxButton" class="button" data-order-id="' . (int) $m[2] . '" title="Web-FAX で送る">FAX送信</button>';
+		// メール送信ボタンと同じ「アイコンだけのボタン」（FAX機のアイコン）
+		// FAX機のアイコン（上の給紙トレイ・本体・受話器・下の排紙）。メール送信ボタンと同じ青いアイコンボタン
+		$icon = '<span class="ktp-svg-icon" aria-hidden="true" role="img"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2h7.2L17 4.8V9H7z"/><path fill-rule="evenodd" d="M3 10h18a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zM5 12.2h7v1.8H5zm11.2.2a1 1 0 1 0 0 .01zm3 0a1 1 0 1 0 0 .01zM16.2 15.6a1 1 0 1 0 0 .01zm3 0a1 1 0 1 0 0 .01zM5 16.5h8v2.5H5z"/></svg></span>';
+		$btn  = '<button type="button" id="ktpDtFaxButton" class="ktp-title-icon-btn order-mail-btn" data-order-id="' . (int) $m[2] . '" title="Web-FAX で送る" aria-label="Web-FAX で送る">' . $icon . '</button>';
 		return str_replace( $m[1], $m[1] . $btn, $output );
 	},
 	14,

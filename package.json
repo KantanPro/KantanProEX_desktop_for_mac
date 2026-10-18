@@ -11,7 +11,8 @@
     "prepare:site": "scripts/build-site.sh",
     "start": "env -u ELECTRON_RUN_AS_NODE electron .",
     "build:mac": "scripts/build-site.sh && env -u ELECTRON_RUN_AS_NODE electron-builder --mac dmg --x64",
-    "build:icon": "node scripts/build-icon.mjs"
+    "build:icon": "node scripts/build-icon.mjs",
+    "build:win": "scripts/fetch-php-win.sh && scripts/build-site.sh && env -u ELECTRON_RUN_AS_NODE electron-builder --win nsis --x64"
   },
   "devDependencies": {
     "electron": "35.7.5",
@@ -31,10 +32,6 @@
       "assets/icon/mark-256.png"
     ],
     "extraResources": [
-      {
-        "from": "bin",
-        "to": "bin"
-      },
       {
         "from": "php",
         "to": "php"
@@ -59,10 +56,43 @@
         }
       ],
       "identity": null,
-      "icon": "build/icon.icns"
+      "icon": "build/icon.icns",
+      "extraResources": [
+        {
+          "from": "bin",
+          "to": "bin"
+        }
+      ]
     },
     "dmg": {
       "title": "KantanProEX"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon/icon-1024.png",
+      "signAndEditExecutable": false,
+      "extraResources": [
+        {
+          "from": "bin-win",
+          "to": "bin"
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "language": "1041",
+      "artifactName": "KantanProEX-Setup-${version}.exe",
+      "shortcutName": "KantanProEX",
+      "include": "build/installer.nsh"
     }
   }
 }
