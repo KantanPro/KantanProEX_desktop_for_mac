@@ -547,3 +547,4 @@ require_once __DIR__ . '/ktp-desktop/order-tasks.php';
 require_once __DIR__ . '/ktp-desktop/invoice-undo.php';
 require_once __DIR__ . '/ktp-desktop/work-list-sort.php';
 require_once __DIR__ . '/ktp-desktop/orders-csv.php';
+require_once __DIR__ . '/ktp-desktop/reports-extra.php';
