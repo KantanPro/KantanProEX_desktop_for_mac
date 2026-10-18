@@ -1,6 +1,6 @@
 {
-  "version": "0.1.0",
-  "released": "2026-10-17",
-  "notes": "最初の版です。",
+  "version": "0.2.0",
+  "released": "2026-10-18",
+  "notes": "KantanBiz（SaaS 版）からのデータ取り込み、受注書のタスクリスト、仕入・支払と資金繰りのレポート、ニュースレター、Web-FAX などを追加しました。",
   "url": "https://www.kantanpro.com/wc-account/downloads/"
 }
