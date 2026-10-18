@@ -22,6 +22,7 @@ KantanBiz のオーナーが「デスクトップ版へ移行」から書き出�
 
 - アプリ内の業務データは取り込んだ内容に入れ替わります。取り込み前に自動でバックアップします。
 - SMTP のパスワードは書き出されないので、設定画面で入れ直してください。
+- KantanBiz の機能との対応は [docs/KANTANBIZ.md](docs/KANTANBIZ.md)
 - 自動テスト: `KTP_TEST_USER_DATA=<別の場所> KTP_TEST_IMPORT_FILE=<ZIP> npm start`（起動後に取り込みを実行し、結果を `logs/app.log` に残す）
 
 ## 組み立て方（開発者向け）
