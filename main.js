@@ -3,7 +3,7 @@
 const path = require('node:path');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
-const { app, BrowserWindow, Menu, dialog, shell, session, nativeTheme } = require('electron');
+const { app, BrowserWindow, Menu, dialog, shell, session, nativeTheme, powerSaveBlocker } = require('electron');
 
 // 開発中はインストール版とデータを分ける
 // 自動テスト用: KTP_TEST_USER_DATA を指定すると、配布版でも本人のデータとは別の場所で動く。
@@ -27,6 +27,7 @@ const { findPort, startServer, wpCli } = require('./lib/php');
 const { syncSite, writeWpConfig, setupIfNeeded } = require('./lib/site');
 const { createBackup, autoBackupIfDue, restoreBackup } = require('./lib/backup');
 const { checkForUpdates, isAutoCheckEnabled, setAutoCheckEnabled } = require('./lib/update');
+const lan = require('./lib/lan');
 
 const PREFERRED_PORT = 47321;
 const CRON_INTERVAL_MS = 5 * 60 * 1000;
@@ -37,6 +38,10 @@ let mainWindow = null;
 let splashWindow = null; // 起動中の小さな画面
 let cronTimer = null;
 let quitting = false;
+// LAN 共有（既定はオフ）。合言葉は起動ごとに作り、PHP と窓口だけが知る
+const lanSecret = crypto.randomBytes(32).toString('hex');
+let lanGateway = null; // { port, urls, fingerprint, stop }
+let lanBlockerId = null;
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -85,8 +90,9 @@ function setLoadingMessage(msg) {
 // ---- PHP サーバー ----
 async function startPhp() {
   const port = await findPort(PREFERRED_PORT);
-  server = await startServer(paths, port);
+  server = await startServer(paths, port, lanSecret);
   log(`PHP server ${server.baseUrl}`);
+  await startLan();
   clearInterval(cronTimer);
   // WordPress の定期処理（定期請求のメール・リマインダー等）。DISABLE_WP_CRON にしているのでここで回す
   const runCron = () => fetch(`${server.baseUrl}/wp-cron.php?doing_wp_cron`).catch(() => {});
@@ -94,8 +100,49 @@ async function startPhp() {
   setTimeout(runCron, 30000);
 }
 
+/** LAN 共有の窓口を、設定がオンなら立てる（PHP を起動し直すたびに呼ばれる） */
+async function startLan() {
+  await stopLan();
+  if (!lan.readConfig(paths).enabled || !server) {
+    lan.writeStatus(paths, { enabled: false });
+    return;
+  }
+  try {
+    lanGateway = await lan.startGateway(paths, { phpBaseUrl: server.baseUrl, secret: lanSecret, port: lan.readConfig(paths).port, log });
+    // 親機が眠ると他の PC から使えなくなるので、オンの間は眠らせない（画面は暗くなってよい）
+    lanBlockerId = powerSaveBlocker.start('prevent-app-suspension');
+  } catch (e) {
+    log(`LAN 共有を開始できませんでした ${e.message}`);
+    lan.writeStatus(paths, { enabled: false, error: String(e.message || e) });
+  }
+}
+
+async function stopLan() {
+  if (lanBlockerId !== null) {
+    try {
+      powerSaveBlocker.stop(lanBlockerId);
+    } catch {}
+    lanBlockerId = null;
+  }
+  if (lanGateway) {
+    const g = lanGateway;
+    lanGateway = null;
+    await g.stop();
+    log('LAN 窓口を停止');
+  }
+}
+
+/** 設定画面（?ktp_dt_page=lan）のオン/オフ */
+async function setLanEnabled(on) {
+  log(`LAN 共有を${on ? 'オン' : 'オフ'}にする`);
+  lan.writeConfig(paths, { enabled: on });
+  await startLan();
+  if (mainWindow && server) mainWindow.loadURL(`${server.baseUrl}/?ktp_dt_page=lan`);
+}
+
 async function stopPhp() {
   clearInterval(cronTimer);
+  await stopLan();
   if (server) {
     const s = server;
     server = null;
@@ -161,6 +208,12 @@ function guardNavigation(contents) {
     if (isAppUrl(url) && url.includes('ktp_desktop_relogin=')) {
       e.preventDefault();
       relogin(contents, url);
+      return;
+    }
+    // LAN 共有のオン/オフ（設定画面のボタン。PHP からは窓口を操作しないので、ここで受ける）
+    if (isAppUrl(url) && /[?&]ktp_desktop_lan=(on|off)\b/.test(url)) {
+      e.preventDefault();
+      setLanEnabled(/ktp_desktop_lan=on/.test(url)).catch((err) => log(`LAN 共有の切り替えに失敗 ${err.message}`));
       return;
     }
     if (!isAppUrl(url)) {
@@ -433,6 +486,7 @@ function buildMenu() {
         { label: 'バックアップを作成', accelerator: 'CmdOrCtrl+Shift+B', click: doBackup },
         { label: 'バックアップから復元…', click: doRestore },
         { label: 'KantanBiz から取り込む…', click: () => doImportKantanBiz() },
+        { label: 'LAN 共有（事務所の他の PC から使う）…', click: () => server && mainWindow && mainWindow.loadURL(`${server.baseUrl}/?ktp_dt_page=lan`) },
         { type: 'separator' },
         { label: 'バックアップのフォルダを開く', click: () => { fs.mkdirSync(paths.backups, { recursive: true }); shell.openPath(paths.backups); } },
         { label: 'データのフォルダを開く', click: () => shell.openPath(paths.userData) },

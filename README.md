@@ -10,6 +10,7 @@ KantanProEX（WordPress プラグイン）を、ブラウザも WordPress サイ
 ## 仕組み
 
 - Electron のウィンドウの中で、同梱の PHP 8.3 と WordPress + SQLite を `127.0.0.1` だけで動かし、KantanProEX をそのまま表示します。
+  既定はこのパソコンだけです。メニュー「ファイル」→「LAN 共有…」でオンにしたときだけ、事務所の LAN 向けの https の窓口（`lib/lan.js`）を開き、許可したスタッフが他のパソコンのブラウザからパスワードでログインして使えます（インターネットには公開しません）。
 - 外部への通信は行いません（画面からの読み込みは 127.0.0.1 以外を止めています）。
   例外は、起動時に `update.json` を1回読むアップデートのお知らせ（設定で止められます）と、本人が設定した郵便番号 API・メール送信、任意のユーザー登録（登録したメールアドレスだけを kantanpro.com に送る）だけです。
 - データは `~/Library/Application Support/KantanProEX/` に置き、起動時に1日1回「書類」フォルダへ自動でバックアップします。
@@ -49,6 +50,7 @@ scripts/test-dist.sh     # 作った配布版を、普段のデータとは別�
 | `lib/site.js` | WordPress 一式の配置と初回セットアップ |
 | `lib/php.js` | 同梱 PHP（内蔵サーバー・wp-cli）の実行 |
 | `lib/backup.js` | バックアップと復元 |
+| `lib/lan.js` | LAN 共有の窓口（https・私設アドレスだけ許可・PHP へ中継） |
 | `lib/update.js` | アップデートのお知らせ |
 | `php/router.php` | PHP 内蔵サーバー用のルーター |
 | `site/mu-plugins/` | デスクトップ版用の調整（自動ログイン・画面テンプレート・不要な設定の非表示など） |

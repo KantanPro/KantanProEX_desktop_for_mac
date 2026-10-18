@@ -106,6 +106,10 @@ add_action(
 		if ( ! isset( $_GET['ktp_desktop_login'] ) || ! defined( 'KTP_DESKTOP_TOKEN_FILE' ) ) {
 			return;
 		}
+		// LAN 共有の窓口経由では自動ログインを使わせない（窓口でも止めているが、こちらでも止める）
+		if ( defined( 'KTP_DESKTOP_LAN_REQUEST' ) ) {
+			wp_die( 'この画面は、親機でだけ開けます。', 'KantanProEX', array( 'response' => 403 ) );
+		}
 		$remote = isset( $_SERVER['REMOTE_ADDR'] ) ? (string) $_SERVER['REMOTE_ADDR'] : '';
 		$given  = (string) wp_unslash( $_GET['ktp_desktop_login'] );
 		$saved  = is_readable( KTP_DESKTOP_TOKEN_FILE ) ? trim( (string) file_get_contents( KTP_DESKTOP_TOKEN_FILE ) ) : '';
@@ -426,7 +430,7 @@ add_action(
 function ktp_desktop_profile_css() {
 	echo '<style id="ktp-desktop-profile">'
 		. '.user-rich-editing-wrap,.user-syntax-highlighting-wrap,.user-admin-color-wrap,.user-comment-shortcuts-wrap,.show-admin-bar,.user-language-wrap,'
-		. '.user-url-wrap,.user-description-wrap,#application-passwords-section,.user-sessions-wrap,.user-generate-reset-link-wrap{display:none!important}'
+		. '.user-url-wrap,.user-description-wrap,#application-passwords-section,.user-generate-reset-link-wrap{display:none!important}'
 		. '</style>';
 	echo '<script>document.addEventListener("DOMContentLoaded",function(){'
 		// 中身がすべて隠れた見出し（個人設定など）も隠す
@@ -436,7 +440,7 @@ function ktp_desktop_profile_css() {
 		. 'var rows=[].filter.call(t.querySelectorAll("tr"),function(r){return getComputedStyle(r).display!=="none";});'
 		. 'if(rows.length===0){h.style.display="none";t.style.display="none";}});'
 		// 自動ログインなのでパスワード関連の見出しは丸ごと隠す（次の見出しまで）
-		. 'var drop=["アカウント管理","アプリケーションパスワード"];'
+		. 'var drop=' . ( defined( 'KTP_DESKTOP_LAN_REQUEST' ) ? '["アプリケーションパスワード"]' : '["アカウント管理","アプリケーションパスワード"]' ) . ';'
 		. 'document.querySelectorAll("#your-profile h2").forEach(function(h){if(drop.indexOf(h.textContent.trim())===-1){return;}'
 		. 'var e=h;do{e.style.display="none";e=e.nextElementSibling;}while(e&&e.tagName!=="H2"&&!e.matches(".submit, [type=submit]")&&!e.querySelector("[type=submit]"));});'
 		. '});</script>';
@@ -485,8 +489,9 @@ add_action(
  */
 add_filter(
 	'logout_url',
-	function () {
-		return home_url( '/?ktp_desktop_quit=1' );
+	function ( $logout_url ) {
+		// LAN から使うスタッフは、普通のログアウト（アプリを終了させない）
+		return defined( 'KTP_DESKTOP_LAN_REQUEST' ) ? $logout_url : home_url( '/?ktp_desktop_quit=1' );
 	},
 	PHP_INT_MAX
 );
@@ -520,6 +525,9 @@ function ktp_desktop_relogin_url( $redirect_to = '' ) {
 add_action(
 	'login_init',
 	function () {
+		if ( defined( 'KTP_DESKTOP_LAN_REQUEST' ) ) {
+			return; // LAN からは WordPress のログイン画面を使う（lan.php）
+		}
 		$redirect_to = isset( $_REQUEST['redirect_to'] ) ? esc_url_raw( wp_unslash( $_REQUEST['redirect_to'] ) ) : '';
 		wp_safe_redirect( ktp_desktop_relogin_url( $redirect_to ) );
 		exit;
@@ -530,6 +538,9 @@ add_action(
 add_action(
 	'template_redirect',
 	function () {
+		if ( defined( 'KTP_DESKTOP_LAN_REQUEST' ) ) {
+			return; // LAN からの未ログインは lan.php がログイン画面へ送る
+		}
 		if ( isset( $_GET['ktp_desktop_relogin'] ) ) {
 			// Electron がこの URL への移動を止めるので、ここに来るのはアプリの外から開かれたときだけ
 			status_header( 200 );
@@ -556,3 +567,4 @@ require_once __DIR__ . '/ktp-desktop/orders-csv.php';
 require_once __DIR__ . '/ktp-desktop/reports-extra.php';
 require_once __DIR__ . '/ktp-desktop/newsletter.php';
 require_once __DIR__ . '/ktp-desktop/webfax.php';
+require_once __DIR__ . '/ktp-desktop/lan.php';
