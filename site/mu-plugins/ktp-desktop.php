@@ -545,3 +545,4 @@ add_action(
 require_once __DIR__ . '/ktp-desktop/registration.php';
 require_once __DIR__ . '/ktp-desktop/order-tasks.php';
 require_once __DIR__ . '/ktp-desktop/invoice-undo.php';
+require_once __DIR__ . '/ktp-desktop/work-list-sort.php';
