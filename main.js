@@ -20,7 +20,7 @@ if (process.env.KTP_DEBUG_PORT && (!app.isPackaged || process.env.KTP_TEST_USER_
 app.setName('KantanProEX');
 
 const { getPaths } = require('./lib/paths');
-const { findPort, startServer } = require('./lib/php');
+const { findPort, startServer, wpCli } = require('./lib/php');
 const { syncSite, writeWpConfig, setupIfNeeded } = require('./lib/site');
 const { createBackup, autoBackupIfDue, restoreBackup } = require('./lib/backup');
 const { checkForUpdates, isAutoCheckEnabled, setAutoCheckEnabled } = require('./lib/update');
@@ -294,6 +294,57 @@ async function doRestore() {
   }
 }
 
+// KantanBiz（SaaS）の書き出し ZIP を取り込む（DT の業務データは入れ替わる）。
+// filePath を渡すと、選択・確認のダイアログを出さずに実行する（自動テスト用）
+async function doImportKantanBiz(filePath) {
+  let file = filePath;
+  if (!file) {
+    const pick = await dialog.showOpenDialog(mainWindow, {
+      title: 'KantanBiz から書き出した ZIP ファイルを選んでください',
+      defaultPath: app.getPath('downloads'),
+      properties: ['openFile'],
+      filters: [{ name: 'KantanBiz の移行用ファイル', extensions: ['zip'] }],
+    });
+    if (pick.canceled || !pick.filePaths[0]) return;
+    file = pick.filePaths[0];
+    const ok = await dialog.showMessageBox(mainWindow, {
+      type: 'warning',
+      message: 'KantanBiz のデータを取り込みますか？',
+      detail: `${path.basename(file)}\n\nいまの顧客・案件・契約などのデータは、取り込んだ内容に入れ替わります。\n入れ替える前に、いまのデータを自動でバックアップします。`,
+      buttons: ['取り込む', 'やめる'],
+      defaultId: 1,
+      cancelId: 1,
+    });
+    if (ok.response !== 0) return;
+  }
+  try {
+    const backup = await createBackup(paths, { reason: 'before-kantanbiz-import' });
+    log(`KantanBiz 取り込み開始 ${file}（バックアップ ${backup}）`);
+    // 取り込み中は画面側のアクセスで DB が競合しないよう、PHP の内蔵サーバーを止める
+    await stopPhp();
+    let out;
+    try {
+      out = await wpCli(paths, ['eval-file', path.join(paths.site, 'ktp-desktop', 'import-kantanbiz.php'), file, '--user=kantanpro'], { KTP_DESKTOP_HOST: '127.0.0.1' });
+    } finally {
+      await startPhp();
+    }
+    log(`KantanBiz 取り込み完了 ${out}`);
+    mainWindow.loadURL(loginUrl());
+    if (!filePath) {
+      const needSmtp = /smtp_password_needed=1/.test(out);
+      dialog.showMessageBox(mainWindow, {
+        type: 'info',
+        message: 'KantanBiz のデータを取り込みました',
+        detail: `${out.replace(/^imported:\s*/, '')}${needSmtp ? '\n\nメール送信（SMTP）のパスワードは移行されません。設定画面で入れ直してください。' : ''}`,
+      });
+    }
+  } catch (e) {
+    log(`KantanBiz 取り込み失敗 ${e.message}`);
+    if (!filePath) dialog.showErrorBox('取り込めませんでした', `${String(e.message || e).split('\n')[0]}\n\nデータは取り込み前のままです。記録: ${path.join(paths.logs, 'app.log')}`);
+    if (!server) await startPhp().catch(() => {});
+  }
+}
+
 function buildMenu() {
   const isDev = !app.isPackaged;
   const template = [
@@ -321,6 +372,7 @@ function buildMenu() {
       submenu: [
         { label: 'バックアップを作成', accelerator: 'CmdOrCtrl+Shift+B', click: doBackup },
         { label: 'バックアップから復元…', click: doRestore },
+        { label: 'KantanBiz から取り込む…', click: () => doImportKantanBiz() },
         { type: 'separator' },
         { label: 'バックアップのフォルダを開く', click: () => { fs.mkdirSync(paths.backups, { recursive: true }); shell.openPath(paths.backups); } },
         { label: 'データのフォルダを開く', click: () => shell.openPath(paths.userData) },
@@ -376,6 +428,10 @@ async function boot() {
     await startPhp();
     autoBackupIfDue(paths).then((d) => d && log(`自動バックアップ ${d}`)).catch((e) => log(`自動バックアップ失敗 ${e.message}`));
     openApp();
+    // 自動テスト用: 取り込みを起動後に実行する（開発時、またはテスト用データ指定時のみ）
+    if (process.env.KTP_TEST_IMPORT_FILE && (!app.isPackaged || process.env.KTP_TEST_USER_DATA)) {
+      setTimeout(() => doImportKantanBiz(process.env.KTP_TEST_IMPORT_FILE), 3000);
+    }
   } catch (e) {
     log(`起動失敗 ${e.stack || e}`);
     closeSplash();

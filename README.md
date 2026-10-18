@@ -15,6 +15,15 @@ KantanProEX（WordPress プラグイン）を、ブラウザも WordPress サイ
 - データは `~/Library/Application Support/KantanProEX/` に置き、起動時に1日1回「書類」フォルダへ自動でバックアップします。
 - WordPress 版との違い（デスクトップ版で調整している内容）は `site/mu-plugins/ktp-desktop.php` にまとめています。プラグイン本体は改変しません。
 
+## KantanBiz（SaaS 版）からの移行
+
+KantanBiz のオーナーが「デスクトップ版へ移行」から書き出した ZIP を、メニュー「ファイル」→「KantanBiz から取り込む…」で取り込みます。
+顧客・協力会社・サービス・案件（明細・チャット・ファイル・タスク・メール履歴）・契約・会社情報・帳票設定が移ります（`scripts/import-kantanbiz.php`）。
+
+- アプリ内の業務データは取り込んだ内容に入れ替わります。取り込み前に自動でバックアップします。
+- SMTP のパスワードは書き出されないので、設定画面で入れ直してください。
+- 自動テスト: `KTP_TEST_USER_DATA=<別の場所> KTP_TEST_IMPORT_FILE=<ZIP> npm start`（起動後に取り込みを実行し、結果を `logs/app.log` に残す）
+
 ## 組み立て方（開発者向け）
 
 必要なもの: macOS（Intel / x64）、Node.js、KantanProEX プラグインのソース。
