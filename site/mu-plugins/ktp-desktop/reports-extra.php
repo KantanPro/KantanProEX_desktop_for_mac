@@ -333,6 +333,73 @@ function ktp_dt_render_cashflow() {
 	return $h . '</tbody></table></div>';
 }
 
+/** 期間の指定を、日付の範囲（[開始, 終了] の日付文字列。null は制限なし）にする */
+function ktp_dt_period_range( $period ) {
+	$now = ktp_dt_ps_today();
+	switch ( $period ) {
+		case 'this_year':
+			return array( $now->format( 'Y' ) . '-01-01', $now->format( 'Y' ) . '-12-31' );
+		case 'last_year':
+			$y = (int) $now->format( 'Y' ) - 1;
+			return array( $y . '-01-01', $y . '-12-31' );
+		case 'this_month':
+			return array( $now->format( 'Y-m-01' ), $now->modify( 'last day of this month' )->format( 'Y-m-d' ) );
+		case 'last_month':
+			$m = ktp_dt_ps_add_months( $now, -1 );
+			return array( $m->format( 'Y-m-01' ), $m->modify( 'last day of this month' )->format( 'Y-m-d' ) );
+		case 'last_3_months':
+			return array( ktp_dt_ps_add_months( $now, -3 )->format( 'Y-m-d' ), null );
+		case 'last_6_months':
+			return array( ktp_dt_ps_add_months( $now, -6 )->format( 'Y-m-d' ), null );
+	}
+	return array( null, null );
+}
+
+/** 進捗レポート: 期間内に受け付けた案件の件数を進捗ごとに（KantanBiz の progressSummary 相当） */
+function ktp_dt_render_progress_report() {
+	global $wpdb;
+	$periods = array(
+		'all_time' => '全期間', 'this_year' => '今年', 'last_year' => '去年', 'this_month' => '今月',
+		'last_month' => '先月', 'last_3_months' => '過去3ヶ月', 'last_6_months' => '過去6ヶ月',
+	);
+	$period = isset( $_GET['period'] ) && isset( $periods[ $_GET['period'] ] ) ? sanitize_text_field( wp_unslash( $_GET['period'] ) ) : 'this_year'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	list( $from, $to ) = ktp_dt_period_range( $period );
+	$o     = $wpdb->prefix . 'ktp_order';
+	$where = '1=1';
+	$args  = array();
+	if ( $from ) {
+		$where .= ' AND created_at >= %s';
+		$args[] = $from . ' 00:00:00';
+	}
+	if ( $to ) {
+		$where .= ' AND created_at <= %s';
+		$args[] = $to . ' 23:59:59';
+	}
+	$sql    = "SELECT progress, COUNT(*) AS cnt FROM `{$o}` WHERE {$where} GROUP BY progress"; // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	$counts = array();
+	foreach ( (array) $wpdb->get_results( $args ? $wpdb->prepare( $sql, $args ) : $sql ) as $r ) { // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		$counts[ (int) $r->progress ] = (int) $r->cnt;
+	}
+	$labels = array( 1 => '受付中', 2 => '見積中', 3 => '受注', 4 => '完了', 5 => '請求済', 6 => '入金済', 7 => 'ボツ' );
+	$total  = array_sum( $counts );
+	$max    = max( 1, $counts ? max( $counts ) : 1 );
+	$h      = ktp_dt_report_table_css() . '<div class="ktp-dt-rpt"><h3 style="margin:0 0 8px;">進捗レポート（案件の進み具合）</h3>';
+	$h     .= '<form class="filters" method="get"><input type="hidden" name="tab_name" value="report"><input type="hidden" name="report_type" value="progress"><label>期間（受付日） <select name="period">';
+	foreach ( $periods as $k => $l ) {
+		$h .= '<option value="' . esc_attr( $k ) . '"' . selected( $period, $k, false ) . '>' . esc_html( $l ) . '</option>';
+	}
+	$h .= '</select></label><button type="submit">表示</button></form>';
+	$h .= '<div class="cards"><div class="card">案件数<b>' . (int) $total . '件</b></div></div>';
+	$h .= '<table><thead><tr><th>進捗</th><th class="num">件数</th><th class="num">割合</th><th style="width:50%;">分布</th></tr></thead><tbody>';
+	foreach ( $labels as $n => $label ) {
+		$c   = $counts[ $n ] ?? 0;
+		$pct = $total > 0 ? round( $c / $total * 100, 1 ) : 0;
+		$h  .= '<tr><td>' . esc_html( $label ) . '</td><td class="num">' . (int) $c . '</td><td class="num">' . esc_html( rtrim( rtrim( number_format( $pct, 1 ), '0' ), '.' ) ) . '%</td>'
+			. '<td><div style="background:#e0e7ff;height:14px;border-radius:7px;width:' . esc_attr( round( $c / $max * 100 ) ) . '%;min-width:' . ( $c > 0 ? '4px' : '0' ) . ';"></div></td></tr>';
+	}
+	return $h . '</tbody></table></div>';
+}
+
 add_action(
 	'wp_ajax_ktp_dt_cost_paid',
 	function () {
@@ -376,15 +443,15 @@ add_filter(
 			$style  = 'padding:6px 10px;font-size:12px;border:1px solid ' . ( $active ? '#1565c0' : '#ddd' ) . ';border-radius:3px;text-decoration:none;display:inline-flex;align-items:center;margin-right:4px;' . ( $active ? 'background:#1976d2;color:#fff;' : 'background:#fff;color:#333;' );
 			return '<a href="' . esc_url( add_query_arg( array( 'tab_name' => 'report', 'report_type' => $type ), home_url( '/' ) ) ) . '" style="' . esc_attr( $style ) . '">' . esc_html( $label ) . '</a>';
 		};
-		$buttons = $btn( 'purchase', '仕入・支払' ) . $btn( 'cashflow', '資金繰り予定' );
+		$buttons = $btn( 'purchase', '仕入・支払' ) . $btn( 'cashflow', '資金繰り予定' ) . $btn( 'progress', '進捗' );
 		$output  = preg_replace( '#(</div>\s*<div class="ktp-report-controller__actions">)#', $buttons . '$1', $output, 1 );
 
-		if ( in_array( $current, array( 'purchase', 'cashflow' ), true ) ) {
+		if ( in_array( $current, array( 'purchase', 'cashflow', 'progress' ), true ) ) {
 			$start = strpos( $output, '<div id="ktp_report_inner_content"' );
 			$end   = false === $start ? false : strpos( $output, '</div><script src=', $start );
 			if ( false !== $start && false !== $end ) {
 				$open_end = strpos( $output, '>', $start ) + 1;
-				$inner    = 'purchase' === $current ? ktp_dt_render_purchase_report() : ktp_dt_render_cashflow();
+				$inner    = 'purchase' === $current ? ktp_dt_render_purchase_report() : ( 'cashflow' === $current ? ktp_dt_render_cashflow() : ktp_dt_render_progress_report() );
 				$output   = substr( $output, 0, $open_end ) . $inner . substr( $output, $end );
 			}
 		}
