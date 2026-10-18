@@ -1,0 +1,51 @@
+/* 受注書のタスクリスト（工程表は仕事リストの .work-list-schedule-* を流用） */
+#ktp-order-tasks .ktp-tasks-body { padding: 8px 0 4px; }
+#ktp-order-tasks .ktp-tasks-desc { margin-bottom: 8px; }
+#ktp-order-tasks .ktp-tasks-add { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 12px; padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid #e5e7eb; }
+#ktp-order-tasks .ktp-tasks-field { display: flex; flex-direction: column; font-size: 12px; font-weight: 600; color: #374151; line-height: 1.4; }
+#ktp-order-tasks .ktp-tasks-field--title { flex: 1 1 12rem; min-width: 10rem; }
+#ktp-order-tasks .ktp-tasks-input { font-size: 14px; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; background: #fff; }
+#ktp-order-tasks .ktp-tasks-btn { font-size: 13px; padding: 5px 14px; border: 1px solid #d1d5db; border-radius: 4px; background: #fff; cursor: pointer; line-height: 1.4; }
+#ktp-order-tasks .ktp-tasks-btn--primary { background: #2563eb; border-color: #2563eb; color: #fff; }
+#ktp-order-tasks .ktp-tasks-btn--primary:hover { background: #1d4ed8; }
+#ktp-order-tasks .ktp-tasks-btn--danger { white-space: nowrap; color: #dc2626; border-color: transparent; background: transparent; padding: 2px 6px; font-size: 12px; }
+#ktp-order-tasks .ktp-tasks-btn--danger:hover { text-decoration: underline; }
+#ktp-order-tasks .ktp-tasks-error { color: #dc2626; font-size: 13px; margin: 0 0 8px; }
+
+#ktp-order-tasks .ktp-tasks-chart { margin-bottom: 16px; }
+#ktp-order-tasks .ktp-tasks-chart-label { display: block; font-size: 14px; font-weight: 600; color: #111827; line-height: 1.35; word-break: break-word; }
+#ktp-order-tasks .ktp-tasks-chart-label.is-done { color: #6b7280; text-decoration: line-through; }
+#ktp-order-tasks .ktp-tasks-bar { position: absolute; top: 4px; bottom: 4px; z-index: 2; box-sizing: border-box; border-radius: 4px; touch-action: none; }
+#ktp-order-tasks .ktp-tasks-bar.is-open { background: #a5b4fc; border-color: #6366f1; }
+#ktp-order-tasks .ktp-tasks-bar.is-overdue { background: #fca5a5; border-color: #ef4444; }
+#ktp-order-tasks .ktp-tasks-bar.is-done { background: #e5e7eb; border-color: #d1d5db; opacity: 0.85; }
+#ktp-order-tasks .ktp-tasks-bar.is-editable { cursor: grab; }
+#ktp-order-tasks .ktp-tasks-bar.is-dragging { z-index: 4; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18); cursor: grabbing; }
+#ktp-order-tasks .ktp-tasks-handle { position: absolute; top: 0; bottom: 0; width: 10px; padding: 0; border: 0; background: transparent; z-index: 5; touch-action: none; cursor: ew-resize; }
+#ktp-order-tasks .ktp-tasks-handle::after { content: ''; position: absolute; top: 15%; bottom: 15%; width: 3px; border-radius: 9999px; background: rgba(255, 255, 255, 0.85); box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.15); }
+#ktp-order-tasks .ktp-tasks-handle--start { left: 0; transform: translateX(-50%); }
+#ktp-order-tasks .ktp-tasks-handle--start::after { left: 50%; transform: translateX(-50%); }
+#ktp-order-tasks .ktp-tasks-handle--end { right: 0; transform: translateX(50%); }
+#ktp-order-tasks .ktp-tasks-handle--end::after { right: 50%; transform: translateX(50%); }
+#ktp-order-tasks .ktp-tasks-avatar { position: absolute; top: 50%; z-index: 3; display: flex; width: 24px; height: 24px; transform: translate(-50%, -50%); overflow: hidden; border-radius: 9999px; border: 1px solid #d1d5db; background: #f3f4f6; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12); pointer-events: none; }
+#ktp-order-tasks .ktp-tasks-avatar.is-done { opacity: 0.75; filter: grayscale(0.35); }
+#ktp-order-tasks .ktp-tasks-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+#ktp-order-tasks .ktp-tasks-tablewrap { overflow-x: auto; }
+#ktp-order-tasks .ktp-tasks-table { margin-bottom: 0; }
+#ktp-order-tasks .ktp-tasks-table th { text-align: left; white-space: nowrap; }
+#ktp-order-tasks .ktp-tasks-col-narrow { width: 2.5rem; }
+#ktp-order-tasks .ktp-tasks-nowrap { white-space: nowrap; }
+#ktp-order-tasks .ktp-tasks-table td { vertical-align: top; }
+#ktp-order-tasks .ktp-tasks-title { min-width: 10rem; font-weight: 600; }
+#ktp-order-tasks .ktp-tasks-title .is-done { color: #6b7280; text-decoration: line-through; }
+#ktp-order-tasks .ktp-tasks-sub { display: block; font-size: 11px; font-weight: 400; color: #6b7280; line-height: 1.5; }
+#ktp-order-tasks .ktp-tasks-muted { color: #6b7280; font-size: 12px; }
+#ktp-order-tasks .ktp-tasks-badge { display: inline-block; padding: 0 8px; border-radius: 9999px; background: #fee2e2; color: #b91c1c; font-size: 11px; font-weight: 600; }
+#ktp-order-tasks .ktp-tasks-row.is-done { background: #f3f4f6; }
+#ktp-order-tasks .ktp-tasks-row.is-dragging { opacity: 0.55; }
+#ktp-order-tasks .ktp-tasks-drag { display: inline-flex; width: 1.5rem; height: 1.5rem; align-items: center; justify-content: center; cursor: grab; color: #9ca3af; user-select: none; }
+#ktp-order-tasks .ktp-tasks-drag:hover { color: #4b5563; }
+#ktp-order-tasks .ktp-tasks-assignee { font-size: 13px; padding: 2px 6px; max-width: 10rem; border: 1px solid #d1d5db; border-radius: 4px; background: #fff; }
+
+.ktp-tasks-tooltip { position: fixed; z-index: 100001; pointer-events: none; padding: 4px 8px; border-radius: 6px; background: #111827; color: #f9fafb; font-size: 12px; line-height: 1.25; white-space: nowrap; transform: translate(-50%, calc(-100% - 8px)); box-shadow: 0 2px 8px rgba(15, 23, 42, 0.2); }
