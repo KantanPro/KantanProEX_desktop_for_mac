@@ -6,6 +6,8 @@ $ok = 0; $ng = [];
 foreach ($ddl as $t => $sql) {
   // 取得元は wp_ 接頭辞。実際の接頭辞に置き換える
   $sql = str_replace('`wp_ktp_', '`' . $wpdb->prefix . 'ktp_', $sql);
+  // すでにある表は作り直さない（やり直し・二重実行でも失敗しない）
+  $sql = preg_replace('/^CREATE TABLE /', 'CREATE TABLE IF NOT EXISTS ', $sql);
   $r = $wpdb->query($sql);
   if ($r === false) { $ng[$t] = $wpdb->last_error; } else { $ok++; }
 }

@@ -26,6 +26,10 @@ const KTP_DT_BLOCKED_MIGRATIONS = array(
 
 /** 1. 予防: プラグインが読み込まれる前（mu-plugin の読み込み時）に記録しておく */
 function ktp_dt_block_destructive_migrations() {
+	// 初回セットアップ（WordPress のインストール中）は、まだ記録を置く表が無いので何もしない
+	if ( ( function_exists( 'wp_installing' ) && wp_installing() ) || ( defined( 'WP_INSTALLING' ) && WP_INSTALLING ) ) {
+		return;
+	}
 	foreach ( KTP_DT_BLOCKED_MIGRATIONS as $file ) {
 		$key = 'ktp_migration_' . md5( $file ); // プラグイン側の記録の名前（ktpwp_safe_run_migration_files と同じ）
 		if ( ! get_option( $key ) ) {
@@ -78,6 +82,12 @@ function ktp_dt_schema_repair( $force = false ) {
 	}
 
 	global $wpdb;
+	// 初回セットアップ中（土台の構造をまだ作っていない）は何もしない。土台は site.js が baseline.php で作る。
+	// ここで先に表を作ると、そのあとの土台づくりが「表がすでにある」で失敗する
+	if ( ( function_exists( 'wp_installing' ) && wp_installing() )
+		|| $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->prefix . 'ktp_order' ) ) !== $wpdb->prefix . 'ktp_order' ) {
+		return array( 'tables' => array(), 'columns' => array(), 'errors' => array() );
+	}
 	$ddl    = json_decode( (string) file_get_contents( $file ), true );
 	$result = array( 'tables' => array(), 'columns' => array(), 'errors' => array() );
 	if ( ! is_array( $ddl ) ) {
