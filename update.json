@@ -2,5 +2,7 @@
   "version": "0.2.1",
   "released": "2026-10-18",
   "notes": "0.2.0 に更新したあと、受注書が保存されなくなる不具合を直しました（起動すると自動で修復されます。0.2.0 で作ったつもりの受注書は保存されていないので、作り直してください）。KantanBiz からの取り込みの失敗と、取り込んだ会社情報がメール署名に「<br />」付きで出る問題も直しました。",
-  "url": "https://www.kantanpro.com/wc-account/downloads/"
+  "url": "https://www.kantanpro.com/wc-account/downloads/",
+  "version_win": "0.2.1",
+  "url_win": "https://www.kantanpro.com/wc-account/downloads/"
 }
