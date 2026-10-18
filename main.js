@@ -18,6 +18,9 @@ if (process.env.KTP_DEBUG_PORT && (!app.isPackaged || process.env.KTP_TEST_USER_
   app.commandLine.appendSwitch('remote-debugging-port', process.env.KTP_DEBUG_PORT);
 }
 app.setName('KantanProEX');
+// 画面の言語は常に日本語にする（OS が英語などでも同じ表示にする）。
+// Windows で OS の言語に合わせると、数値・日付の入力欄の書式づくりで画面が落ちることがあった（言語ファイルが ja しか無かったため）
+app.commandLine.appendSwitch('lang', 'ja');
 
 const { getPaths } = require('./lib/paths');
 const { findPort, startServer, wpCli } = require('./lib/php');
@@ -197,6 +200,18 @@ function createWindow() {
     mainWindow = null;
   });
   guardNavigation(mainWindow.webContents);
+  // 画面（描画プロセス）が落ちたときの理由を記録する（不具合の調査用）
+  let lastCrashReload = 0;
+  mainWindow.webContents.on('render-process-gone', (_e, d) => {
+    log(`画面が落ちました reason=${d.reason} exitCode=${d.exitCode}`);
+    // 正常終了以外で落ちたら、1 回だけ自動で読み直す（30 秒以内に続けて落ちたら、何度も繰り返さない）
+    if (d.reason !== 'clean-exit' && Date.now() - lastCrashReload > 30000 && mainWindow && !mainWindow.isDestroyed()) {
+      lastCrashReload = Date.now();
+      setTimeout(() => mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents.reload(), 500);
+    }
+  });
+  mainWindow.webContents.on('unresponsive', () => log('画面が応答しません'));
+  mainWindow.webContents.on('did-fail-load', (_e, code, desc, url, isMain) => isMain && log(`画面の読み込み失敗 ${code} ${desc} ${String(url).slice(0, 120)}`));
 }
 
 /** 起動中の小さな画面（スプラッシュ）。アプリの画面が描き終わるまで出しておく */
@@ -345,6 +360,47 @@ async function doImportKantanBiz(filePath) {
   }
 }
 
+const sleepMs = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * 自動テスト用（KTP_TEST_VISIT）: Playwright などをつながずに、アプリ自身が画面を順に開き、
+ * 表示できたか・落ちたかを app.log に、画面を KTP_TEST_SHOT_DIR（なければ logs/shots）に残す。
+ * 利用規約の同意画面が出ていれば先に同意する。
+ */
+async function runTestVisits(urls) {
+  const dir = process.env.KTP_TEST_SHOT_DIR || path.join(paths.logs, 'shots');
+  fs.mkdirSync(dir, { recursive: true });
+  const wc = () => mainWindow.webContents;
+  const js = (code) => wc().executeJavaScript(code, true);
+  const agree = async () => {
+    const had = await js(`(function(){var c=document.querySelector('#ktpwp-terms-dialog input[type=checkbox]');if(!c)return false;c.checked=true;c.dispatchEvent(new Event('change',{bubbles:true}));var b=[].slice.call(document.querySelectorAll('#ktpwp-terms-dialog button')).find(function(x){return x.textContent.indexOf('利用開始する')>=0});if(b)b.click();return true;})()`).catch(() => false);
+    if (had) { log('テスト表示 利用規約に同意'); await sleepMs(3000); }
+  };
+  await agree();
+  for (const [i, u] of urls.entries()) {
+    const name = `${String(i + 1).padStart(2, '0')}`;
+    try {
+      await mainWindow.loadURL(`${server.baseUrl}${u}`).catch((e) => { if (!/ERR_ABORTED/.test(String(e))) throw e; });
+      await sleepMs(3500);
+      if (wc().isCrashed()) {
+        log(`テスト表示 NG ${u} 画面が落ちた`);
+        wc().reload();
+        await sleepMs(4000);
+        continue;
+      }
+      await agree();
+      const text = await js('document.body ? document.body.innerText.replace(/\\s+/g, " ").slice(0, 120) : ""');
+      const phpErr = await js('/Fatal error|Parse error|WordPress database error|Warning:/.test(document.body ? document.body.innerText : "")');
+      const img = await wc().capturePage();
+      fs.writeFileSync(path.join(dir, `${name}.png`), img.toPNG());
+      log(`テスト表示 ${phpErr ? 'NG(PHPエラー)' : 'OK'} ${u} ${text}`);
+    } catch (e) {
+      log(`テスト表示 NG ${u} ${String(e.message || e).slice(0, 200)}`);
+    }
+  }
+  log('テスト表示 完了');
+}
+
 function buildMenu() {
   const isDev = !app.isPackaged;
   const template = [
@@ -433,8 +489,12 @@ async function boot() {
     autoBackupIfDue(paths).then((d) => d && log(`自動バックアップ ${d}`)).catch((e) => log(`自動バックアップ失敗 ${e.message}`));
     openApp();
     // 自動テスト用: 取り込みを起動後に実行する（開発時、またはテスト用データ指定時のみ）
-    if (process.env.KTP_TEST_IMPORT_FILE && (!app.isPackaged || process.env.KTP_TEST_USER_DATA)) {
-      setTimeout(() => doImportKantanBiz(process.env.KTP_TEST_IMPORT_FILE), 3000);
+    const testMode = !app.isPackaged || process.env.KTP_TEST_USER_DATA;
+    if (testMode && (process.env.KTP_TEST_IMPORT_FILE || process.env.KTP_TEST_VISIT)) {
+      setTimeout(async () => {
+        if (process.env.KTP_TEST_IMPORT_FILE) await doImportKantanBiz(process.env.KTP_TEST_IMPORT_FILE);
+        if (process.env.KTP_TEST_VISIT) await runTestVisits(process.env.KTP_TEST_VISIT.split(',').filter(Boolean));
+      }, 3000);
     }
   } catch (e) {
     log(`起動失敗 ${e.stack || e}`);
@@ -475,6 +535,8 @@ app.whenReady().then(() => {
   });
   boot();
 });
+
+app.on('child-process-gone', (_e, d) => log(`子プロセスが終了しました type=${d.type} reason=${d.reason} exitCode=${d.exitCode}`));
 
 app.on('activate', () => {
   if (!mainWindow && server) {

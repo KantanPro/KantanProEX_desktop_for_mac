@@ -16,6 +16,8 @@ fetch "https://downloads.wordpress.org/translation/core/${WP_VER}/ja.zip" "$DL/w
 fetch "https://downloads.wordpress.org/plugin/sqlite-database-integration.latest-stable.zip" "$DL/sqlite-database-integration.zip"
 
 echo "[1/5] WordPress 本体"
+# 前回の組み立て結果は WordPress の配布物由来で読み取り専用のファイルを含むので、権限を戻してから消す
+chmod -R u+w "$OUT" 2>/dev/null || true
 rm -rf "$OUT" && mkdir -p "$OUT"
 tar xzf "$DL/wordpress-${WP_VER}.tar.gz" -C "$OUT" --strip-components=1
 rm -rf "$OUT/wp-content/plugins/akismet" "$OUT/wp-content/plugins/hello.php" "$OUT/wp-config-sample.php" "$OUT/readme.html" "$OUT/license.txt"

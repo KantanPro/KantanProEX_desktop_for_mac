@@ -43,7 +43,8 @@
     ],
     "electronLanguages": [
       "ja",
-      "en"
+      "en",
+      "en-US"
     ],
     "mac": {
       "category": "public.app-category.business",
