@@ -57,7 +57,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 <main class="ktp-desktop-main">
 <?php
 // the_content を通さない（wpautop / wptexturize を避ける）。ショートコードだけ展開する
-echo do_shortcode( '[ktpwp_all_tab]' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+// デスクトップ版の独自の画面（ニュースレターなど）があればそれを、なければ通常のアプリ画面を出す
+$ktp_desktop_custom_page = apply_filters( 'ktp_desktop_custom_page', null );
+echo null !== $ktp_desktop_custom_page ? $ktp_desktop_custom_page : do_shortcode( '[ktpwp_all_tab]' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 ?>
 </main>
 <?php wp_footer(); ?>
