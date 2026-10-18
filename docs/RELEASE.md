@@ -33,8 +33,9 @@ Mac 版と同じリポジトリ・同じソース（`site/mu-plugins/`・`main.j
 2. **実機の Windows で動作確認する**（この Mac では Windows のアプリを動かせないため、自動テストはできない）
    - インストール → 起動 → 利用規約に同意 → 顧客・受注書を作る → 印刷（PDF 保存）→ 終了
    - KantanBiz の ZIP を「ファイル → KantanBiz から取り込む…」で取り込む
-3. 配布: kantanpro.com の商品に Windows 版の ZIP を足す（`zip -0 KantanProEX-DT-for-Windows-<版>.zip KantanProEX-Setup-<版>.exe`、
-   Mac 版と同じ手順でアップロード）。商品を分ける場合は ID を `update.json` と案内文に反映する
+3. 配布: kantanpro.com の WooCommerce 商品 **ID 19280**「【買い切り】KantanProEX（DT）for Windows」（Mac 版とは別の商品）の
+   ダウンロードファイルを差し替える（`zip -0 KantanProEX-DT-for-Windows-<版>.zip KantanProEX-Setup-<版>.exe` を、
+   Mac 版と同じ手順でアップロードし、`PUT wc/v3/products/19280` の `downloads` を更新。**`id`（UUID）は変えない**）
 4. `update.json` の Windows 用の `version_win` と `url_win` を書き換えて push（Mac 用の `version` / `url` とは別に進められる）
 
 ### Windows 版の注意
