@@ -6,7 +6,7 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 TEST_DIR="$PWD/work/test-userdata"
 # 前回のテスト用データには読み取り専用のファイル（WordPress の配布物由来）があるので、権限を戻してから消す
-chmod -R u+w "$TEST_DIR" 2>/dev/null || true
+chmod -R u+rwX "$TEST_DIR" 2>/dev/null || true
 rm -rf "$TEST_DIR" && mkdir -p "$TEST_DIR"
 env -u ELECTRON_RUN_AS_NODE KTP_TEST_USER_DATA="$TEST_DIR" KTP_DEBUG_PORT=9556 KTP_TEST_DOWNLOAD_DIR="$PWD/work/app-dl" \
   dist/mac/KantanProEX.app/Contents/MacOS/KantanProEX > work/test-dist.log 2>&1 &
