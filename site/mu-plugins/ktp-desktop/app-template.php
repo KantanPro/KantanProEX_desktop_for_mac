@@ -15,9 +15,20 @@ if ( ! defined( 'ABSPATH' ) ) {
 <html <?php language_attributes(); ?>>
 <head>
 <meta charset="<?php bloginfo( 'charset' ); ?>">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1<?php echo function_exists( 'ktp_dt_is_lan' ) && ktp_dt_is_lan() ? ', viewport-fit=cover' : ''; ?>">
 <meta name="color-scheme" content="light">
 <link rel="icon" href="data:,"><?php // アプリのウィンドウなのでファビコンは不要（/favicon.ico の 404 を防ぐ） ?>
+<?php if ( function_exists( 'ktp_dt_is_lan' ) && ktp_dt_is_lan() ) : // iPad などのホーム画面に追加したとき用 ?>
+<link rel="apple-touch-icon" href="<?php echo esc_url( WPMU_PLUGIN_URL . '/ktp-desktop/apple-touch-icon.png' ); ?>">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="KantanProEX">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="format-detection" content="telephone=no">
+<?php // iPad・iPhone では、隠し iframe の印刷が白紙になるので PDF にして共有シートへ出す（ios-print.js。iOS 以外では何もしない） ?>
+<script>window.ktpIosPrint=<?php echo wp_json_encode( array( 'html2canvas' => content_url( 'plugins/KantanProEX/js/lib/html2canvas.min.js' ), 'jspdf' => content_url( 'plugins/KantanProEX/js/lib/jspdf.umd.min.js' ) ) ); ?>;</script>
+<script src="<?php echo esc_url( WPMU_PLUGIN_URL . '/ktp-desktop/ios-print.js?v=' . (string) @filemtime( WPMU_PLUGIN_DIR . '/ktp-desktop/ios-print.js' ) ); ?>"></script>
+<?php endif; ?>
 <?php wp_head(); ?>
 <style id="ktp-desktop-base">
 	/* Cocoon の基本表示に合わせる（cocoon-master/style.css の「基本表示」） */
@@ -51,6 +62,26 @@ if ( ! defined( 'ABSPATH' ) ) {
 	.ktpwp-service-field-block--instant-purchase,
 	.ktpwp-service-field-block--public-html { display: none !important; }
 </style>
+<?php if ( function_exists( 'ktp_dt_is_lan' ) && ktp_dt_is_lan() ) : // LAN（iPad など）から開いたときだけ: タッチ操作向けの調整 ?>
+<style id="ktp-desktop-touch">
+	html { -webkit-text-size-adjust: 100%; }
+	.ktp-desktop-main { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+	/* 16px 未満の入力欄は、iPad の Safari で入力時に画面が拡大されてしまう */
+	.ktp-desktop-main input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]),
+	.ktp-desktop-main select,
+	.ktp-desktop-main textarea { font-size: 16px !important; }
+	/* 押せる範囲を 44px 以上に */
+	.ktp-desktop-main button,
+	.ktp-desktop-main input[type=button],
+	.ktp-desktop-main input[type=submit],
+	.ktp-desktop-main a.button { min-height: 44px; }
+	.ktp-desktop-main input[type=checkbox],
+	.ktp-desktop-main input[type=radio] { width: 22px; height: 22px; }
+	.ktp-desktop-main button, .ktp-desktop-main a, .ktp-desktop-main label, .ktp-desktop-main select { touch-action: manipulation; }
+	/* 幅の広い表は、画面からはみ出さず横にスクロールできるように */
+	.ktp-desktop-main .ktp-table-wrap, .ktp-desktop-main .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+</style>
+<?php endif; ?>
 </head>
 <body <?php body_class( 'ktp-desktop' ); ?>>
 <?php wp_body_open(); ?>

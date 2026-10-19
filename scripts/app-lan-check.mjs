@@ -3,6 +3,7 @@
 // 前提: work/lan-wp.sh でスタッフを作ってある（staff1=許可, staff2=未許可, kantanpro=管理者）。
 // 使い方: node scripts/app-lan-check.mjs <CDPポート 9557> <LANポート 47330> <PHPのポート 47321>
 import { createRequire } from 'node:module';
+import { execFileSync } from 'node:child_process';
 const require = createRequire('/Users/kantanpro/Desktop/PromoStudio/package.json');
 const { chromium } = require('playwright');
 const [cdp = '9557', lanPort = '47330', phpPort = '47321'] = process.argv.slice(2);
@@ -116,6 +117,52 @@ const ctx = await newCtx();
   const loc = forged.headers.get('location') || '';
   ok(forged.status === 302 && /ktp_desktop_relogin/.test(loc), `偽の合言葉は LAN 扱いにならない (${forged.status} ${loc.slice(0, 60)})`);
   await b2.close().catch(() => {});
+}
+
+// 4b. 事務所用の認証局（iPad 用プロファイルと .crt）はログインなしで取れる。オーナー許可（管理者の LAN 利用）
+{
+  const c0 = await newCtx();
+  const prof = await c0.request.get(`${BASE}/ktp-lan/ca.mobileconfig`);
+  const profBody = await prof.text();
+  ok(prof.status() === 200 && /application\/x-apple-aspen-config/.test(prof.headers()['content-type'] || '') && /com\.apple\.security\.root/.test(profBody) && !/PRIVATE KEY/.test(profBody), '構成プロファイルがログインなしで取れる（秘密鍵は含まない）');
+  const crt = await c0.request.get(`${BASE}/ktp-lan/ca.crt`);
+  ok(crt.status() === 200 && /x509-ca-cert/.test(crt.headers()['content-type'] || ''), 'CA 証明書 (.crt) が取れる');
+  const mu = await c0.request.get(`${BASE}/wp-content/mu-plugins/ktp-desktop/lan.php`);
+  ok(mu.status() === 403, `mu-plugins の PHP は見えない (${mu.status()})`);
+  const js = await c0.request.get(`${BASE}/wp-content/mu-plugins/ktp-desktop/webfax.js`);
+  ok(js.status() === 200, `mu-plugins の JS は読める (${js.status()})`);
+  await c0.close();
+
+  const wp = (...a) => execFileSync('bash', ['work/lan-wp.sh', ...a], { encoding: 'utf8' }).trim();
+  const adminId = wp('user', 'get', 'kantanpro', '--field=ID');
+  // オーナー許可がオフのままなら、メタが付いていても入れない
+  wp('user', 'meta', 'update', adminId, 'ktp_dt_lan_allowed', '1');
+  wp('user', 'meta', 'update', adminId, 'ktp_dt_lan_pass_set', '1');
+  wp('user', 'update', adminId, '--user_pass=AdminPass12345');
+  wp('option', 'update', 'ktp_dt_lan_allow_owner', '0');
+  const cOff = await newCtx();
+  const pOff = await tryLogin(cOff, 'kantanpro', 'AdminPass12345');
+  ok(/wp-login/.test(pOff.url()), 'オーナー許可がオフなら、管理者は入れない');
+  await cOff.close();
+  wp('option', 'update', 'ktp_dt_lan_allow_owner', '1');
+  const cOn = await newCtx();
+  const pOn = await tryLogin(cOn, 'kantanpro', 'AdminPass12345');
+  ok(!/wp-login/.test(pOn.url()), `オーナー許可がオンなら、管理者が入れる (${pOn.url().slice(0, 50)})`);
+  await pOn.waitForTimeout(2000);
+  const h = await pOn.content();
+  ok(/apple-touch-icon/.test(h) && /apple-mobile-web-app-capable/.test(h) && /ktp-desktop-touch/.test(h), 'ホーム画面用のアイコン・タッチ向け調整が入る');
+  ok((await cOn.request.get(`${BASE}/wp-admin/options-general.php`)).status() === 403, '管理者でも WordPress の設定は開けない');
+  ok((await cOn.request.get(`${BASE}/wp-admin/admin.php?page=ktp-settings`)).status() === 403, '管理者でも KantanProEX の設定は開けない');
+  await pOn.goto(`${BASE}/?ktp_dt_page=lan`, { waitUntil: 'domcontentloaded' });
+  ok(!(await pOn.locator('#ktp-dt-lan').count()), '管理者でも LAN 共有の設定画面は LAN から出ない');
+  for (const act of ['ktpwp_clear_data', 'ktpwp_create_dummy_data', 'ktpwp_export_data', 'ktp_dt_lan_owner_save', 'ktp_dt_fax_settings']) {
+    const r = await cOn.request.post(`${BASE}/wp-admin/admin-ajax.php`, { form: { action: act, nonce: 'x' } });
+    ok(r.status() === 403, `LAN からの ${act} は 403 (${r.status()})`);
+  }
+  const ap = await cOn.request.post(`${BASE}/wp-admin/admin-post.php`, { form: { action: 'ktpwp_restore_data' } });
+  ok(ap.status() === 403, `LAN からの復元は 403 (${ap.status()})`);
+  await cOn.close();
+  wp('option', 'update', 'ktp_dt_lan_allow_owner', '0');
 }
 
 // 5. 失敗が続くと止まる（最後に実行。止めた後は正しいパスワードでも入れない）
