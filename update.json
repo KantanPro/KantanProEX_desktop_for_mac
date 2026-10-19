@@ -1,8 +1,8 @@
 {
-  "version": "1.0.0",
-  "released": "2026-10-19",
-  "notes": "1.0.0 になりました。iPad から使えるようになりました（パソコンの画面にある QR を iPad のカメラで読み取るだけでつながります。左のメニュー「KantanProEX 設定」→「LAN 共有」）。オーナー（管理者）も iPad から使えるようにする設定、iPad での印刷（PDF → 共有シートから AirPrint）、右クリックでのコピーを追加しました。",
+  "version": "1.0.1",
+  "released": "2026-10-20",
+  "notes": "1.0.1 になりました。WordPress 版（KantanProEX（WP）1.4.46 以降）から書き出した移行用ファイルを、メニュー「ファイル」→「WordPress 版から取り込む…」で取り込めるようになりました。顧客・受注・サービス（画像も）・契約・帳票の設定とロゴ・印影・案件ファイル・スタッフが移ります。",
   "url": "https://www.kantanpro.com/wc-account/downloads/",
-  "version_win": "1.0.0",
+  "version_win": "1.0.1",
   "url_win": "https://www.kantanpro.com/wc-account/downloads/"
 }
