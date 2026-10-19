@@ -387,22 +387,55 @@ async function doRestore() {
   }
 }
 
-// KantanBiz（SaaS）の書き出し ZIP を取り込む（DT の業務データは入れ替わる）。
+// 取り込みの種類ごとの文言と、使う取り込みスクリプト
+const IMPORTS = {
+  kantanbiz: {
+    name: 'KantanBiz',
+    script: 'import-kantanbiz.php',
+    pickTitle: 'KantanBiz から書き出した ZIP ファイルを選んでください',
+    filterName: 'KantanBiz の移行用ファイル',
+    reason: 'before-kantanbiz-import',
+  },
+  wordpress: {
+    name: 'WordPress 版',
+    script: 'import-wordpress.php',
+    pickTitle: 'KantanProEX（WP）の「デスクトップ版へ移行」で書き出した ZIP ファイルを選んでください',
+    filterName: 'WordPress 版の移行用ファイル',
+    reason: 'before-wordpress-import',
+  },
+};
+
+// WordPress 版の取り込み結果（imported: client=7 order=22 ...）を、画面に出す文に直す
+function importSummary(kind, out) {
+  const body = out.replace(/^imported:\s*/, '');
+  if (kind !== 'wordpress') return body;
+  const n = Object.fromEntries(body.split(/\s+/).map((kv) => kv.split('=')).filter((a) => a.length === 2));
+  const parts = [['client', '顧客', '件'], ['order', '受注', '件'], ['service', 'サービス', '件'], ['supplier', '協力会社', '件'], ['contract', '定期契約', '件'], ['staff', 'スタッフ', '人'], ['files', 'ファイル', '件']]
+    .filter(([k]) => n[k] !== undefined)
+    .map(([k, label, unit]) => `${label} ${n[k]}${unit}`);
+  const notes = [];
+  if (n.staff && Number(n.staff) > 0) notes.push('スタッフは「KantanProEX 設定」→「LAN 共有」でパスワードを決めると使えるようになります。');
+  if (n.japanpost_key_needed) notes.push('日本郵便 API のシークレットキーは移行されません。設定画面で入れ直してから有効にしてください。');
+  return parts.join('・') + (notes.length ? `\n\n${notes.join('\n')}` : '');
+}
+
+// 移行用 ZIP（KantanBiz・WordPress 版）を取り込む（DT の業務データは入れ替わる）。
 // filePath を渡すと、選択・確認のダイアログを出さずに実行する（自動テスト用）
-async function doImportKantanBiz(filePath) {
+async function doImport(kind, filePath) {
+  const src = IMPORTS[kind];
   let file = filePath;
   if (!file) {
     const pick = await dialog.showOpenDialog(mainWindow, {
-      title: 'KantanBiz から書き出した ZIP ファイルを選んでください',
+      title: src.pickTitle,
       defaultPath: app.getPath('downloads'),
       properties: ['openFile'],
-      filters: [{ name: 'KantanBiz の移行用ファイル', extensions: ['zip'] }],
+      filters: [{ name: src.filterName, extensions: ['zip'] }],
     });
     if (pick.canceled || !pick.filePaths[0]) return;
     file = pick.filePaths[0];
     const ok = await dialog.showMessageBox(mainWindow, {
       type: 'warning',
-      message: 'KantanBiz のデータを取り込みますか？',
+      message: `${src.name}のデータを取り込みますか？`,
       detail: `${path.basename(file)}\n\nいまの顧客・案件・契約などのデータは、取り込んだ内容に入れ替わります。\n入れ替える前に、いまのデータを自動でバックアップします。`,
       buttons: ['取り込む', 'やめる'],
       defaultId: 1,
@@ -411,29 +444,32 @@ async function doImportKantanBiz(filePath) {
     if (ok.response !== 0) return;
   }
   try {
-    const backup = await createBackup(paths, { reason: 'before-kantanbiz-import' });
-    log(`KantanBiz 取り込み開始 ${file}（バックアップ ${backup}）`);
+    const backup = await createBackup(paths, { reason: src.reason });
+    log(`${src.name} 取り込み開始 ${file}（バックアップ ${backup}）`);
     // 取り込み中は画面側のアクセスで DB が競合しないよう、PHP の内蔵サーバーを止める
     await stopPhp();
     let out;
     try {
-      out = await wpCli(paths, ['eval-file', path.join(paths.site, 'ktp-desktop', 'import-kantanbiz.php'), file, '--user=kantanpro'], { KTP_DESKTOP_HOST: '127.0.0.1' });
+      out = await wpCli(paths, ['eval-file', path.join(paths.site, 'ktp-desktop', src.script), file, '--user=kantanpro'], { KTP_DESKTOP_HOST: '127.0.0.1' });
     } finally {
       await startPhp();
     }
-    log(`KantanBiz 取り込み完了 ${out}`);
-    mainWindow.loadURL(loginUrl());
+    log(`${src.name} 取り込み完了 ${out}`);
+    // 入り直しの画面が開き終わるまで待つ（続けて別の画面を開くと、使い捨てのログイン用トークンが食い違う）
+    await mainWindow.loadURL(loginUrl()).catch(() => {});
     if (!filePath) {
       const needSmtp = /smtp_password_needed=1/.test(out);
       dialog.showMessageBox(mainWindow, {
         type: 'info',
-        message: 'KantanBiz のデータを取り込みました',
-        detail: `${out.replace(/^imported:\s*/, '')}${needSmtp ? '\n\nメール送信（SMTP）のパスワードは移行されません。設定画面で入れ直してください。' : ''}`,
+        message: `${src.name}のデータを取り込みました`,
+        detail: `${importSummary(kind, out)}${needSmtp ? '\n\nメール送信（SMTP）のパスワードは移行されません。設定画面で入れ直してください。' : ''}`,
       });
     }
   } catch (e) {
-    log(`KantanBiz 取り込み失敗 ${e.message}`);
-    if (!filePath) dialog.showErrorBox('取り込めませんでした', `${String(e.message || e).split('\n')[0]}\n\nデータは取り込み前のままです。記録: ${path.join(paths.logs, 'app.log')}`);
+    log(`${src.name} 取り込み失敗 ${e.message}`);
+    // wp-cli のエラー（Error: ...）があればそれを、なければ 1 行目を見せる
+    const msg = (String(e.message || e).match(/Error: (.+)/) || [])[1] || String(e.message || e).split('\n')[0];
+    if (!filePath) dialog.showErrorBox('取り込めませんでした', `${msg}\n\nデータは取り込み前のままです。記録: ${path.join(paths.logs, 'app.log')}`);
     if (!server) await startPhp().catch(() => {});
   }
 }
@@ -510,7 +546,8 @@ function buildMenu() {
       submenu: [
         { label: 'バックアップを作成', accelerator: 'CmdOrCtrl+Shift+B', click: doBackup },
         { label: 'バックアップから復元…', click: doRestore },
-        { label: 'KantanBiz から取り込む…', click: () => doImportKantanBiz() },
+        { label: 'WordPress 版から取り込む…', click: () => doImport('wordpress') },
+        { label: 'KantanBiz から取り込む…', click: () => doImport('kantanbiz') },
         { label: 'LAN 共有（事務所の他の PC から使う）…', click: () => server && mainWindow && mainWindow.loadURL(`${server.baseUrl}/wp-admin/admin.php?page=ktp-dt-lan`) },
         { type: 'separator' },
         { label: 'バックアップのフォルダを開く', click: () => { fs.mkdirSync(paths.backups, { recursive: true }); shell.openPath(paths.backups); } },
@@ -569,9 +606,10 @@ async function boot() {
     openApp();
     // 自動テスト用: 取り込みを起動後に実行する（開発時、またはテスト用データ指定時のみ）
     const testMode = !app.isPackaged || process.env.KTP_TEST_USER_DATA;
-    if (testMode && (process.env.KTP_TEST_IMPORT_FILE || process.env.KTP_TEST_VISIT)) {
+    if (testMode && (process.env.KTP_TEST_IMPORT_FILE || process.env.KTP_TEST_IMPORT_WP_FILE || process.env.KTP_TEST_VISIT)) {
       setTimeout(async () => {
-        if (process.env.KTP_TEST_IMPORT_FILE) await doImportKantanBiz(process.env.KTP_TEST_IMPORT_FILE);
+        if (process.env.KTP_TEST_IMPORT_FILE) await doImport('kantanbiz', process.env.KTP_TEST_IMPORT_FILE);
+        if (process.env.KTP_TEST_IMPORT_WP_FILE) await doImport('wordpress', process.env.KTP_TEST_IMPORT_WP_FILE);
         if (process.env.KTP_TEST_VISIT) await runTestVisits(process.env.KTP_TEST_VISIT.split(',').filter(Boolean));
       }, 3000);
     }

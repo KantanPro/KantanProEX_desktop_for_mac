@@ -55,7 +55,7 @@ else
   echo "! $REG_SECRET_FILE が無いので、ニュースレター登録は動かないビルドになります"
 fi
 mkdir -p "$OUT/ktp-desktop"
-cp "$ROOT/assets/baseline-ddl.json" "$ROOT/scripts/baseline.php" "$ROOT/scripts/import-kantanbiz.php" "$OUT/ktp-desktop/"
+cp "$ROOT/assets/baseline-ddl.json" "$ROOT/scripts/baseline.php" "$ROOT/scripts/import-kantanbiz.php" "$ROOT/scripts/import-wordpress.php" "$OUT/ktp-desktop/"
 cp "$EX_DIR/wp-cli.phar" "$OUT/ktp-desktop/wp-cli.phar"
 # 初回セットアップで使う。Web からは見えないよう php -S の外（router で拒否）に置く
 EX_VER=$(grep -m1 -i "Version:" "$OUT/wp-content/plugins/KantanProEX/ktpwp.php" | sed -E 's/.*Version:[[:space:]]*([0-9.]+).*/\1/')

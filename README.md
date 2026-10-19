@@ -16,6 +16,16 @@ KantanProEX（WordPress プラグイン）を、ブラウザも WordPress サイ
 - データは `~/Library/Application Support/KantanProEX/` に置き、起動時に1日1回「書類」フォルダへ自動でバックアップします。
 - WordPress 版との違い（デスクトップ版で調整している内容）は `site/mu-plugins/ktp-desktop.php` にまとめています。プラグイン本体は改変しません。
 
+## WordPress 版（KantanProEX（WP））からの移行
+
+KantanProEX（WP）1.4.46 以降の「KantanProEX 設定 → バックアップ → デスクトップ版へ移行」で書き出した ZIP を、メニュー「ファイル」→「WordPress 版から取り込む…」で取り込みます（`scripts/import-wordpress.php`）。
+同じプラグインなので、業務データの表（顧客・受注・明細・コスト・契約・部署・協力会社・サービス・メール履歴・スタッフチャット・案件ファイル）は ID ごとそのまま入ります。帳票やメールの設定、帳票のロゴと印影、案件ファイル、サービス画像も移ります。
+
+- アプリ内の業務データは取り込んだ内容に入れ替わります。取り込み前に自動でバックアップします。
+- WP 版の管理者（書き出した人）はアプリのオーナーに、ほかの管理者・スタッフ（ktpwp_access）はスタッフになります。スタッフのパスワードは移らないので、「LAN 共有」の画面で決め直します。
+- SMTP のパスワード・日本郵便 API のシークレットキー・Stripe の鍵は書き出されません。日本郵便 API は入れ直すまで止めておきます。
+- 自動テスト: `KTP_TEST_USER_DATA=<別の場所> KTP_TEST_IMPORT_WP_FILE=<ZIP> npm start`
+
 ## KantanBiz（SaaS 版）からの移行
 
 KantanBiz のオーナーが「デスクトップ版へ移行」から書き出した ZIP を、メニュー「ファイル」→「KantanBiz から取り込む…」で取り込みます。
