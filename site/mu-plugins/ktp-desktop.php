@@ -20,7 +20,7 @@ if ( ! defined( 'KANTANPRO_PLUGIN_NAME' ) ) {
 }
 
 /**
- * 画面に出る版数は、中の KantanProEX 本体の番号（1.4.x）ではなく、デスクトップ版の番号（0.4.0 など）にする。
+ * 画面に出る版数は、中の KantanProEX 本体の番号（1.4.x）ではなく、デスクトップ版の番号（1.0.0 など）にする。
  * 本体の定数 KANTANPRO_PLUGIN_VERSION は、規約の再同意・DB の更新判定・キャッシュ対策に使われるので変えず、表示だけを置き換える。
  * KTP_DESKTOP_VERSION は Electron（lib/php.js）が渡す。
  */
