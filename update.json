@@ -1,8 +1,8 @@
 {
-  "version": "0.4.0",
+  "version": "1.0.0",
   "released": "2026-10-19",
-  "notes": "iPad から使えるようになりました。Mac の画面にある QR を iPad のカメラで読み取るだけでつながります（メニュー「設定」→「LAN 共有」）。オーナー（管理者）も iPad から使えるようにする設定、iPad での印刷（PDF → 共有シートから AirPrint）、右クリックでのコピーを追加し、画面に出る版数をアプリの番号（0.4.0）に統一しました。",
+  "notes": "1.0.0 になりました。iPad から使えるようになりました（パソコンの画面にある QR を iPad のカメラで読み取るだけでつながります。左のメニュー「KantanProEX 設定」→「LAN 共有」）。オーナー（管理者）も iPad から使えるようにする設定、iPad での印刷（PDF → 共有シートから AirPrint）、右クリックでのコピーを追加しました。",
   "url": "https://www.kantanpro.com/wc-account/downloads/",
-  "version_win": "0.3.0",
+  "version_win": "1.0.0",
   "url_win": "https://www.kantanpro.com/wc-account/downloads/"
 }
