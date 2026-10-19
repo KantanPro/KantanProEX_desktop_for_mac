@@ -85,7 +85,7 @@ const ctx = await newCtx();
   ok(kset.status() === 403, `KantanProEX の設定は開けない (${kset.status()})`);
   const prof = await ctx.request.get(`${BASE}/wp-admin/profile.php`);
   ok(prof.status() === 200 && /新しいパスワード|アカウント管理/.test(await prof.text()), `自分のプロフィールは開ける (${prof.status()})`);
-  const lanpage = await page.goto(`${BASE}/?ktp_dt_page=lan`, { waitUntil: 'domcontentloaded' });
+  const lanpage = await page.goto(`${BASE}/wp-admin/admin.php?page=ktp-dt-lan`, { waitUntil: 'domcontentloaded' });
   ok(!(await page.locator('#ktp-dt-lan').count()), 'LAN 共有の設定画面は LAN から出ない');
   // 受注書の画面
   await page.goto(`${BASE}/?tab_name=list`, { waitUntil: 'domcontentloaded' });
@@ -104,7 +104,7 @@ const ctx = await newCtx();
   const pg = b2.contexts()[0].pages().find((p) => p.url().startsWith('http://127.0.0.1:'));
   const base = new URL(pg.url()).origin;
   ok(!/wp-login|relogin/.test(pg.url()), `親機は自動ログインのまま (${pg.url().slice(0, 50)})`);
-  await pg.goto(`${base}/?ktp_dt_page=lan`, { waitUntil: 'domcontentloaded' }).catch(async () => { await pg.waitForTimeout(2000); await pg.goto(`${base}/?ktp_dt_page=lan`, { waitUntil: 'domcontentloaded' }); });
+  await pg.goto(`${base}/wp-admin/admin.php?page=ktp-dt-lan`, { waitUntil: 'domcontentloaded' }).catch(async () => { await pg.waitForTimeout(2000); await pg.goto(`${base}/wp-admin/admin.php?page=ktp-dt-lan`, { waitUntil: 'domcontentloaded' }); });
   await pg.waitForTimeout(1500);
   const body = (await pg.textContent('body')) || '';
   ok(/LAN 共有/.test(body) && /オン（他の PC から入れます）/.test(body), '親機の LAN 共有画面: オンと表示');
@@ -153,7 +153,7 @@ const ctx = await newCtx();
   ok(/apple-touch-icon/.test(h) && /apple-mobile-web-app-capable/.test(h) && /ktp-desktop-touch/.test(h), 'ホーム画面用のアイコン・タッチ向け調整が入る');
   ok((await cOn.request.get(`${BASE}/wp-admin/options-general.php`)).status() === 403, '管理者でも WordPress の設定は開けない');
   ok((await cOn.request.get(`${BASE}/wp-admin/admin.php?page=ktp-settings`)).status() === 403, '管理者でも KantanProEX の設定は開けない');
-  await pOn.goto(`${BASE}/?ktp_dt_page=lan`, { waitUntil: 'domcontentloaded' });
+  await pOn.goto(`${BASE}/wp-admin/admin.php?page=ktp-dt-lan`, { waitUntil: 'domcontentloaded' });
   ok(!(await pOn.locator('#ktp-dt-lan').count()), '管理者でも LAN 共有の設定画面は LAN から出ない');
   for (const act of ['ktpwp_clear_data', 'ktpwp_create_dummy_data', 'ktpwp_export_data', 'ktp_dt_lan_owner_save', 'ktp_dt_fax_settings']) {
     const r = await cOn.request.post(`${BASE}/wp-admin/admin-ajax.php`, { form: { action: act, nonce: 'x' } });

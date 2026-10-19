@@ -20,6 +20,82 @@ if ( ! defined( 'KANTANPRO_PLUGIN_NAME' ) ) {
 }
 
 /**
+ * 画面に出る版数は、中の KantanProEX 本体の番号（1.4.x）ではなく、デスクトップ版の番号（0.4.0 など）にする。
+ * 本体の定数 KANTANPRO_PLUGIN_VERSION は、規約の再同意・DB の更新判定・キャッシュ対策に使われるので変えず、表示だけを置き換える。
+ * KTP_DESKTOP_VERSION は Electron（lib/php.js）が渡す。
+ */
+function ktp_desktop_app_version() {
+	return (string) getenv( 'KTP_DESKTOP_VERSION' );
+}
+
+/** 本体の版数が出ている表示を、デスクトップ版の版数に置き換える */
+function ktp_desktop_replace_version_text( $html ) {
+	$app = ktp_desktop_app_version();
+	if ( '' === $app || ! defined( 'KANTANPRO_PLUGIN_VERSION' ) || ! is_string( $html ) || '' === $html ) {
+		return $html;
+	}
+	$ver  = esc_html( KANTANPRO_PLUGIN_VERSION );
+	$name = esc_html( KANTANPRO_PLUGIN_NAME );
+	$new  = esc_html( $app );
+	return str_replace(
+		array(
+			'<div class="version">v' . $ver . '</div>',
+			' v' . $ver . '</span>',
+			'<div class="system-name">' . $name . '</div>',
+			$name . $ver . '利用規約',
+			'</strong> ' . $ver . '</p>',
+		),
+		array(
+			'<div class="version">v' . $new . '</div>',
+			' v' . $new . '</span>',
+			// ヘッダーのアプリ名の横に、デスクトップ版の版数を小さく出す
+			'<div class="system-name">' . $name . '<span class="ktp-dt-app-version">v' . $new . '</span></div>',
+			$name . ' v' . $new . ' 利用規約',
+			'</strong> ' . $new . '</p>',
+		),
+		$html
+	);
+}
+
+// 規約ダイアログの見出し（本体は英語の書式を使う）。版数はデスクトップ版の番号にして、日本語にする
+add_filter(
+	'gettext',
+	function ( $translated, $text, $domain ) {
+		if ( 'ktpwp' === $domain && '%1$s %2$s Terms of Service' === $text && '' !== ktp_desktop_app_version() ) {
+			return '%1$s v' . str_replace( '%', '%%', ktp_desktop_app_version() ) . ' 利用規約';
+		}
+		return $translated;
+	},
+	10,
+	3
+);
+
+// 管理画面（KantanProEX の設定・規約・ダミーデータなど）の表示も置き換える。ダウンロード・ajax は触らない
+add_action(
+	'init',
+	function () {
+		if ( ! is_admin() || wp_doing_ajax() || 'GET' !== ( $_SERVER['REQUEST_METHOD'] ?? '' ) || '' === ktp_desktop_app_version() ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+			return;
+		}
+		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( 0 !== strpos( $page, 'ktp' ) ) {
+			return;
+		}
+		ob_start(
+			function ( $buffer ) {
+				foreach ( headers_list() as $h ) {
+					if ( 0 === stripos( $h, 'Content-Disposition' ) ) {
+						return $buffer;
+					}
+				}
+				return ktp_desktop_replace_version_text( $buffer );
+			}
+		);
+	},
+	0
+);
+
+/**
  * 画面はテーマを通さず、アプリ専用の素のテンプレートで出す。
  *
  * ブロックテーマはテンプレート全体に wptexturize をかけるため、ショートコード出力内の

@@ -3,7 +3,7 @@
 const path = require('node:path');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
-const { app, BrowserWindow, Menu, dialog, shell, session, nativeTheme, powerSaveBlocker } = require('electron');
+const { app, BrowserWindow, Menu, dialog, shell, session, nativeTheme, powerSaveBlocker, clipboard } = require('electron');
 
 // 開発中はインストール版とデータを分ける
 // 自動テスト用: KTP_TEST_USER_DATA を指定すると、配布版でも本人のデータとは別の場所で動く。
@@ -137,7 +137,7 @@ async function setLanEnabled(on) {
   log(`LAN 共有を${on ? 'オン' : 'オフ'}にする`);
   lan.writeConfig(paths, { enabled: on });
   await startLan();
-  if (mainWindow && server) mainWindow.loadURL(`${server.baseUrl}/?ktp_dt_page=lan`);
+  if (mainWindow && server) mainWindow.loadURL(`${server.baseUrl}/wp-admin/admin.php?page=ktp-dt-lan`);
 }
 
 async function stopPhp() {
@@ -235,6 +235,31 @@ function guardNavigation(contents) {
     }
     if (/^(https?|mailto|tel):/.test(url)) shell.openExternal(url);
     return { action: 'deny' };
+  });
+  // 右クリックのメニュー（Electron は何も出さないので自分で出す）。選択した文字のコピー、入力欄の切り取り・貼り付けなど
+  contents.on('context-menu', (_e, params) => {
+    const items = [];
+    const can = params.editFlags || {};
+    if (params.isEditable) {
+      items.push(
+        { role: 'undo', label: '元に戻す', enabled: !!can.canUndo },
+        { role: 'redo', label: 'やり直す', enabled: !!can.canRedo },
+        { type: 'separator' },
+        { role: 'cut', label: '切り取り', enabled: !!can.canCut },
+        { role: 'copy', label: 'コピー', enabled: !!can.canCopy },
+        { role: 'paste', label: '貼り付け', enabled: !!can.canPaste },
+        { role: 'selectAll', label: 'すべて選択', enabled: !!can.canSelectAll },
+      );
+    } else {
+      if (params.selectionText) items.push({ role: 'copy', label: 'コピー' });
+      if (params.linkURL && /^(https?|mailto|tel):/.test(params.linkURL)) {
+        items.push({ label: 'リンクのアドレスをコピー', click: () => clipboard.writeText(params.linkURL.replace(/^mailto:/, '')) });
+      }
+      if (params.mediaType === 'image' && params.srcURL) items.push({ role: 'copyImage', label: '画像をコピー' });
+      if (items.length) items.push({ type: 'separator' });
+      items.push({ role: 'selectAll', label: 'すべて選択' });
+    }
+    Menu.buildFromTemplate(items).popup({ window: BrowserWindow.fromWebContents(contents) || undefined });
   });
 }
 
@@ -486,7 +511,7 @@ function buildMenu() {
         { label: 'バックアップを作成', accelerator: 'CmdOrCtrl+Shift+B', click: doBackup },
         { label: 'バックアップから復元…', click: doRestore },
         { label: 'KantanBiz から取り込む…', click: () => doImportKantanBiz() },
-        { label: 'LAN 共有（事務所の他の PC から使う）…', click: () => server && mainWindow && mainWindow.loadURL(`${server.baseUrl}/?ktp_dt_page=lan`) },
+        { label: 'LAN 共有（事務所の他の PC から使う）…', click: () => server && mainWindow && mainWindow.loadURL(`${server.baseUrl}/wp-admin/admin.php?page=ktp-dt-lan`) },
         { type: 'separator' },
         { label: 'バックアップのフォルダを開く', click: () => { fs.mkdirSync(paths.backups, { recursive: true }); shell.openPath(paths.backups); } },
         { label: 'データのフォルダを開く', click: () => shell.openPath(paths.userData) },

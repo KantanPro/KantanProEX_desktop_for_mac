@@ -50,6 +50,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	table tr:nth-of-type(2n+1) { background-color: #fafbfc; }
 	table :where(th, td) { border: 1px solid #eee; }
 	#wpadminbar { display: none !important; }
+	.ktp-dt-app-version { display: inline-block; margin-left: 0.6em; font-size: 0.5em; font-weight: 400; opacity: 0.75; vertical-align: middle; white-space: nowrap; }
 	.ktp-desktop-main { max-width: none; margin: 0; padding: 12px 16px 24px; }
 
 	/* デスクトップ版では使わないもの（表示しないだけで、データはそのまま） */
@@ -90,7 +91,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 // the_content を通さない（wpautop / wptexturize を避ける）。ショートコードだけ展開する
 // デスクトップ版の独自の画面（ニュースレターなど）があればそれを、なければ通常のアプリ画面を出す
 $ktp_desktop_custom_page = apply_filters( 'ktp_desktop_custom_page', null );
-echo null !== $ktp_desktop_custom_page ? $ktp_desktop_custom_page : do_shortcode( '[ktpwp_all_tab]' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+$ktp_desktop_html = null !== $ktp_desktop_custom_page ? $ktp_desktop_custom_page : do_shortcode( '[ktpwp_all_tab]' );
+// ヘッダー・フッター・規約の版数は、中の KantanProEX 本体（1.4.x）ではなくデスクトップ版の版数にする（ktp-desktop.php）
+$ktp_desktop_html = ktp_desktop_replace_version_text( $ktp_desktop_html );
+echo $ktp_desktop_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 ?>
 </main>
 <?php wp_footer(); ?>

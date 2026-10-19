@@ -23,6 +23,7 @@ const KTP_DT_LAN_META    = 'ktp_dt_lan_allowed';
 const KTP_DT_LAN_MAX_FAIL = 5;
 const KTP_DT_LAN_LOCK_SEC = 900;
 const KTP_DT_LAN_MIN_PASS = 10;
+const KTP_DT_LAN_PAGE    = 'ktp-dt-lan';
 const KTP_DT_LAN_OWNER_OPT = 'ktp_dt_lan_allow_owner';
 const KTP_DT_LAN_OWNER_MIN_PASS = 12;
 
@@ -369,12 +370,8 @@ add_action(
 	}
 );
 
-add_filter(
-	'ktp_desktop_custom_page',
-	function ( $page ) {
-		if ( null !== $page || ! isset( $_GET['ktp_dt_page'] ) || 'lan' !== $_GET['ktp_dt_page'] || ! ktp_dt_lan_can_manage() ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			return $page;
-		}
+/** 設定メニューの下の「LAN 共有」画面（親機でだけ開ける）の中身 */
+function ktp_dt_lan_page_html() {
 		$st      = ktp_dt_lan_status();
 		$on      = ! empty( $st['enabled'] );
 		$staff   = ktp_dt_lan_staff_users();
@@ -518,5 +515,40 @@ add_filter(
 </script>
 		<?php
 		return (string) ob_get_clean();
-	}
+}
+
+/** サイドバーの設定メニュー（KantanProEX 設定）の下に置く。LAN から来た要求には出さない */
+add_action(
+	'admin_menu',
+	function () {
+		if ( ktp_dt_is_lan() ) {
+			return;
+		}
+		add_submenu_page(
+			'ktp-settings',
+			'LAN 共有',
+			'LAN 共有',
+			'manage_options',
+			KTP_DT_LAN_PAGE,
+			function () {
+				if ( ! ktp_dt_lan_can_manage() ) {
+					return;
+				}
+				echo '<div class="wrap">' . ktp_dt_lan_page_html() . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			}
+		);
+	},
+	PHP_INT_MAX
+);
+
+/** 以前の画面のアドレス（?ktp_dt_page=lan）は、設定メニューの画面へ転送する */
+add_action(
+	'init',
+	function () {
+		if ( isset( $_GET['ktp_dt_page'] ) && 'lan' === $_GET['ktp_dt_page'] && ktp_dt_lan_can_manage() ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			wp_safe_redirect( admin_url( 'admin.php?page=' . KTP_DT_LAN_PAGE ) );
+			exit;
+		}
+	},
+	20
 );
