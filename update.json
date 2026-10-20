@@ -1,8 +1,8 @@
 {
-  "version": "1.0.1",
+  "version": "1.0.2",
   "released": "2026-10-20",
-  "notes": "1.0.1 になりました。WordPress 版（KantanProEX（WP）1.4.46 以降）から書き出した移行用ファイルを、メニュー「ファイル」→「WordPress 版から取り込む…」で取り込めるようになりました。顧客・受注・サービス（画像も）・契約・帳票の設定とロゴ・印影・案件ファイル・スタッフが移ります。",
+  "notes": "1.0.2 になりました。仕事リストの「並び順」を進捗ボタンの下に移し、並べ替えの説明文を整理しました。受注CSVの書き出しは、設定メニューの「受注CSV書き出し」に移りました。「定期のみ」から「すべて」に切り替えたとき、表示が戻ってしまう不具合を直しました。",
   "url": "https://www.kantanpro.com/wc-account/downloads/",
-  "version_win": "1.0.1",
+  "version_win": "1.0.2",
   "url_win": "https://www.kantanpro.com/wc-account/downloads/"
 }
