@@ -333,6 +333,8 @@ add_action(
 			. '#wpadminbar{display:none!important}html.wp-toolbar{padding-top:0!important}'
 			. '#contextual-help-link-wrap,#screen-options-link-wrap,#wpfooter,.update-nag,#wp-admin-bar-wp-logo{display:none!important}'
 			. '#adminmenu .toplevel_page_ktp-desktop-back .wp-menu-name{font-weight:600}'
+			// FileMaker 版データ取り込みは、上部のファイルメニュー（各種取り込み）から開く。ページは残し、左メニューの項目だけ隠す
+			. '#adminmenu a[href$="page=ktp-fm-import"]{display:none!important}'
 			. '</style>';
 	}
 );
