@@ -52,6 +52,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	#wpadminbar { display: none !important; }
 	.ktp-dt-app-version { display: inline-block; margin-left: 0.6em; font-size: 0.5em; font-weight: 400; opacity: 0.75; vertical-align: middle; white-space: nowrap; }
 	.ktp-desktop-main { max-width: none; margin: 0; padding: 12px 16px 24px; }
+	/* 結果報告の通知（緑）がヘッダー（z-index 100000〜100002）の後ろに隠れるので、常に最前面へ */
+	.success-notification,
+	.ktp-floating-notification { z-index: 2147483647 !important; }
 
 	/* デスクトップ版では使わないもの（表示しないだけで、データはそのまま） */
 	/* 規約画面の「ホームへ」: トップページがこの画面そのものなので、押しても同じ画面に戻るだけ */
