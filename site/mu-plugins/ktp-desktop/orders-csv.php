@@ -1,6 +1,6 @@
 <?php
 /**
- * 受注の CSV 書き出し（KantanBiz の OrderExportController 相当）。仕事リストの上に期間指定の欄を出す。
+ * 受注の CSV 書き出し（KantanBiz の OrderExportController 相当）。設定メニュー「受注CSV書き出し」から期間を指定して出す（仕事リストには出さない）。
  *
  * 列: 受注ID・作成日時・顧客・案件名・進捗・金額・約束納期・メモ（UTF-8 BOM つき）。
  * 期間は作成日で絞る（既定は今月）。金額は請求項目の合計（仮の行は除く）。
@@ -84,27 +84,41 @@ add_action(
 	}
 );
 
-add_filter(
-	'do_shortcode_tag',
-	function ( $output, $tag ) {
-		if ( ! in_array( $tag, array( 'kantanAllTab', 'ktpwp_all_tab', 'kantanpro_ex' ), true ) ) {
-			return $output;
-		}
-		$marker = '<div class="ktp_work_list_box">';
-		if ( ! isset( $_GET['tab_name'] ) || 'list' !== $_GET['tab_name'] || false === strpos( $output, $marker ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			return $output;
-		}
-		$tz   = wp_timezone();
-		$from = ( new DateTimeImmutable( 'first day of this month', $tz ) )->format( 'Y-m-d' );
-		$to   = ( new DateTimeImmutable( 'last day of this month', $tz ) )->format( 'Y-m-d' );
-		$url  = wp_nonce_url( admin_url( 'admin-ajax.php?action=' . KTP_DT_CSV_ACTION ), KTP_DT_CSV_ACTION );
-		$html = '<div class="ktp-dt-csv" style="margin:0 0 8px;font-size:13px;">受注CSV（作成日）：'
-			. '<input type="date" id="ktp-dt-csv-from" value="' . esc_attr( $from ) . '" style="font-size:13px;"> 〜 '
-			. '<input type="date" id="ktp-dt-csv-to" value="' . esc_attr( $to ) . '" style="font-size:13px;"> '
-			. '<a href="' . esc_url( $url ) . '" id="ktp-dt-csv-link" style="margin-left:6px;">CSVを書き出す</a></div>'
-			. '<script>(function(){var l=document.getElementById("ktp-dt-csv-link");if(!l)return;l.addEventListener("click",function(e){var u=new URL(l.href);u.searchParams.set("from",document.getElementById("ktp-dt-csv-from").value);u.searchParams.set("to",document.getElementById("ktp-dt-csv-to").value);l.href=u.toString();});})();</script>';
-		return str_replace( $marker, $html . $marker, $output );
+/**
+ * 受注 CSV の書き出し画面。仕事リストには出さず、設定メニュー（KantanProEX 設定）の下に置く。
+ * 書き出し本体は上の wp_ajax ハンドラ。
+ */
+add_action(
+	'admin_menu',
+	function () {
+		add_submenu_page(
+			'ktp-settings',
+			'受注CSV書き出し',
+			'受注CSV書き出し',
+			'manage_options',
+			'ktp-desktop-orders-csv',
+			function () {
+				$tz   = wp_timezone();
+				$from = ( new DateTimeImmutable( 'first day of this month', $tz ) )->format( 'Y-m-d' );
+				$to   = ( new DateTimeImmutable( 'last day of this month', $tz ) )->format( 'Y-m-d' );
+				$url  = wp_nonce_url( admin_url( 'admin-ajax.php?action=' . KTP_DT_CSV_ACTION ), KTP_DT_CSV_ACTION );
+				?>
+				<div class="wrap">
+					<h1>受注CSV書き出し</h1>
+					<p>作成日が期間内の受注を CSV（UTF-8）で書き出します。列は 受注ID・作成日時・顧客・案件名・進捗・金額・約束納期・メモ です。</p>
+					<p>
+						作成日：
+						<input type="date" id="ktp-dt-csv-from" value="<?php echo esc_attr( $from ); ?>"> 〜
+						<input type="date" id="ktp-dt-csv-to" value="<?php echo esc_attr( $to ); ?>">
+						<a href="<?php echo esc_url( $url ); ?>" id="ktp-dt-csv-link" class="button button-primary" style="margin-left:8px;">CSVを書き出す</a>
+					</p>
+				</div>
+				<script>
+				(function(){var l=document.getElementById("ktp-dt-csv-link");l.addEventListener("click",function(){var u=new URL(l.href);u.searchParams.set("from",document.getElementById("ktp-dt-csv-from").value);u.searchParams.set("to",document.getElementById("ktp-dt-csv-to").value);l.href=u.toString();});})();
+				</script>
+				<?php
+			}
+		);
 	},
-	11,
-	2
+	PHP_INT_MAX
 );

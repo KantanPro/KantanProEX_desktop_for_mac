@@ -90,7 +90,7 @@ add_filter(
 	}
 );
 
-/** 並び替えの選択欄を仕事リストの上に出す */
+/** 並び替えの選択欄を、6つの進捗ボタンの下にセンター寄せで出す */
 add_filter(
 	'do_shortcode_tag',
 	function ( $output, $tag ) {
@@ -98,16 +98,30 @@ add_filter(
 			return $output;
 		}
 		$marker = '<div class="ktp_work_list_box">';
-		if ( ! isset( $_GET['tab_name'] ) || 'list' !== $_GET['tab_name'] || false === strpos( $output, $marker ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( ! isset( $_GET['tab_name'] ) || 'list' !== $_GET['tab_name'] || ( false === strpos( $output, $marker ) && false === strpos( $output, 'ktp-list-progress-filter' ) ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			return $output;
 		}
+		// 本体が受注タブに出す「ソート順: 約束納期…」の固定文は、並び順を変えても残って食い違うので消す
+		// （標準の並びは選択欄の「標準（受注は納期順、他は新しい順）」に書いてある）
+		$output  = preg_replace( '/<div class="ktp-list-sort-notice">.*?<\/div>/s', '', $output );
 		$current = ktp_dt_sort_current();
-		$html    = '<div class="ktp-dt-sort" style="margin:0 0 8px;font-size:13px;"><label>並び順：<select id="ktp-dt-sort-select" style="font-size:13px;padding:2px 6px;">';
+		$html    = '<div class="ktp-dt-sort" style="margin:-8px 0 0;font-size:13px;line-height:1;text-align:center;"><label>並び順：<select id="ktp-dt-sort-select" style="font-size:13px;padding:2px 6px;">';
 		foreach ( ktp_dt_sort_options() as $value => $label ) {
 			$html .= '<option value="' . esc_attr( $value ) . '"' . selected( $current, $value, false ) . '>' . esc_html( $label ) . '</option>';
 		}
 		$html .= '</select></label></div>';
+		// 並び順の下の空きを詰める（一覧の枠の上パディング 20px を 0 に）
+		$html .= '<style>#list_content .ktp_work_list_box{padding-top:0}</style>';
 		$html .= '<script>(function(){var s=document.getElementById("ktp-dt-sort-select");if(!s)return;s.addEventListener("change",function(){var u=new URL(window.location.href);u.searchParams.set("sort",s.value);u.searchParams.delete("page_start");window.location.href=u.toString();});})();</script>';
+		// 6つの進捗ボタン（.ktp-list-progress-filter）の直下に、センター寄せで入れる
+		$pf = strpos( $output, 'ktp-list-progress-filter' );
+		if ( false !== $pf ) {
+			// 進捗ボタン（<a class="progress-btn">…</a>）が続く範囲だけを対象にして、その直後の </div> の後ろへ入れる
+			if ( preg_match( '/\G(?:\s*<a [^>]*class="progress-btn"[^>]*>.*?<\/a>)+\s*<\/div>/s', $output, $m, 0, strpos( $output, '>', $pf ) + 1 ) ) {
+				$end = strpos( $output, $m[0], $pf ) + strlen( $m[0] );
+				return substr_replace( $output, $html, $end, 0 );
+			}
+		}
 		return str_replace( $marker, $html . $marker, $output );
 	},
 	10,
