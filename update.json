@@ -1,8 +1,8 @@
 {
-  "version": "1.0.2",
+  "version": "1.0.3",
   "released": "2026-10-20",
-  "notes": "1.0.2 になりました。仕事リストの「並び順」を進捗ボタンの下に移し、並べ替えの説明文を整理しました。受注CSVの書き出しは、設定メニューの「受注CSV書き出し」に移りました。「定期のみ」から「すべて」に切り替えたとき、表示が戻ってしまう不具合を直しました。",
+  "notes": "1.0.3 になりました。メニュー「ファイル」→「各種取り込み」に、WordPress 版・KantanBiz・FileMaker 版の取り込みをまとめました。FileMaker 版データ取り込みは、設定メニューからこちらに移りました。",
   "url": "https://www.kantanpro.com/wc-account/downloads/",
-  "version_win": "1.0.2",
+  "version_win": "1.0.3",
   "url_win": "https://www.kantanpro.com/wc-account/downloads/"
 }
