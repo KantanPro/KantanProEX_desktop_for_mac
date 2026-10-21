@@ -3,6 +3,6 @@
   "released": "2026-10-21",
   "notes": "1.0.4 になりました。顧客を削除したあと、仕事リストの進捗ボタンの件数（例: 受注 (3)）が古いまま残る不具合を直しました。",
   "url": "https://www.kantanpro.com/wc-account/downloads/",
-  "version_win": "1.0.3",
+  "version_win": "1.0.4",
   "url_win": "https://www.kantanpro.com/wc-account/downloads/"
 }
