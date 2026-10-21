@@ -1,8 +1,8 @@
 {
-  "version": "1.0.4",
+  "version": "1.0.5",
   "released": "2026-10-21",
-  "notes": "1.0.4 になりました。顧客を削除したあと、仕事リストの進捗ボタンの件数（例: 受注 (3)）が古いまま残る不具合を直しました。",
+  "notes": "1.0.5 になりました。協力会社を削除したあと、協力会社の画面に戻らず仕事リストに移ってしまう不具合を直しました（協力会社の追加・複製のあとも同様でした）。",
   "url": "https://www.kantanpro.com/wc-account/downloads/",
-  "version_win": "1.0.4",
+  "version_win": "1.0.5",
   "url_win": "https://www.kantanpro.com/wc-account/downloads/"
 }
