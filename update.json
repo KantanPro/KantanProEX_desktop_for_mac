@@ -1,7 +1,7 @@
 {
-  "version": "1.0.3",
-  "released": "2026-10-20",
-  "notes": "1.0.3 になりました。メニュー「ファイル」→「各種取り込み」に、WordPress 版・KantanBiz・FileMaker 版の取り込みをまとめました。FileMaker 版データ取り込みは、設定メニューからこちらに移りました。",
+  "version": "1.0.4",
+  "released": "2026-10-21",
+  "notes": "1.0.4 になりました。顧客を削除したあと、仕事リストの進捗ボタンの件数（例: 受注 (3)）が古いまま残る不具合を直しました。",
   "url": "https://www.kantanpro.com/wc-account/downloads/",
   "version_win": "1.0.3",
   "url_win": "https://www.kantanpro.com/wc-account/downloads/"
