@@ -1,8 +1,8 @@
 {
-  "version": "1.0.5",
-  "released": "2026-10-21",
-  "notes": "1.0.5 になりました。協力会社を削除したあと、協力会社の画面に戻らず仕事リストに移ってしまう不具合を直しました（協力会社の追加・複製のあとも同様でした）。",
+  "version": "1.0.6",
+  "released": "2026-10-22",
+  "notes": "1.0.6 になりました。日本郵便の郵便番号・デジタルアドレス API で、2026年3月19日以降に登録した新しいクライアントID・シークレットが使えなかった不具合を直しました（それ以前に登録したものも引き続き使えます）。",
   "url": "https://www.kantanpro.com/wc-account/downloads/",
-  "version_win": "1.0.5",
+  "version_win": "1.0.6",
   "url_win": "https://www.kantanpro.com/wc-account/downloads/"
 }
