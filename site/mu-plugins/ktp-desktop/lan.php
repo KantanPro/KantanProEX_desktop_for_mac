@@ -8,7 +8,7 @@
  *
  * LAN から来た要求:
  * - 自動ログインは使えない。パスワードでのログインが必要
- * - ログインできるのは、親機のオーナーが「LAN で使う」を許可したスタッフだけ。管理者は、オーナー許可（既定オフ）をオンにし LAN 用パスワードを決めたときだけ
+ * - ログインできるのは、「スタッフ管理」でオンにしていて、親機のオーナーが「LAN で使う」を許可したスタッフだけ。管理者は、オーナー許可（既定オフ）をオンにし LAN 用パスワードを決めたときだけ
  * - 失敗は IP・ログイン名ごとに 5 回で 15 分止める
  * - 設定（manage_options の画面）・WordPress の管理画面は開けない。開けるのは自分のプロフィール（パスワード変更）だけ
  * 親機の画面（127.0.0.1）は今までどおり、自動ログイン。
@@ -54,7 +54,8 @@ function ktp_dt_lan_user_ok( $user ) {
 			&& '1' === (string) get_user_meta( $user->ID, KTP_DT_LAN_META, true )
 			&& '1' === (string) get_user_meta( $user->ID, 'ktp_dt_lan_pass_set', true );
 	}
-	return '1' === (string) get_user_meta( $user->ID, KTP_DT_LAN_META, true );
+	// 「スタッフ管理」でオフ（KantanPro 利用権限なし）のスタッフは、LAN の許可が残っていても入れない
+	return user_can( $user, 'ktpwp_access' ) && '1' === (string) get_user_meta( $user->ID, KTP_DT_LAN_META, true );
 }
 
 function ktp_dt_lan_generic_error() {
@@ -249,11 +250,11 @@ function ktp_dt_lan_can_manage() {
 	return ! ktp_dt_is_lan() && is_user_logged_in() && current_user_can( 'manage_options' );
 }
 
-/** 一覧に出すスタッフ（管理者は出さない。LAN では使えない） */
+/** 一覧に出すスタッフ（「スタッフ管理」でオンにしてある人だけ。管理者は出さない） */
 function ktp_dt_lan_staff_users() {
 	$out = array();
 	foreach ( get_users( array( 'orderby' => 'ID' ) ) as $u ) {
-		if ( ! in_array( 'administrator', (array) $u->roles, true ) ) {
+		if ( ! in_array( 'administrator', (array) $u->roles, true ) && user_can( $u, 'ktpwp_access' ) ) {
 			$out[] = $u;
 		}
 	}
@@ -274,6 +275,9 @@ add_action(
 		$user = get_user_by( 'id', (int) ( $_POST['user_id'] ?? 0 ) );
 		if ( ! $user || in_array( 'administrator', (array) $user->roles, true ) ) {
 			wp_send_json_error( array( 'message' => 'このユーザーは設定できません。' ) );
+		}
+		if ( ! user_can( $user, 'ktpwp_access' ) ) {
+			wp_send_json_error( array( 'message' => 'このスタッフは「スタッフ管理」でオフになっています。先にスタッフ管理でオンにしてください。' ) );
 		}
 		$allowed = ! empty( $_POST['allowed'] ) && '0' !== $_POST['allowed'];
 		$pass    = isset( $_POST['password'] ) ? (string) wp_unslash( $_POST['password'] ) : '';
@@ -375,6 +379,9 @@ add_action(
 		if ( ! ktp_dt_lan_check_password( $pass ) ) {
 			wp_send_json_error( array( 'message' => 'パスワードは ' . KTP_DT_LAN_MIN_PASS . ' 文字以上にしてください。' ) );
 		}
+		if ( class_exists( 'KTPWP_Edition' ) && ! KTPWP_Edition::can_add_staff() ) {
+			wp_send_json_error( array( 'message' => KTPWP_Edition::get_staff_limit_reached_message() ) );
+		}
 		$id = wp_insert_user(
 			array(
 				'user_login'   => $login,
@@ -387,6 +394,7 @@ add_action(
 		if ( is_wp_error( $id ) ) {
 			wp_send_json_error( array( 'message' => $id->get_error_message() ) );
 		}
+		( new WP_User( $id ) )->add_cap( 'ktpwp_access' ); // 「スタッフ管理」でもオンになる
 		update_user_meta( $id, KTP_DT_LAN_META, '1' );
 		update_user_meta( $id, 'ktp_dt_lan_pass_set', '1' );
 		wp_send_json_success( array( 'message' => 'スタッフを追加しました。' ) );
@@ -467,7 +475,7 @@ function ktp_dt_lan_page_html() {
 	<p style="color:#6b7280;font-size:12px;margin-top:-6px;">ログイン名は、オーナーのログイン名（<code><?php echo esc_html( wp_get_current_user()->user_login ); ?></code>）です。</p>
 
 	<h3 style="margin:18px 0 6px;">LAN で使うスタッフ</h3>
-	<p style="color:#6b7280;font-size:13px;">許可したスタッフだけが、他の PC からログインできます。オーナー（管理者）は、上の設定をオンにしたときだけ使えます。パスワードは <?php echo (int) KTP_DT_LAN_MIN_PASS; ?> 文字以上。パスワードの欄を空にして保存すると、いまのパスワードのままです。</p>
+	<p style="color:#6b7280;font-size:13px;">ここに出るのは、<a href="<?php echo esc_url( admin_url( 'admin.php?page=ktp-staff' ) ); ?>">「スタッフ管理」</a>でオンにしているスタッフだけです。スタッフ管理でオフにすると、LAN からも入れなくなります。許可したスタッフだけが、他の PC からログインできます。オーナー（管理者）は、上の設定をオンにしたときだけ使えます。パスワードは <?php echo (int) KTP_DT_LAN_MIN_PASS; ?> 文字以上。パスワードの欄を空にして保存すると、いまのパスワードのままです。</p>
 	<table style="width:100%;border-collapse:collapse;" id="lan-staff">
 		<thead><tr style="text-align:left;border-bottom:1px solid #d1d5db;"><th style="padding:6px;">名前</th><th style="padding:6px;">ログイン名</th><th style="padding:6px;">LAN で使う</th><th style="padding:6px;">パスワード（変えるとき）</th><th></th></tr></thead>
 		<tbody>
@@ -481,7 +489,7 @@ function ktp_dt_lan_page_html() {
 			</tr>
 		<?php endforeach; ?>
 		<?php if ( ! $staff ) : ?>
-			<tr><td colspan="5" style="padding:8px;color:#6b7280;">スタッフはまだいません。下から追加してください。</td></tr>
+			<tr><td colspan="5" style="padding:8px;color:#6b7280;">LAN で使えるスタッフはまだいません。下から追加するか、「スタッフ管理」でオンにしてください。</td></tr>
 		<?php endif; ?>
 		</tbody>
 	</table>
