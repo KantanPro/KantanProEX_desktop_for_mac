@@ -336,6 +336,26 @@ function ktp_dt_lan_has_lan_password( $user ) {
 	return '1' === (string) get_user_meta( $user->ID, 'ktp_dt_lan_pass_set', true );
 }
 
+/** LAN のスタッフを削除する（管理者・自分自身は削除できない。そのスタッフが書いた投稿などは、オーナーに引き継ぐ） */
+add_action(
+	'wp_ajax_ktp_dt_lan_user_delete',
+	function () {
+		check_ajax_referer( KTP_DT_LAN_NONCE, 'nonce' );
+		if ( ! ktp_dt_lan_can_manage() ) {
+			wp_send_json_error( array( 'message' => '親機の画面でオーナーだけが操作できます。' ), 403 );
+		}
+		$user = get_user_by( 'id', (int) ( $_POST['user_id'] ?? 0 ) );
+		if ( ! $user || in_array( 'administrator', (array) $user->roles, true ) || get_current_user_id() === (int) $user->ID ) {
+			wp_send_json_error( array( 'message' => 'このユーザーは削除できません。' ) );
+		}
+		require_once ABSPATH . 'wp-admin/includes/user.php';
+		if ( ! wp_delete_user( (int) $user->ID, get_current_user_id() ) ) {
+			wp_send_json_error( array( 'message' => '削除できませんでした。' ) );
+		}
+		wp_send_json_success( array( 'message' => 'スタッフ「' . $user->display_name . '」を削除しました。' ) );
+	}
+);
+
 add_action(
 	'wp_ajax_ktp_dt_lan_user_add',
 	function () {
@@ -457,7 +477,7 @@ function ktp_dt_lan_page_html() {
 				<td style="padding:6px;"><code><?php echo esc_html( $u->user_login ); ?></code></td>
 				<td style="padding:6px;"><input type="checkbox" class="lan-allowed" <?php checked( ktp_dt_lan_user_ok( $u ) ); ?>></td>
 				<td style="padding:6px;"><input type="password" class="lan-pass" autocomplete="new-password" placeholder="<?php echo ktp_dt_lan_has_lan_password( $u ) ? '設定済み' : '未設定'; ?>" style="padding:4px;width:100%;"></td>
-				<td style="padding:6px;"><button type="button" class="lan-save" style="padding:3px 12px;">保存</button></td>
+				<td style="padding:6px;white-space:nowrap;"><button type="button" class="lan-save" style="padding:3px 12px;">保存</button> <button type="button" class="lan-del" style="padding:3px 12px;color:#b91c1c;">削除</button></td>
 			</tr>
 		<?php endforeach; ?>
 		<?php if ( ! $staff ) : ?>
@@ -510,6 +530,11 @@ function ktp_dt_lan_page_html() {
 		post('ktp_dt_lan_user_save',{user_id:tr.dataset.user,allowed:tr.querySelector('.lan-allowed').checked?'1':'0',password:tr.querySelector('.lan-pass').value},function(){
 			var p=tr.querySelector('.lan-pass');if(p.value){p.placeholder='設定済み';}p.value='';
 		});
+	};});
+	w.querySelectorAll('#lan-staff .lan-del').forEach(function(b){b.onclick=function(){
+		var tr=b.closest('tr'),name=tr.children[0].textContent.trim();
+		if(!window.confirm('スタッフ「'+name+'」を削除します。元に戻せません。よろしいですか？')){return;}
+		post('ktp_dt_lan_user_delete',{user_id:tr.dataset.user},function(){tr.parentNode.removeChild(tr);});
 	};});
 	document.getElementById('lan-owner-save').onclick=function(){
 		var p=document.getElementById('lan-owner-pass');
