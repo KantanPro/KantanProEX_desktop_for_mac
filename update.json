@@ -1,8 +1,8 @@
 {
-  "version": "1.0.18",
+  "version": "1.0.19",
   "released": "2026-10-24",
-  "notes": "1.0.18 になりました。サービス・顧客・協力会社のリストで、列の見出しを2回押しても昇順にならず、降順のままになる不具合を修正しました。1回目で並べ替え、2回目で逆順になります（WordPress 版と同じ動きです）。",
+  "notes": "1.0.19 になりました。受注書のコスト項目で協力会社の職能を選ぶと「登録されている職能がありません」と表示される不具合と、売上台帳 PDF が作れない不具合を修正しました（デスクトップ版の内蔵データベースで動かない命令が原因でした）。",
   "url": "https://www.kantanpro.com/wc-account/downloads/",
-  "version_win": "1.0.18",
+  "version_win": "1.0.19",
   "url_win": "https://www.kantanpro.com/wc-account/downloads/"
 }
