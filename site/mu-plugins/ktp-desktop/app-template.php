@@ -61,10 +61,20 @@ if ( ! defined( 'ABSPATH' ) ) {
 	.ktpwp-terms-modal .ktpwp-home-link { display: none !important; }
 	/* サービスの公開商品の欄: 公開の販売ページ（外部サイト）が前提 */
 	.ktpwp-service-public-field,
-	.ktpwp-service-field-block--stock,
 	.ktpwp-service-field-block--public-quantity,
 	.ktpwp-service-field-block--instant-purchase,
 	.ktpwp-service-field-block--public-html { display: none !important; }
+	/* サービスの在庫数・契約・定期請求項目・初回費用は、WP 版に合わせてラベルを入力欄の上に左揃えで積む（既定は左 25% にラベルを置く並び） */
+	.ktp-desktop-main .ktpwp-service-field-block,
+	.ktp-desktop-main .ktpwp-service-field-block--recurring .ktpwp-service-field-block__label,
+	.ktp-desktop-main .ktpwp-service-field-block--initial-fees .ktpwp-service-field-block__label { display: block; }
+	.ktp-desktop-main .ktpwp-service-field-block__label,
+	.ktp-desktop-main .ktpwp-service-field-block--recurring .ktpwp-service-field-block__label-text,
+	.ktp-desktop-main .ktpwp-service-field-block--recurring .ktpwp-service-field-block__hint,
+	.ktp-desktop-main .ktpwp-service-field-block--initial-fees .ktpwp-service-field-block__label-text,
+	.ktp-desktop-main .ktpwp-service-field-block--initial-fees .ktpwp-service-field-block__hint { text-align: left; padding-top: 0; }
+	.ktp-desktop-main .ktpwp-service-field-block__label-text.ktpwp-service-field-block__section-title { margin-top: 0; }
+	.ktp-desktop-main .ktpwp-service-field-block__hint { margin-bottom: 6px; }
 </style>
 <?php if ( function_exists( 'ktp_dt_is_lan' ) && ktp_dt_is_lan() ) : // LAN（iPad など）から開いたときだけ: タッチ操作向けの調整 ?>
 <style id="ktp-desktop-touch">
