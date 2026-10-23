@@ -63,7 +63,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	.ktpwp-service-public-field,
 	.ktpwp-service-field-block--public-quantity,
 	.ktpwp-service-field-block--instant-purchase,
-	.ktpwp-service-field-block--public-html { display: none !important; }
+	.ktpwp-service-field-block--public-html,
+	/* サービスリストの「公開」列: サイトに公開しないので不要 */
+	.ktp-service-list-table .col-public { display: none !important; }
 	/* サービスの在庫数・契約・定期請求項目・初回費用は、WP 版に合わせてラベルを入力欄の上に左揃えで積む（既定は左 25% にラベルを置く並び） */
 	.ktp-desktop-main .ktpwp-service-field-block,
 	.ktp-desktop-main .ktpwp-service-field-block--recurring .ktpwp-service-field-block__label,
