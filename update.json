@@ -1,8 +1,8 @@
 {
-  "version": "1.0.7",
+  "version": "1.0.8",
   "released": "2026-10-23",
-  "notes": "1.0.7 になりました。LAN 共有を、VPN の Tailscale 経由で外出先・自宅からも使えるようにしました（ルーターの設定は不要です）。つなぎ方は kantanpro.com のブログ「デスクトップ版を外出先から使う」をご覧ください。",
+  "notes": "1.0.8 になりました。LAN 共有の画面で、起動後に Tailscale や Wi-Fi をつないでも QR コードとアドレスが出るようになりました。オーナーの LAN 用パスワードを保存しても、親機がログアウトされなくなりました。保存の結果も画面の下に表示されます。",
   "url": "https://www.kantanpro.com/wc-account/downloads/",
-  "version_win": "1.0.7",
+  "version_win": "1.0.8",
   "url_win": "https://www.kantanpro.com/wc-account/downloads/"
 }
