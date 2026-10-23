@@ -360,6 +360,58 @@ add_action(
 	}
 );
 
+/**
+ * 追加したスタッフへの案内メール。パスワードは書かない（オーナーが直接伝える）。
+ * 本体の通知（wp_login_url 宛て・パスワードのリセット案内）は、親機の中だけで動くデスクトップ版では使えないため、別に作る
+ */
+function ktp_dt_staff_welcome_mail( WP_User $user ) {
+	$smtp      = get_option( 'ktp_smtp_settings', array() );
+	$from      = ! empty( $smtp['email_address'] ) ? sanitize_email( $smtp['email_address'] ) : '';
+	$from_name = ! empty( $smtp['smtp_from_name'] ) ? sanitize_text_field( $smtp['smtp_from_name'] ) : get_bloginfo( 'name' );
+	if ( '' === $from ) {
+		return false; // 送信元が決まっていない（メール・SMTP設定がまだ）
+	}
+	$st   = ktp_dt_lan_status();
+	$urls = ! empty( $st['enabled'] ) && isset( $st['urls'] ) && is_array( $st['urls'] ) ? $st['urls'] : array();
+	$name = '' !== $user->display_name ? $user->display_name : $user->user_login;
+
+	$body  = $name . " 様\n\n";
+	$body .= $from_name . ' の業務管理（KantanProEX）のスタッフに登録されました。' . "\n\n";
+	$body .= "ログイン名: " . $user->user_login . "\n";
+	$body .= "パスワード: 管理者から直接お知らせします（このメールには書いていません）\n\n";
+	if ( $urls ) {
+		$body .= "事務所のネットワーク（Wi-Fi）につないだパソコン・iPad・iPhone のブラウザで、次のアドレスを開いてください。\n";
+		$body .= implode( "\n", $urls ) . "\n\n";
+	} else {
+		$body .= "開くアドレスは、管理者からお知らせします。\n\n";
+	}
+	$body .= "使い方: https://www.kantanpro.com/docs/lan-staff\n\n";
+	$body .= "※ このメールは自動送信されています。\n";
+
+	return wp_mail(
+		$user->user_email,
+		'[' . $from_name . '] スタッフに登録されました',
+		$body,
+		array( 'From: ' . $from_name . ' <' . $from . '>' )
+	);
+}
+
+/** 取り込み・旧版で作ったスタッフのダミーアドレス（@invalid.example）宛てには送らない（本体のオン/オフ通知など） */
+add_filter(
+	'pre_wp_mail',
+	function ( $short, $atts ) {
+		$to = is_array( $atts['to'] ) ? $atts['to'] : explode( ',', (string) $atts['to'] );
+		foreach ( $to as $addr ) {
+			if ( preg_match( '/@invalid\.example>?\s*$/i', trim( $addr ) ) ) {
+				return false;
+			}
+		}
+		return $short;
+	},
+	10,
+	2
+);
+
 add_action(
 	'wp_ajax_ktp_dt_lan_user_add',
 	function () {
@@ -370,6 +422,13 @@ add_action(
 		$login = isset( $_POST['login'] ) ? trim( (string) wp_unslash( $_POST['login'] ) ) : '';
 		$name  = isset( $_POST['name'] ) ? sanitize_text_field( wp_unslash( $_POST['name'] ) ) : '';
 		$pass  = isset( $_POST['password'] ) ? (string) wp_unslash( $_POST['password'] ) : '';
+		$email = isset( $_POST['email'] ) ? sanitize_email( wp_unslash( $_POST['email'] ) ) : '';
+		if ( ! is_email( $email ) ) {
+			wp_send_json_error( array( 'message' => 'メールアドレスを正しく入れてください。' ) );
+		}
+		if ( email_exists( $email ) ) {
+			wp_send_json_error( array( 'message' => 'そのメールアドレスは、ほかのスタッフで使われています。' ) );
+		}
 		if ( ! preg_match( '/^[A-Za-z0-9_.-]{3,40}$/', $login ) ) {
 			wp_send_json_error( array( 'message' => 'ログイン名は半角の英数字（_ . - 可）で 3〜40 文字にしてください。' ) );
 		}
@@ -386,7 +445,7 @@ add_action(
 			array(
 				'user_login'   => $login,
 				'user_pass'    => $pass,
-				'user_email'   => $login . '@invalid.example',
+				'user_email'   => $email,
 				'display_name' => '' !== $name ? $name : $login,
 				'role'         => 'editor',
 			)
@@ -397,7 +456,10 @@ add_action(
 		( new WP_User( $id ) )->add_cap( 'ktpwp_access' ); // 「スタッフ管理」でもオンになる
 		update_user_meta( $id, KTP_DT_LAN_META, '1' );
 		update_user_meta( $id, 'ktp_dt_lan_pass_set', '1' );
-		wp_send_json_success( array( 'message' => 'スタッフを追加しました。' ) );
+		if ( ktp_dt_staff_welcome_mail( new WP_User( $id ) ) ) {
+			wp_send_json_success( array( 'message' => 'スタッフを追加し、' . $email . ' に案内メールを送りました。' ) );
+		}
+		wp_send_json_success( array( 'message' => 'スタッフを追加しました。案内メールは送れませんでした（「メール・SMTP設定」を確認してください）。ログイン名は本人に直接伝えてください。' ) );
 	}
 );
 
@@ -485,7 +547,7 @@ function ktp_dt_lan_page_html() {
 				<td style="padding:6px;"><code><?php echo esc_html( $u->user_login ); ?></code></td>
 				<td style="padding:6px;"><input type="checkbox" class="lan-allowed" <?php checked( ktp_dt_lan_user_ok( $u ) ); ?>></td>
 				<td style="padding:6px;"><input type="password" class="lan-pass" autocomplete="new-password" placeholder="<?php echo ktp_dt_lan_has_lan_password( $u ) ? '設定済み' : '未設定'; ?>" style="padding:4px;width:100%;"></td>
-				<td style="padding:6px;white-space:nowrap;"><button type="button" class="lan-save" style="padding:3px 12px;">保存</button> <button type="button" class="lan-del" style="padding:3px 12px;color:#b91c1c;">削除</button></td>
+				<td style="padding:6px;white-space:nowrap;"><button type="button" class="lan-save" style="padding:3px 12px;">保存</button></td>
 			</tr>
 		<?php endforeach; ?>
 		<?php if ( ! $staff ) : ?>
@@ -494,7 +556,7 @@ function ktp_dt_lan_page_html() {
 		</tbody>
 	</table>
 
-	<p style="color:#6b7280;font-size:13px;">スタッフの追加は、<a href="<?php echo esc_url( admin_url( 'admin.php?page=ktp-staff' ) ); ?>">「スタッフ管理」</a>の「スタッフを追加」で行います。</p>
+	<p style="color:#6b7280;font-size:13px;">スタッフの追加・削除は、<a href="<?php echo esc_url( admin_url( 'admin.php?page=ktp-staff' ) ); ?>">「スタッフ管理」</a>で行います。</p>
 	<p id="lan-msg" role="status" style="display:none;position:fixed;left:50%;bottom:24px;transform:translateX(-50%);max-width:90%;margin:0;padding:10px 18px;border-radius:6px;background:#fff;border:2px solid currentColor;box-shadow:0 4px 16px rgba(0,0,0,.25);font-weight:700;z-index:99999;"></p>
 
 	<h3 style="margin:18px 0 6px;">安全のために</h3>
@@ -532,11 +594,6 @@ function ktp_dt_lan_page_html() {
 		post('ktp_dt_lan_user_save',{user_id:tr.dataset.user,allowed:tr.querySelector('.lan-allowed').checked?'1':'0',password:tr.querySelector('.lan-pass').value},function(){
 			var p=tr.querySelector('.lan-pass');if(p.value){p.placeholder='設定済み';}p.value='';
 		});
-	};});
-	w.querySelectorAll('#lan-staff .lan-del').forEach(function(b){b.onclick=function(){
-		var tr=b.closest('tr'),name=tr.children[0].textContent.trim();
-		if(!window.confirm('スタッフ「'+name+'」を削除します。元に戻せません。よろしいですか？')){return;}
-		post('ktp_dt_lan_user_delete',{user_id:tr.dataset.user},function(){tr.parentNode.removeChild(tr);});
 	};});
 	document.getElementById('lan-owner-save').onclick=function(){
 		var p=document.getElementById('lan-owner-pass');
@@ -592,13 +649,14 @@ add_action(
 			return;
 		}
 		?>
-<div id="ktp-dt-staff-add" class="ktp-settings-section" style="display:none;" data-ajax="<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>" data-nonce="<?php echo esc_attr( wp_create_nonce( KTP_DT_LAN_NONCE ) ); ?>">
+<div id="ktp-dt-staff-add" class="ktp-settings-section" style="display:none;" data-me="<?php echo (int) get_current_user_id(); ?>" data-admins="<?php echo esc_attr( implode( ',', get_users( array( 'role' => 'administrator', 'fields' => 'ID' ) ) ) ); ?>" data-ajax="<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>" data-nonce="<?php echo esc_attr( wp_create_nonce( KTP_DT_LAN_NONCE ) ); ?>">
 	<h2>スタッフを追加</h2>
-	<p style="color:#555;font-size:13px;">メールアドレスは不要です。ログイン名とパスワードを決めて、本人に直接伝えてください（招待メールは送られません）。他のパソコン・iPad・iPhone から使うには、「LAN 共有」をオンにします。</p>
+	<p style="color:#555;font-size:13px;">追加すると、入れたメールアドレスに、ログイン名と使い方の案内メールが届きます（「メール・SMTP設定」が必要です）。<strong>パスワードはメールに書かないので、本人に直接伝えてください。</strong>他のパソコン・iPad・iPhone から使うには、「LAN 共有」をオンにします。</p>
 	<p>
-		<input type="text" id="sa-name" placeholder="表示名（例: 山田）" style="padding:5px;width:28%;">
-		<input type="text" id="sa-login" placeholder="ログイン名（半角英数字）" autocapitalize="off" style="padding:5px;width:28%;">
-		<input type="password" id="sa-pass" placeholder="パスワード（<?php echo (int) KTP_DT_LAN_MIN_PASS; ?>文字以上）" autocomplete="new-password" style="padding:5px;width:28%;">
+		<input type="text" id="sa-name" placeholder="表示名（例: 山田）" style="padding:5px;width:22%;">
+		<input type="email" id="sa-email" placeholder="メールアドレス" autocapitalize="off" style="padding:5px;width:24%;">
+		<input type="text" id="sa-login" placeholder="ログイン名（半角英数字）" autocapitalize="off" style="padding:5px;width:22%;">
+		<input type="password" id="sa-pass" placeholder="パスワード（<?php echo (int) KTP_DT_LAN_MIN_PASS; ?>文字以上）" autocomplete="new-password" style="padding:5px;width:22%;">
 	</p>
 	<p><button type="button" id="sa-add" class="button button-primary">追加する</button> <span id="sa-msg" role="status" style="margin-left:10px;font-weight:700;"></span></p>
 </div>
@@ -608,17 +666,38 @@ add_action(
 	if(!box||!host){return;}
 	host.appendChild(box);box.style.display='';
 	var nt=host.querySelector('.notice-info, div[style*="e7f3ff"]');
-	if(nt){nt.innerHTML='<strong>デスクトップ版では、メール通知は送られません。</strong>スタッフには、ログイン名とパスワードを直接伝えてください。メールアドレス欄の「…@invalid.example」は内部用のダミーです。';}
+	if(nt){nt.innerHTML='<strong>メール通知について：</strong>スタッフを追加したとき、オン・オフを切り替えたときに、そのスタッフへメールが届きます（「メール・SMTP設定」が必要です）。メールアドレス欄が「…@invalid.example」のスタッフ（取り込み・旧版で作った人）には送られません。';}
 	var msg=document.getElementById('sa-msg');
-	document.getElementById('sa-add').onclick=function(){
-		var d=new URLSearchParams({action:'ktp_dt_lan_user_add',nonce:box.dataset.nonce,name:document.getElementById('sa-name').value,login:document.getElementById('sa-login').value,password:document.getElementById('sa-pass').value});
-		msg.style.color='#1f2937';msg.textContent='追加しています…';
+	function post(data,busy,done){
+		var d=new URLSearchParams(Object.assign({nonce:box.dataset.nonce},data));
+		msg.style.color='#1f2937';msg.textContent=busy;
 		fetch(box.dataset.ajax,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},body:d.toString()}).then(function(r){return r.json();}).then(function(j){
 			msg.style.color=j.success?'#166534':'#b91c1c';
-			msg.textContent=(j.data&&j.data.message)||(j.success?'追加しました。':'追加できませんでした。');
-			if(j.success){setTimeout(function(){location.reload();},800);}
-		}).catch(function(){msg.style.color='#b91c1c';msg.textContent='追加できませんでした。';});
+			msg.textContent=(j.data&&j.data.message)||(j.success?'完了しました。':'できませんでした。');
+			if(j.success){done();}
+		}).catch(function(){msg.style.color='#b91c1c';msg.textContent='できませんでした。';});
+	}
+	document.getElementById('sa-add').onclick=function(){
+		post({action:'ktp_dt_lan_user_add',name:document.getElementById('sa-name').value,email:document.getElementById('sa-email').value,login:document.getElementById('sa-login').value,password:document.getElementById('sa-pass').value},'追加しています…',function(){setTimeout(function(){location.reload();},2500);});
 	};
+	// 一覧の各行に「削除」（管理者・自分自身は出さない）
+	var me=String(box.dataset.me),admins=String(box.dataset.admins).split(',');
+	var table=host.querySelector('.ktp-staff-table');
+	if(table){
+		var th=document.createElement('th');th.textContent='削除';table.querySelector('thead tr').appendChild(th);
+		table.querySelectorAll('tbody tr').forEach(function(tr){
+			var td=document.createElement('td'),inp=tr.querySelector('input[name="ktpwp_access_user"]'),uid=inp?inp.value:'';
+			tr.appendChild(td);
+			if(!uid||uid===me||admins.indexOf(uid)>=0){return;}
+			var b=document.createElement('button');b.type='button';b.className='button button-link-delete';b.textContent='削除';
+			b.onclick=function(){
+				var name=tr.children[0].textContent.trim();
+				if(!window.confirm('スタッフ「'+name+'」を削除します。元に戻せません。\n（しばらく使わせないだけなら、削除せずにオフにしてください）\nよろしいですか？')){return;}
+				post({action:'ktp_dt_lan_user_delete',user_id:uid},'削除しています…',function(){tr.parentNode.removeChild(tr);});
+			};
+			td.appendChild(b);
+		});
+	}
 })();
 </script>
 		<?php
