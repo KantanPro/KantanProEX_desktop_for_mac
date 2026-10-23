@@ -83,6 +83,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	.ktp_header a[href*="ktp_desktop_quit"],
 	.ktp_header .ktp-header-settings-menu,
 	.ktp_header .ktpwp-header-update-link,
+	.ktp_header .navigation-links a.ktpwp-header-update-link,
+	.ktp_header .navigation-links a#ktpwp-header-update-check,
+	.ktp_header .navigation-links a[title="更新"],
 	.ktpwp-update-balloon { display: none !important; }
 	/* 画面上部の小さなアイコンボタン（設定・再読み込み・アバター）は、44px に伸ばさず元の大きさのまま */
 	.ktp-desktop-main .ktp-header-settings-toggle,
