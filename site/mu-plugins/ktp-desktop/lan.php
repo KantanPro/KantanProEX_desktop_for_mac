@@ -317,6 +317,9 @@ add_action(
 			// 親機は自動ログインなので、パスワードを変えても親機の使い方は変わらない。ただしこの画面のログインは一度切れる
 			wp_set_password( $pass, $user->ID );
 			update_user_meta( $user->ID, 'ktp_dt_lan_pass_set', '1' );
+			// wp_set_password は、そのユーザーの全セッションを切る。親機の画面が「セッションの有効期限が切れました」にならないよう、すぐ入り直させる
+			wp_set_current_user( $user->ID );
+			wp_set_auth_cookie( $user->ID, true );
 		}
 		update_option( KTP_DT_LAN_OWNER_OPT, $on ? '1' : '0', false );
 		if ( $on ) {
@@ -324,7 +327,7 @@ add_action(
 		} else {
 			delete_user_meta( $user->ID, KTP_DT_LAN_META );
 		}
-		wp_send_json_success( array( 'message' => '保存しました。' . ( '' !== $pass ? '（パスワードを変えたので、この画面は一度開き直してください）' : '' ) ) );
+		wp_send_json_success( array( 'message' => '保存しました。' . ( '' !== $pass ? '' : '' ) ) );
 	}
 );
 
@@ -410,10 +413,13 @@ function ktp_dt_lan_page_html() {
 	<h3 style="margin:18px 0 6px;">iPad・iPhone をつなぐ（最初の 1 回だけ）</h3>
 	<?php $profiles = isset( $st['profileUrls'] ) && is_array( $st['profileUrls'] ) ? $st['profileUrls'] : array(); ?>
 	<?php if ( $on && $urls ) : ?>
+	<?php foreach ( $urls as $i => $u ) : ?>
 	<div style="display:flex;gap:24px;flex-wrap:wrap;margin:6px 0 10px;">
-		<div><div class="lan-qr" data-text="<?php echo esc_attr( (string) ( $profiles[0] ?? '' ) ); ?>" style="width:150px;height:150px;"></div><div style="font-size:12px;text-align:center;">① 証明書のプロファイル</div></div>
-		<div><div class="lan-qr" data-text="<?php echo esc_attr( (string) $urls[0] ); ?>" style="width:150px;height:150px;"></div><div style="font-size:12px;text-align:center;">② アプリを開く</div></div>
+		<div><div class="lan-qr" data-text="<?php echo esc_attr( (string) ( $profiles[ $i ] ?? '' ) ); ?>" style="width:150px;height:150px;"></div><div style="font-size:12px;text-align:center;">① 証明書のプロファイル</div></div>
+		<div><div class="lan-qr" data-text="<?php echo esc_attr( (string) $u ); ?>" style="width:150px;height:150px;"></div><div style="font-size:12px;text-align:center;">② アプリを開く</div></div>
+		<div style="align-self:center;font-size:12px;color:#6b7280;">接続先: <code><?php echo esc_html( (string) $u ); ?></code></div>
 	</div>
+	<?php endforeach; ?>
 	<?php endif; ?>
 	<ol style="margin:0 0 12px 20px;">
 		<li>iPad のカメラで「① 証明書のプロファイル」の QR を読み取り、Safari で開きます。「構成プロファイルをダウンロードしますか？」に「許可」を選びます。</li>
@@ -467,7 +473,7 @@ function ktp_dt_lan_page_html() {
 		<input type="password" id="lan-new-pass" placeholder="パスワード" autocomplete="new-password" style="padding:5px;width:30%;">
 	</p>
 	<p><button type="button" id="lan-add" style="background:#2563eb;color:#fff;border:0;padding:6px 18px;border-radius:4px;">追加する</button></p>
-	<p id="lan-msg" role="status" style="font-weight:600;"></p>
+	<p id="lan-msg" role="status" style="display:none;position:fixed;left:50%;bottom:24px;transform:translateX(-50%);max-width:90%;margin:0;padding:10px 18px;border-radius:6px;background:#fff;border:2px solid currentColor;box-shadow:0 4px 16px rgba(0,0,0,.25);font-weight:700;z-index:99999;"></p>
 
 	<h3 style="margin:18px 0 6px;">安全のために</h3>
 	<ul style="margin:0 0 12px 20px;">
@@ -485,11 +491,12 @@ function ktp_dt_lan_page_html() {
 	var w=document.getElementById('ktp-dt-lan'),msg=document.getElementById('lan-msg');
 	function post(action,data,done){
 		var d=new URLSearchParams(Object.assign({action:action,nonce:w.dataset.nonce},data));
-		msg.style.color='';msg.textContent='保存しています…';
+		msg.style.display='block';msg.style.color='#1f2937';msg.textContent='保存しています…';
 		fetch(w.dataset.ajax,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},body:d.toString()}).then(function(r){return r.json();}).then(function(j){
 			msg.style.color=j.success?'#166534':'#b91c1c';
 			msg.textContent=(j.data&&j.data.message)||(j.success?'保存しました。':'保存できませんでした。');
 			if(j.success){done&&done();}
+			clearTimeout(post.t);post.t=setTimeout(function(){msg.style.display='none';},j.success?4000:12000);
 		}).catch(function(){msg.style.color='#b91c1c';msg.textContent='保存できませんでした。';});
 	}
 	w.querySelectorAll('.lan-qr').forEach(function(el){
