@@ -371,6 +371,16 @@ function ktp_dt_staff_welcome_mail( WP_User $user ) {
 	if ( '' === $from ) {
 		return false; // 送信元が決まっていない（メール・SMTP設定がまだ）
 	}
+	return wp_mail(
+		$user->user_email,
+		'[' . $from_name . '] スタッフに登録されました',
+		ktp_dt_staff_welcome_body( $user, $from_name ),
+		array( 'From: ' . $from_name . ' <' . $from . '>' )
+	);
+}
+
+/** 案内メールの本文（追加したとき・スタッフ管理でオンにしたときの共通） */
+function ktp_dt_staff_welcome_body( WP_User $user, $from_name ) {
 	$st   = ktp_dt_lan_status();
 	$urls = ! empty( $st['enabled'] ) && isset( $st['urls'] ) && is_array( $st['urls'] ) ? $st['urls'] : array();
 	$name = '' !== $user->display_name ? $user->display_name : $user->user_login;
@@ -387,14 +397,29 @@ function ktp_dt_staff_welcome_mail( WP_User $user ) {
 	}
 	$body .= "使い方: https://www.kantanpro.com/docs/lan-staff\n\n";
 	$body .= "※ このメールは自動送信されています。\n";
-
-	return wp_mail(
-		$user->user_email,
-		'[' . $from_name . '] スタッフに登録されました',
-		$body,
-		array( 'From: ' . $from_name . ' <' . $from . '>' )
-	);
+	return $body;
 }
+
+/**
+ * スタッフ管理でオンにしたときの本体の通知は、親機の 127.0.0.1 のログイン URL とパスワードのリセットを案内してしまう。
+ * デスクトップ版では使えないので、本文を案内メールと同じものに差し替える（オフにしたときの通知はそのまま）
+ */
+add_filter(
+	'wp_mail',
+	function ( $atts ) {
+		if ( ! is_string( $atts['subject'] ?? null ) || ! preg_match( '/スタッフ権限が付与されました$/u', $atts['subject'] ) ) {
+			return $atts;
+		}
+		$user = get_user_by( 'email', is_array( $atts['to'] ) ? (string) reset( $atts['to'] ) : (string) $atts['to'] );
+		if ( $user ) {
+			$smtp            = get_option( 'ktp_smtp_settings', array() );
+			$from_name       = ! empty( $smtp['smtp_from_name'] ) ? sanitize_text_field( $smtp['smtp_from_name'] ) : get_bloginfo( 'name' );
+			$atts['subject'] = '[' . $from_name . '] スタッフに登録されました';
+			$atts['message'] = ktp_dt_staff_welcome_body( $user, $from_name );
+		}
+		return $atts;
+	}
+);
 
 /** 取り込み・旧版で作ったスタッフのダミーアドレス（@invalid.example）宛てには送らない（本体のオン/オフ通知など） */
 add_filter(
@@ -403,6 +428,7 @@ add_filter(
 		$to = is_array( $atts['to'] ) ? $atts['to'] : explode( ',', (string) $atts['to'] );
 		foreach ( $to as $addr ) {
 			if ( preg_match( '/@invalid\.example>?\s*$/i', trim( $addr ) ) ) {
+				$GLOBALS['ktp_dt_mail_skipped_dummy'] = true;
 				return false;
 			}
 		}
@@ -667,6 +693,11 @@ add_action(
 	host.appendChild(box);box.style.display='';
 	var nt=host.querySelector('.notice-info, div[style*="e7f3ff"]');
 	if(nt){nt.innerHTML='<strong>メール通知について：</strong>スタッフを追加したとき、オン・オフを切り替えたときに、そのスタッフへメールが届きます（「メール・SMTP設定」が必要です）。メールアドレス欄が「…@invalid.example」のスタッフ（取り込み・旧版で作った人）には送られません。';}
+	<?php if ( ! empty( $GLOBALS['ktp_dt_mail_skipped_dummy'] ) ) : ?>
+	document.querySelectorAll('.notice-warning p').forEach(function(p){
+		if(/通知メール送信に失敗/.test(p.textContent)){p.textContent='このスタッフはメールアドレスがダミー（…@invalid.example）のため、通知メールは送っていません。';p.closest('.notice').className='notice notice-info is-dismissible';}
+	});
+	<?php endif; ?>
 	var msg=document.getElementById('sa-msg');
 	function post(data,busy,done){
 		var d=new URLSearchParams(Object.assign({nonce:box.dataset.nonce},data));
