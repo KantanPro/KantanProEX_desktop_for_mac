@@ -421,13 +421,13 @@ add_filter(
 	}
 );
 
-/** 取り込み・旧版で作ったスタッフのダミーアドレス（@invalid.example）宛てには送らない（本体のオン/オフ通知など） */
+/** 実在しない宛先には送らない。メールアドレスなしで作ったスタッフ（@invalid.example）と、アプリを入れたときのオーナーの初期値（desktop@kantanpro.invalid）など */
 add_filter(
 	'pre_wp_mail',
 	function ( $short, $atts ) {
 		$to = is_array( $atts['to'] ) ? $atts['to'] : explode( ',', (string) $atts['to'] );
 		foreach ( $to as $addr ) {
-			if ( preg_match( '/@invalid\.example>?\s*$/i', trim( $addr ) ) ) {
+			if ( preg_match( '/(@invalid\.example|\.invalid)>?\s*$/i', trim( $addr ) ) ) {
 				$GLOBALS['ktp_dt_mail_skipped_dummy'] = true;
 				return false;
 			}

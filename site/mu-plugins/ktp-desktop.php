@@ -166,6 +166,22 @@ add_filter(
 );
 
 /**
+ * プロフィールでメールアドレスを変えたとき、WordPress は新しいアドレスへ確認リンクを送り、押すまで保留する。
+ * リンクは http://127.0.0.1:<起動ごとに変わる番号> なので、メールから開いても入れず、アプリを開き直すと二度と使えない。
+ * デスクトップ版では確認を飛ばし、保存した時点で変える（形式・重複のチェックは保存処理の edit_user() に残る）。
+ * 保留のまま残った変更（_new_email）も消して、「保留中」の案内が出続けないようにする
+ */
+add_action(
+	'admin_init',
+	function () {
+		remove_action( 'personal_options_update', 'send_confirmation_on_profile_email' );
+		if ( is_user_logged_in() && get_user_meta( get_current_user_id(), '_new_email', true ) ) {
+			delete_user_meta( get_current_user_id(), '_new_email' );
+		}
+	}
+);
+
+/**
  * プラグイン本体の自動更新確認を止める（デスクトップ版はアプリごと更新する）。
  * cron の予約も外して、毎日の無駄な実行をなくす。
  */
