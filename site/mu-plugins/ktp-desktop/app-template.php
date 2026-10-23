@@ -94,7 +94,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 		padding: 4px 14px !important; gap: 6px !important; font-size: 14px !important; font-weight: 600 !important;
 		white-space: nowrap; border-radius: 10px !important;
 	}
-	.ktp_header .navigation-links { width: auto !important; max-width: none !important; gap: 8px !important; flex-wrap: nowrap !important; top: 0 !important; }
+	.ktp_header .navigation-links { width: auto !important; max-width: none !important; gap: 8px !important; flex-wrap: nowrap !important; top: 10px !important; }
+	/* アバターも一緒に下げて、ヘルプとの間にすき間を作る（ヘッダーの下の余白を使う） */
+	@media screen and (max-width: 480px) { .ktp_header .ktp-avatar-trigger { top: 15px !important; } }
 	.ktp_header .navigation-links a[title="ログアウト"],
 	.ktp_header .navigation-links a[title="ヘルプ"] { flex: 0 0 auto !important; overflow: visible !important; }
 	/* iPhone の幅では、横長のボタンを置く場所をつくるため、いつも「KantanPro…」と途中で切れているシステム名は出さない（ロゴは残す） */
