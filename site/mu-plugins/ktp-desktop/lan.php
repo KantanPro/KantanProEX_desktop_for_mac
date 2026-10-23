@@ -693,7 +693,7 @@ add_action(
 	if(!box||!host){return;}
 	host.appendChild(box);box.style.display='';
 	var nt=host.querySelector('.notice-info, div[style*="e7f3ff"]');
-	if(nt){nt.innerHTML='<strong>メール通知について：</strong>スタッフを追加したとき、オン・オフを切り替えたときに、そのスタッフへメールが届きます（「メール・SMTP設定」が必要です）。メールアドレス欄が「…@invalid.example」のスタッフ（取り込み・旧版で作った人）には送られません。';}
+	if(nt){nt.innerHTML='<strong>メール通知について：</strong>スタッフを追加したとき、オン・オフを切り替えたときに、そのスタッフへメールが届きます（「メール・SMTP設定」が必要です）。';}
 	<?php if ( ! empty( $GLOBALS['ktp_dt_mail_skipped_dummy'] ) ) : ?>
 	document.querySelectorAll('.notice-warning p').forEach(function(p){
 		if(/通知メール送信に失敗/.test(p.textContent)){p.textContent='このスタッフはメールアドレスがダミー（…@invalid.example）のため、通知メールは送っていません。';p.closest('.notice').className='notice notice-info is-dismissible';}
