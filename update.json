@@ -1,8 +1,8 @@
 {
-  "version": "1.0.10",
+  "version": "1.0.11",
   "released": "2026-10-23",
-  "notes": "1.0.10 になりました。iPhone・iPad から LAN 共有で開いたときの画面を整えました（使えない設定・更新のボタンを出さない、ログアウトとヘルプを押しやすく、サービスリストの表を横スクロールに、ボタンの切れやずれの修正）。",
+  "notes": "1.0.11 になりました。スタッフの追加を「スタッフ管理」の画面からできるようにしました（メールアドレスは不要。表示名・ログイン名・パスワードを決めて追加します）。LAN 共有の画面にあった追加欄は、スタッフ管理に移しました。",
   "url": "https://www.kantanpro.com/wc-account/downloads/",
-  "version_win": "1.0.10",
+  "version_win": "1.0.11",
   "url_win": "https://www.kantanpro.com/wc-account/downloads/"
 }
