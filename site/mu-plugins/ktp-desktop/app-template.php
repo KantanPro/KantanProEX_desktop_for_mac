@@ -79,6 +79,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 	.ktp-desktop-main input[type=button],
 	.ktp-desktop-main input[type=submit],
 	.ktp-desktop-main a.button { min-height: 44px; }
+	/* LAN（iPad・iPhone など）からは使えないヘッダーのボタンは出さない（窓口が拒否する: 設定の画面・アプリの終了・更新の確認） */
+	.ktp_header a[href*="ktp_desktop_quit"],
+	.ktp_header .ktp-header-settings-menu,
+	.ktp_header .ktpwp-header-update-link,
+	.ktpwp-update-balloon { display: none !important; }
 	/* 画面上部の小さなアイコンボタン（設定・再読み込み・アバター）は、44px に伸ばさず元の大きさのまま */
 	.ktp-desktop-main .ktp-header-settings-toggle,
 	.ktp-desktop-main .ktp-header-plugin-reload,
