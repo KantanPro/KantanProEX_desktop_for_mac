@@ -87,6 +87,21 @@ if ( ! defined( 'ABSPATH' ) ) {
 	.ktp_header .navigation-links a#ktpwp-header-update-check,
 	.ktp_header .navigation-links a[title="更新"],
 	.ktpwp-update-balloon { display: none !important; }
+	/* LAN からも使えるログアウトとヘルプは、アイコン + 文字の横長にして押しやすくする */
+	.ktp_header .navigation-links a[title="ログアウト"],
+	.ktp_header .navigation-links a[title="ヘルプ"] {
+		width: auto !important; min-width: 0 !important; height: auto !important; min-height: 42px !important;
+		padding: 4px 14px !important; gap: 6px !important; font-size: 14px !important; font-weight: 600 !important;
+		white-space: nowrap; border-radius: 10px !important;
+	}
+	.ktp_header .navigation-links { width: auto !important; max-width: none !important; gap: 8px !important; flex-wrap: nowrap !important; top: 0 !important; }
+	.ktp_header .navigation-links a[title="ログアウト"],
+	.ktp_header .navigation-links a[title="ヘルプ"] { flex: 0 0 auto !important; overflow: visible !important; }
+	/* iPhone の幅では、横長のボタンを置く場所をつくるため、いつも「KantanPro…」と途中で切れているシステム名は出さない（ロゴは残す） */
+	@media screen and (max-width: 480px) { .ktp_header .logo-and-system-info .system-info { display: none !important; } }
+	.ktp_header .navigation-links a[title="ログアウト"]::after { content: "ログアウト"; }
+	/* ヘルプには文字（狭い画面では隠れている）があるので、それを出す */
+	.ktp_header .navigation-links a[title="ヘルプ"] > span:not(.ktp-svg-icon) { display: inline !important; }
 	/* 画面上部の小さなアイコンボタン（設定・再読み込み・アバター）は、44px に伸ばさず元の大きさのまま */
 	.ktp-desktop-main .ktp-header-settings-toggle,
 	.ktp-desktop-main .ktp-header-plugin-reload,
