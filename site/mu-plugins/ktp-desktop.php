@@ -28,8 +28,35 @@ function ktp_desktop_app_version() {
 	return (string) getenv( 'KTP_DESKTOP_VERSION' );
 }
 
+/**
+ * 利用規約の文中の「プラグイン」「WordPress」を、デスクトップ版（アプリ）に合わせた言葉に置き換える。
+ * 本体の規約は WordPress プラグイン向けの文なので、画面に出す直前に言葉だけ直す（意味は変えない）。
+ * 規約の本文が入っているページ（第1条・Article 1 がある HTML）にだけ当てる
+ */
+function ktp_desktop_replace_terms_wording( $html ) {
+	if ( ! is_string( $html ) || ( false === strpos( $html, '第1条（適用）' ) && false === strpos( $html, 'Article 1' ) ) ) {
+		return $html;
+	}
+	return str_replace(
+		array(
+			'プラグイン（以下「本プラグイン」）', '本プラグイン', 'KantanProプラグイン',
+			'WordPress環境での利用を前提としています', 'WordPressの管理者メールアドレス', 'WordPress管理者（以下「管理者」）', 'WordPressユーザー情報',
+			' plugin (the &quot;Plugin&quot;)', ' plugin (the "Plugin")', 'The Plugin', 'the Plugin', 'Plugin',
+			'WordPress administrators', 'WordPress environment', 'WordPress user information',
+		),
+		array(
+			'アプリ（以下「本アプリ」）', '本アプリ', 'KantanProアプリ',
+			'お使いのパソコン上での利用を前提としています', '管理者メールアドレス', 'オーナー（以下「管理者」）', 'ユーザー情報',
+			' app (the &quot;App&quot;)', ' app (the "App")', 'The App', 'the App', 'App',
+			'the owner (administrator)', 'your computer', 'user information',
+		),
+		$html
+	);
+}
+
 /** 本体の版数が出ている表示を、デスクトップ版の版数に置き換える */
 function ktp_desktop_replace_version_text( $html ) {
+	$html = ktp_desktop_replace_terms_wording( $html );
 	$app = ktp_desktop_app_version();
 	if ( '' === $app || ! defined( 'KANTANPRO_PLUGIN_VERSION' ) || ! is_string( $html ) || '' === $html ) {
 		return $html;
