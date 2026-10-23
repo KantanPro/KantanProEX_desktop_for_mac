@@ -16,6 +16,8 @@ const KTP_DT_TASKS_DB_OPTION = 'ktp_desktop_order_tasks_db';
 const KTP_DT_TASKS_DB_VERSION = '1';
 const KTP_DT_TASKS_NONCE      = 'ktp_desktop_order_tasks';
 const KTP_DT_TASKS_RANGE_PAD  = 2;
+// 工程表の最小の幅（日数）。範囲をタスクにぴったり合わせず、期間を動かしてもバーの位置が変わるようにする
+const KTP_DT_TASKS_MIN_DAYS   = 30;
 
 function ktp_dt_tasks_table() {
 	global $wpdb;
@@ -150,10 +152,14 @@ function ktp_dt_tasks_schedule( array $tasks, array $staff ) {
 		$range_start = min( $range_start, $r['start'] );
 		$range_end   = max( $range_end, $r['end'] );
 	}
-	$range_start = $range_start->sub( $pad );
-	$range_end   = $range_end->add( $pad );
-	if ( $range_end < $today ) {
-		$range_end = $today->add( $pad );
+	// 工程表の範囲は、タスクの期間だけでなく「今日」も含め、最低でも KTP_DT_TASKS_MIN_DAYS 日の幅を持たせる。
+	// タスクの最小〜最大にぴったり合わせると、ドラッグで期間を動かしても範囲が一緒にずれて、
+	// バーが同じ位置に戻ったように見えてしまう（タスクが1件のときは特に）。
+	$range_start = min( $range_start, $today )->sub( $pad );
+	$range_end   = max( $range_end, $today )->add( $pad );
+	$min_end     = $range_start->add( new DateInterval( 'P' . KTP_DT_TASKS_MIN_DAYS . 'D' ) );
+	if ( $range_end < $min_end ) {
+		$range_end = $min_end;
 	}
 	$total = max( 1, (int) $range_start->diff( $range_end )->days );
 	foreach ( $rows as $i => $r ) {
