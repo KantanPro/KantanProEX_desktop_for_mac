@@ -489,18 +489,12 @@ function ktp_dt_lan_page_html() {
 			</tr>
 		<?php endforeach; ?>
 		<?php if ( ! $staff ) : ?>
-			<tr><td colspan="5" style="padding:8px;color:#6b7280;">LAN で使えるスタッフはまだいません。下から追加するか、「スタッフ管理」でオンにしてください。</td></tr>
+			<tr><td colspan="5" style="padding:8px;color:#6b7280;">LAN で使えるスタッフはまだいません。「スタッフ管理」で追加するか、オンにしてください。</td></tr>
 		<?php endif; ?>
 		</tbody>
 	</table>
 
-	<h3 style="margin:18px 0 6px;">スタッフを追加</h3>
-	<p>
-		<input type="text" id="lan-new-name" placeholder="表示名（例: 山田）" style="padding:5px;width:30%;">
-		<input type="text" id="lan-new-login" placeholder="ログイン名（半角英数字）" autocapitalize="off" style="padding:5px;width:30%;">
-		<input type="password" id="lan-new-pass" placeholder="パスワード" autocomplete="new-password" style="padding:5px;width:30%;">
-	</p>
-	<p><button type="button" id="lan-add" style="background:#2563eb;color:#fff;border:0;padding:6px 18px;border-radius:4px;">追加する</button></p>
+	<p style="color:#6b7280;font-size:13px;">スタッフの追加は、<a href="<?php echo esc_url( admin_url( 'admin.php?page=ktp-staff' ) ); ?>">「スタッフ管理」</a>の「スタッフを追加」で行います。</p>
 	<p id="lan-msg" role="status" style="display:none;position:fixed;left:50%;bottom:24px;transform:translateX(-50%);max-width:90%;margin:0;padding:10px 18px;border-radius:6px;background:#fff;border:2px solid currentColor;box-shadow:0 4px 16px rgba(0,0,0,.25);font-weight:700;z-index:99999;"></p>
 
 	<h3 style="margin:18px 0 6px;">安全のために</h3>
@@ -548,9 +542,6 @@ function ktp_dt_lan_page_html() {
 		var p=document.getElementById('lan-owner-pass');
 		post('ktp_dt_lan_owner_save',{allowed:document.getElementById('lan-owner-on').checked?'1':'0',password:p.value},function(){if(p.value){p.placeholder='LAN 用パスワード（設定済み）';}p.value='';});
 	};
-	document.getElementById('lan-add').onclick=function(){
-		post('ktp_dt_lan_user_add',{name:document.getElementById('lan-new-name').value,login:document.getElementById('lan-new-login').value,password:document.getElementById('lan-new-pass').value},function(){setTimeout(function(){location.reload();},700);});
-	};
 })();
 </script>
 		<?php
@@ -591,4 +582,45 @@ add_action(
 		}
 	},
 	20
+);
+
+/** 「スタッフ管理」にスタッフを追加する欄（デスクトップ版は WP のユーザー追加画面が無く、メール招待もできないため） */
+add_action(
+	'admin_footer',
+	function () {
+		if ( ! ktp_dt_lan_can_manage() || ! isset( $_GET['page'] ) || 'ktp-staff' !== $_GET['page'] ) { // phpcs:ignore WordPress.Security.NonceVerification
+			return;
+		}
+		?>
+<div id="ktp-dt-staff-add" class="ktp-settings-section" style="display:none;" data-ajax="<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>" data-nonce="<?php echo esc_attr( wp_create_nonce( KTP_DT_LAN_NONCE ) ); ?>">
+	<h2>スタッフを追加</h2>
+	<p style="color:#555;font-size:13px;">メールアドレスは不要です。ログイン名とパスワードを決めて、本人に直接伝えてください（招待メールは送られません）。他のパソコン・iPad・iPhone から使うには、「LAN 共有」をオンにします。</p>
+	<p>
+		<input type="text" id="sa-name" placeholder="表示名（例: 山田）" style="padding:5px;width:28%;">
+		<input type="text" id="sa-login" placeholder="ログイン名（半角英数字）" autocapitalize="off" style="padding:5px;width:28%;">
+		<input type="password" id="sa-pass" placeholder="パスワード（<?php echo (int) KTP_DT_LAN_MIN_PASS; ?>文字以上）" autocomplete="new-password" style="padding:5px;width:28%;">
+	</p>
+	<p><button type="button" id="sa-add" class="button button-primary">追加する</button> <span id="sa-msg" role="status" style="margin-left:10px;font-weight:700;"></span></p>
+</div>
+<script>
+(function(){
+	var box=document.getElementById('ktp-dt-staff-add'),host=document.querySelector('.ktp-settings-container');
+	if(!box||!host){return;}
+	host.appendChild(box);box.style.display='';
+	var nt=host.querySelector('.notice-info, div[style*="e7f3ff"]');
+	if(nt){nt.innerHTML='<strong>デスクトップ版では、メール通知は送られません。</strong>スタッフには、ログイン名とパスワードを直接伝えてください。メールアドレス欄の「…@invalid.example」は内部用のダミーです。';}
+	var msg=document.getElementById('sa-msg');
+	document.getElementById('sa-add').onclick=function(){
+		var d=new URLSearchParams({action:'ktp_dt_lan_user_add',nonce:box.dataset.nonce,name:document.getElementById('sa-name').value,login:document.getElementById('sa-login').value,password:document.getElementById('sa-pass').value});
+		msg.style.color='#1f2937';msg.textContent='追加しています…';
+		fetch(box.dataset.ajax,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},body:d.toString()}).then(function(r){return r.json();}).then(function(j){
+			msg.style.color=j.success?'#166534':'#b91c1c';
+			msg.textContent=(j.data&&j.data.message)||(j.success?'追加しました。':'追加できませんでした。');
+			if(j.success){setTimeout(function(){location.reload();},800);}
+		}).catch(function(){msg.style.color='#b91c1c';msg.textContent='追加できませんでした。';});
+	};
+})();
+</script>
+		<?php
+	}
 );
