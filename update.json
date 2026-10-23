@@ -1,8 +1,8 @@
 {
-  "version": "1.0.6",
-  "released": "2026-10-22",
-  "notes": "1.0.6 になりました。日本郵便の郵便番号・デジタルアドレス API で、2026年3月19日以降に登録した新しいクライアントID・シークレットが使えなかった不具合を直しました（それ以前に登録したものも引き続き使えます）。",
+  "version": "1.0.7",
+  "released": "2026-10-23",
+  "notes": "1.0.7 になりました。LAN 共有を、VPN の Tailscale 経由で外出先・自宅からも使えるようにしました（ルーターの設定は不要です）。つなぎ方は kantanpro.com のブログ「デスクトップ版を外出先から使う」をご覧ください。",
   "url": "https://www.kantanpro.com/wc-account/downloads/",
-  "version_win": "1.0.6",
+  "version_win": "1.0.7",
   "url_win": "https://www.kantanpro.com/wc-account/downloads/"
 }
