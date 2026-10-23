@@ -1,8 +1,8 @@
 {
-  "version": "1.0.9",
+  "version": "1.0.10",
   "released": "2026-10-23",
-  "notes": "1.0.9 になりました。LAN 共有の「LAN で使うスタッフ」を、スタッフ管理でオンにしている人だけに揃えました（オフにすると LAN からも入れません）。LAN 共有の画面から、スタッフを削除できるようになりました。",
+  "notes": "1.0.10 になりました。iPhone・iPad から LAN 共有で開いたときの画面を整えました（使えない設定・更新のボタンを出さない、ログアウトとヘルプを押しやすく、サービスリストの表を横スクロールに、ボタンの切れやずれの修正）。",
   "url": "https://www.kantanpro.com/wc-account/downloads/",
-  "version_win": "1.0.9",
+  "version_win": "1.0.10",
   "url_win": "https://www.kantanpro.com/wc-account/downloads/"
 }
