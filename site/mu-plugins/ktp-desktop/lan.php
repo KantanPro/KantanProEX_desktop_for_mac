@@ -449,10 +449,12 @@ add_action(
 		$name  = isset( $_POST['name'] ) ? sanitize_text_field( wp_unslash( $_POST['name'] ) ) : '';
 		$pass  = isset( $_POST['password'] ) ? (string) wp_unslash( $_POST['password'] ) : '';
 		$email = isset( $_POST['email'] ) ? sanitize_email( wp_unslash( $_POST['email'] ) ) : '';
-		if ( ! is_email( $email ) ) {
-			wp_send_json_error( array( 'message' => 'メールアドレスを正しく入れてください。' ) );
+		// メールアドレスは任意。空欄なら内部用のダミー（ログインには使わない）にして、メールは送らない
+		$raw_email = isset( $_POST['email'] ) ? trim( (string) wp_unslash( $_POST['email'] ) ) : '';
+		if ( '' !== $raw_email && ! is_email( $email ) ) {
+			wp_send_json_error( array( 'message' => 'メールアドレスを正しく入れてください（送らないときは空欄にします）。' ) );
 		}
-		if ( email_exists( $email ) ) {
+		if ( '' !== $raw_email && email_exists( $email ) ) {
 			wp_send_json_error( array( 'message' => 'そのメールアドレスは、ほかのスタッフで使われています。' ) );
 		}
 		if ( ! preg_match( '/^[A-Za-z0-9_.-]{3,40}$/', $login ) ) {
@@ -471,7 +473,7 @@ add_action(
 			array(
 				'user_login'   => $login,
 				'user_pass'    => $pass,
-				'user_email'   => $email,
+				'user_email'   => '' !== $raw_email ? $email : $login . '@invalid.example',
 				'display_name' => '' !== $name ? $name : $login,
 				'role'         => 'editor',
 			)
@@ -482,6 +484,9 @@ add_action(
 		( new WP_User( $id ) )->add_cap( 'ktpwp_access' ); // 「スタッフ管理」でもオンになる
 		update_user_meta( $id, KTP_DT_LAN_META, '1' );
 		update_user_meta( $id, 'ktp_dt_lan_pass_set', '1' );
+		if ( '' === $raw_email ) {
+			wp_send_json_success( array( 'message' => 'スタッフを追加しました。ログイン名とパスワードを本人に直接伝えてください。' ) );
+		}
 		if ( ktp_dt_staff_welcome_mail( new WP_User( $id ) ) ) {
 			wp_send_json_success( array( 'message' => 'スタッフを追加し、' . $email . ' に案内メールを送りました。' ) );
 		}
@@ -677,10 +682,10 @@ add_action(
 		?>
 <div id="ktp-dt-staff-add" class="ktp-settings-section" style="display:none;" data-me="<?php echo (int) get_current_user_id(); ?>" data-admins="<?php echo esc_attr( implode( ',', get_users( array( 'role' => 'administrator', 'fields' => 'ID' ) ) ) ); ?>" data-ajax="<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>" data-nonce="<?php echo esc_attr( wp_create_nonce( KTP_DT_LAN_NONCE ) ); ?>">
 	<h2>スタッフを追加</h2>
-	<p style="color:#555;font-size:13px;">追加すると、入れたメールアドレスに、ログイン名と使い方の案内メールが届きます（「メール・SMTP設定」が必要です）。<strong>パスワードはメールに書かないので、本人に直接伝えてください。</strong>他のパソコン・iPad・iPhone から使うには、「LAN 共有」をオンにします。</p>
+	<p style="color:#555;font-size:13px;">メールアドレスは任意です。入れると、そのアドレスにログイン名と使い方の案内メールが届きます（「メール・SMTP設定」が必要です）。<strong>パスワードはメールに書かないので、本人に直接伝えてください。</strong>他のパソコン・iPad・iPhone から使うには、「LAN 共有」をオンにします。</p>
 	<p>
 		<input type="text" id="sa-name" placeholder="表示名（例: 山田）" style="padding:5px;width:19%;">
-		<input type="email" id="sa-email" placeholder="メールアドレス" autocapitalize="off" style="padding:5px;width:22%;">
+		<input type="email" id="sa-email" placeholder="メールアドレス（任意）" autocapitalize="off" style="padding:5px;width:22%;">
 		<input type="text" id="sa-login" placeholder="ログイン名（半角英数字）" autocapitalize="off" style="padding:5px;width:19%;">
 		<input type="password" id="sa-pass" placeholder="パスワード（<?php echo (int) KTP_DT_LAN_MIN_PASS; ?>文字以上）" autocomplete="new-password" style="padding:5px;width:19%;">
 		<button type="button" id="sa-gen" class="button" style="vertical-align:middle;">パスワードを作る</button>
@@ -693,10 +698,12 @@ add_action(
 	if(!box||!host){return;}
 	host.appendChild(box);box.style.display='';
 	var nt=host.querySelector('.notice-info, div[style*="e7f3ff"]');
-	if(nt){nt.innerHTML='<strong>メール通知について：</strong>スタッフを追加したとき、オン・オフを切り替えたときに、そのスタッフへメールが届きます（「メール・SMTP設定」が必要です）。';}
+	if(nt){nt.innerHTML='<strong>メール通知について：</strong>メールアドレスを登録したスタッフには、追加したとき、オン・オフを切り替えたときにメールが届きます（「メール・SMTP設定」が必要です）。';}
+	// メールアドレスを入れずに追加したスタッフ（内部用のダミー）は「（なし）」と出す
+	host.querySelectorAll('.ktp-staff-table tbody td').forEach(function(td){if(/@invalid\.example$/i.test(td.textContent.trim())){td.textContent='（なし）';td.style.color='#6b7280';}});
 	<?php if ( ! empty( $GLOBALS['ktp_dt_mail_skipped_dummy'] ) ) : ?>
 	document.querySelectorAll('.notice-warning p').forEach(function(p){
-		if(/通知メール送信に失敗/.test(p.textContent)){p.textContent='このスタッフはメールアドレスがダミー（…@invalid.example）のため、通知メールは送っていません。';p.closest('.notice').className='notice notice-info is-dismissible';}
+		if(/通知メール送信に失敗/.test(p.textContent)){p.textContent='このスタッフはメールアドレスを登録していないため、通知メールは送っていません。';p.closest('.notice').className='notice notice-info is-dismissible';}
 	});
 	<?php endif; ?>
 	var msg=document.getElementById('sa-msg');
