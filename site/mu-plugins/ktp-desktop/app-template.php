@@ -79,6 +79,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 	.ktp-desktop-main input[type=button],
 	.ktp-desktop-main input[type=submit],
 	.ktp-desktop-main a.button { min-height: 44px; }
+	/* 画面上部の小さなアイコンボタン（設定・再読み込み・アバター）は、44px に伸ばさず元の大きさのまま */
+	.ktp-desktop-main .ktp-header-settings-toggle,
+	.ktp-desktop-main .ktp-header-plugin-reload,
+	.ktp-desktop-main .ktp-avatar-trigger { min-height: 0; }
 	.ktp-desktop-main input[type=checkbox],
 	.ktp-desktop-main input[type=radio] { width: 22px; height: 22px; }
 	.ktp-desktop-main button, .ktp-desktop-main a, .ktp-desktop-main label, .ktp-desktop-main select { touch-action: manipulation; }

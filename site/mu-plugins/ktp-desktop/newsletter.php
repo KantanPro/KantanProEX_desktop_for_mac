@@ -372,7 +372,9 @@ add_filter(
 		// 他のボタン（宛名印刷など）と同じ作り: アイコン + 文字
 		$icon   = '<span class="ktp-svg-icon" aria-hidden="true" role="img"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M18 11v2h4v-2h-4zm-2 6.61c.96.71 2.21 1.65 3.2 2.39.4-.53.8-1.07 1.2-1.6-.99-.74-2.24-1.68-3.2-2.4-.4.54-.8 1.08-1.2 1.61zM20.4 5.6c-.4-.53-.8-1.07-1.2-1.6-.99.74-2.24 1.68-3.2 2.4.4.53.8 1.07 1.2 1.6.96-.72 2.21-1.65 3.2-2.4zM4 9c-1.1 0-2 .9-2 2v2c0 1.1.9 2 2 2h1v4h2v-4h1l5 3V6L8 9H4zm11.5 3c0-1.33-.58-2.53-1.5-3.35v6.69c.92-.81 1.5-2.01 1.5-3.34z"/></svg></span>';
 		$btn    = '<button type="button" id="ktpDtNewsletterButton" class="ktp-client-address-label-btn" onclick="window.location.href=' . esc_attr( wp_json_encode( $url ) ) . ';return false;" title="' . esc_attr( $label ) . '">' . $icon . '<span class="btn-label">ニュースレター</span></button>';
-		return preg_replace( '#(<button[^>]*id="' . $anchor . '"[^>]*>.*?</button>)#s', '$1' . $btn, $output, 1 );
+		// 狭い画面では、本体の CSS がこの種のボタンを 44px の正方形（文字なし）にする。ここは文字があるので、宛名印刷などと同じ見た目に戻す
+		$fix = '<style>@media screen and (max-width:767px){.controller #ktpDtNewsletterButton{width:auto !important;max-width:none !important;height:auto !important;max-height:none !important;min-height:44px !important;padding:8px 18px !important;flex-direction:row !important;gap:8px !important}.controller #ktpDtNewsletterButton .btn-label{display:inline !important}}</style>';
+		return preg_replace( '#(<button[^>]*id="' . $anchor . '"[^>]*>.*?</button>)#s', '$1' . $fix . $btn, $output, 1 );
 	},
 	13,
 	2
