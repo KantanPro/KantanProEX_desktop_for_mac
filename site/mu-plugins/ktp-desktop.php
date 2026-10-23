@@ -54,8 +54,29 @@ function ktp_desktop_replace_terms_wording( $html ) {
 	);
 }
 
+/** 規約の本文は、購入時に同意する kantanpro.com の利用規約ページ（WooCommerce の規約ページ）にある */
+const KTP_DESKTOP_TERMS_URL = 'https://www.kantanpro.com/riyoukiyaku';
+
+/**
+ * アプリの中では規約への同意を求めない（同意は購入時に kantanpro.com で取り、注文に記録する）。
+ * 本体は、管理者が未同意だと画面の下に同意ダイアログを出す。出す側の登録を、描画の直前に外す
+ */
+add_action(
+	'wp_footer',
+	function () {
+		if ( class_exists( 'KTPWP_Terms_Of_Service' ) ) {
+			remove_action( 'wp_footer', array( KTPWP_Terms_Of_Service::get_instance(), 'display_terms_dialog' ) );
+		}
+	},
+	0
+);
+
 /** 本体の版数が出ている表示を、デスクトップ版の版数に置き換える */
 function ktp_desktop_replace_version_text( $html ) {
+	// フッターの「利用規約」は、アプリ内の規約画面ではなく kantanpro.com の規約ページ（普段のブラウザで開く）
+	if ( is_string( $html ) && false !== strpos( $html, 'page=ktp-terms' ) ) {
+		$html = preg_replace( '#href="[^"]*page=ktp-terms[^"]*"#', 'href="' . KTP_DESKTOP_TERMS_URL . '"', $html );
+	}
 	$html = ktp_desktop_replace_terms_wording( $html );
 	$app = ktp_desktop_app_version();
 	if ( '' === $app || ! defined( 'KANTANPRO_PLUGIN_VERSION' ) || ! is_string( $html ) || '' === $html ) {
