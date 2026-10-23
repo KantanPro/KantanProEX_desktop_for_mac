@@ -1,8 +1,8 @@
 {
-  "version": "1.0.14",
+  "version": "1.0.15",
   "released": "2026-10-23",
-  "notes": "1.0.14 になりました。プロフィールでメールアドレスを変えたとき、確認メールを待たずに、保存した時点で変わるようにしました（これまでは確認のリンクが開けず、変更できませんでした）。",
+  "notes": "1.0.15 になりました。利用規約の同意を、アプリの中ではなく、購入時に行う形に変えました。アプリの中では同意の画面を出さず、画面下の「利用規約」は kantanpro.com の規約ページを開きます。規約の文言も、アプリ向けに直しました。",
   "url": "https://www.kantanpro.com/wc-account/downloads/",
-  "version_win": "1.0.14",
+  "version_win": "1.0.15",
   "url_win": "https://www.kantanpro.com/wc-account/downloads/"
 }
