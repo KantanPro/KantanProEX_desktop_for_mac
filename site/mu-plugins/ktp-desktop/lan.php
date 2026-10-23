@@ -679,10 +679,11 @@ add_action(
 	<h2>スタッフを追加</h2>
 	<p style="color:#555;font-size:13px;">追加すると、入れたメールアドレスに、ログイン名と使い方の案内メールが届きます（「メール・SMTP設定」が必要です）。<strong>パスワードはメールに書かないので、本人に直接伝えてください。</strong>他のパソコン・iPad・iPhone から使うには、「LAN 共有」をオンにします。</p>
 	<p>
-		<input type="text" id="sa-name" placeholder="表示名（例: 山田）" style="padding:5px;width:22%;">
-		<input type="email" id="sa-email" placeholder="メールアドレス" autocapitalize="off" style="padding:5px;width:24%;">
-		<input type="text" id="sa-login" placeholder="ログイン名（半角英数字）" autocapitalize="off" style="padding:5px;width:22%;">
-		<input type="password" id="sa-pass" placeholder="パスワード（<?php echo (int) KTP_DT_LAN_MIN_PASS; ?>文字以上）" autocomplete="new-password" style="padding:5px;width:22%;">
+		<input type="text" id="sa-name" placeholder="表示名（例: 山田）" style="padding:5px;width:19%;">
+		<input type="email" id="sa-email" placeholder="メールアドレス" autocapitalize="off" style="padding:5px;width:22%;">
+		<input type="text" id="sa-login" placeholder="ログイン名（半角英数字）" autocapitalize="off" style="padding:5px;width:19%;">
+		<input type="password" id="sa-pass" placeholder="パスワード（<?php echo (int) KTP_DT_LAN_MIN_PASS; ?>文字以上）" autocomplete="new-password" style="padding:5px;width:19%;">
+		<button type="button" id="sa-gen" class="button" style="vertical-align:middle;">パスワードを作る</button>
 	</p>
 	<p><button type="button" id="sa-add" class="button button-primary">追加する</button> <span id="sa-msg" role="status" style="margin-left:10px;font-weight:700;"></span></p>
 </div>
@@ -708,6 +709,14 @@ add_action(
 			if(j.success){done();}
 		}).catch(function(){msg.style.color='#b91c1c';msg.textContent='できませんでした。';});
 	}
+	// 読み違えやすい文字（0 O o 1 l I）を除いた 14 文字。本人に伝えるので、見える形で入れる
+	document.getElementById('sa-gen').onclick=function(){
+		var cs='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789',a=new Uint32Array(14),pw='';
+		crypto.getRandomValues(a);
+		for(var i=0;i<a.length;i++){pw+=cs.charAt(a[i]%cs.length);}
+		var f=document.getElementById('sa-pass');f.type='text';f.value=pw;f.select();
+		msg.style.color='#1f2937';msg.textContent='パスワードを作りました。本人に伝えるため、控えてから「追加する」を押してください。';
+	};
 	document.getElementById('sa-add').onclick=function(){
 		post({action:'ktp_dt_lan_user_add',name:document.getElementById('sa-name').value,email:document.getElementById('sa-email').value,login:document.getElementById('sa-login').value,password:document.getElementById('sa-pass').value},'追加しています…',function(){setTimeout(function(){location.reload();},2500);});
 	};
