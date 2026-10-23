@@ -113,8 +113,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	.ktp-desktop-main button, .ktp-desktop-main a, .ktp-desktop-main label, .ktp-desktop-main select { touch-action: manipulation; }
 	/* サービスリスト（サービスタブの表だけ。顧客・協力会社などの一覧は同じクラスを使うので、--service で絞る）は項目が多く、幅に収めると文字が重なる。表の幅は確保して、外側の枠（overflow-x:auto）で横にスクロールさせる */
 	.ktp-desktop-main .ktp-service-list-table.ktp-list-table--service { min-width: 720px; }
-	/* サービスタブの検索・ボタンの列は折り返さず右にはみ出す（印刷ボタンが切れる）ので、折り返す */
-	.ktp-desktop-main .ktp-service-controller__bar, .ktp-desktop-main .ktp-service-controller__tools { flex-wrap: wrap; row-gap: 8px; }
+	/* サービス・協力会社などのタブの検索・ボタンの列は、折り返さず右にはみ出す（リスト印刷ボタンが切れる）ので、折り返す */
+	.ktp-desktop-main [class*="-controller__bar"], .ktp-desktop-main [class*="-controller__tools"] { flex-wrap: wrap; row-gap: 8px; }
 	/* 幅の広い表は、画面からはみ出さず横にスクロールできるように */
 	.ktp-desktop-main .ktp-table-wrap, .ktp-desktop-main .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 </style>
