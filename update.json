@@ -1,8 +1,8 @@
 {
-  "version": "1.0.15",
-  "released": "2026-10-23",
-  "notes": "1.0.15 になりました。利用規約の同意を、アプリの中ではなく、購入時に行う形に変えました。アプリの中では同意の画面を出さず、画面下の「利用規約」は kantanpro.com の規約ページを開きます。規約の文言も、アプリ向けに直しました。",
+  "version": "1.0.16",
+  "released": "2026-10-24",
+  "notes": "1.0.16 になりました。サービス画面に「在庫数」の欄を表示するようにしました（定期契約の受付上限として使えます）。あわせて、在庫数・契約（請求サイクル）・定期請求項目・初回費用の並びを、WordPress 版と同じ見た目に揃えました。",
   "url": "https://www.kantanpro.com/wc-account/downloads/",
-  "version_win": "1.0.15",
+  "version_win": "1.0.16",
   "url_win": "https://www.kantanpro.com/wc-account/downloads/"
 }
