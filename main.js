@@ -555,6 +555,7 @@ function buildMenu() {
           ],
         },
         { label: 'LAN 共有（事務所の他の PC から使う）…', click: () => server && mainWindow && mainWindow.loadURL(`${server.baseUrl}/wp-admin/admin.php?page=ktp-dt-lan`) },
+        { label: 'サイトからの受注（ホームページの問い合わせ・注文）…', click: () => server && mainWindow && mainWindow.loadURL(`${server.baseUrl}/wp-admin/admin.php?page=ktp-dt-intake`) },
         { type: 'separator' },
         { label: 'バックアップのフォルダを開く', click: () => { fs.mkdirSync(paths.backups, { recursive: true }); shell.openPath(paths.backups); } },
         { label: 'データのフォルダを開く', click: () => shell.openPath(paths.userData) },

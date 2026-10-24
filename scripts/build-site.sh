@@ -57,6 +57,8 @@ fi
 mkdir -p "$OUT/ktp-desktop"
 cp "$ROOT/assets/baseline-ddl.json" "$ROOT/scripts/baseline.php" "$ROOT/scripts/import-kantanbiz.php" "$ROOT/scripts/import-wordpress.php" "$OUT/ktp-desktop/"
 cp "$EX_DIR/wp-cli.phar" "$OUT/ktp-desktop/wp-cli.phar"
+# ホームページに入れてもらう受付プラグイン（「サイトからの受注」の画面から ZIP で渡す）
+cp -R "$ROOT/bridge" "$OUT/ktp-desktop/bridge"
 # 初回セットアップで使う。Web からは見えないよう php -S の外（router で拒否）に置く
 EX_VER=$(grep -m1 -i "Version:" "$OUT/wp-content/plugins/KantanProEX/ktpwp.php" | sed -E 's/.*Version:[[:space:]]*([0-9.]+).*/\1/')
 printf '{"wordpress":"%s","kantanproex":"%s","built":"%s"}\n' "$WP_VER" "$EX_VER" "$(date +%Y-%m-%dT%H:%M:%S)" > "$OUT/ktp-desktop/versions.json"

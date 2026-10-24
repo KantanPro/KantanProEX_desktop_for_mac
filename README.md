@@ -12,9 +12,22 @@ KantanProEX（WordPress プラグイン）を、ブラウザも WordPress サイ
 - Electron のウィンドウの中で、同梱の PHP 8.3 と WordPress + SQLite を `127.0.0.1` だけで動かし、KantanProEX をそのまま表示します。
   既定はこのパソコンだけです。メニュー「ファイル」→「LAN 共有…」でオンにしたときだけ、事務所の LAN 向けの https の窓口（`lib/lan.js`）を開き、許可したスタッフが他のパソコンのブラウザからパスワードでログインして使えます（インターネットには公開しません）。iPad・iPhone からも使えます（1.0.0〜）。親機の画面の QR から事務所用の証明書を 1 回だけ入れると警告なしで開け、ホーム画面にも追加できます。オーナー（管理者）も、設定でオンにすれば LAN から使えます（設定・バックアップ・取り込みは親機だけ）。iPad・iPhone では印刷の代わりに PDF を作り、共有シートから AirPrint・保存ができます（`ios-print.js`）。
 - 外部への通信は行いません（画面からの読み込みは 127.0.0.1 以外を止めています）。
-  例外は、起動時に `update.json` を1回読むアップデートのお知らせ（設定で止められます）と、本人が設定した郵便番号 API・メール送信、任意のユーザー登録（登録したメールアドレスだけを kantanpro.com に送る）だけです。
+  例外は、起動時に `update.json` を1回読むアップデートのお知らせ（設定で止められます）と、本人が設定した郵便番号 API・メール送信・サイトからの受注、任意のユーザー登録（登録したメールアドレスだけを kantanpro.com に送る）だけです。
 - データは `~/Library/Application Support/KantanProEX/` に置き、起動時に1日1回「書類」フォルダへ自動でバックアップします。
 - WordPress 版との違い（デスクトップ版で調整している内容）は `site/mu-plugins/ktp-desktop.php` にまとめています。プラグイン本体は改変しません。
+
+## サイトからの受注（ホームページの問い合わせ・注文）
+
+デスクトップ版には外から受け付ける口がないので、ホームページ（WordPress）に受付プラグイン `bridge/ktp-dt-bridge` を入れてもらい、
+そこに預けられた Contact Form 7 のお問い合わせと WooCommerce の注文を、アプリが取りに行きます（PC → サイトの一方向。PC は公開しない）。
+
+- アプリ側: 「KantanProEX 設定」→「サイトからの受注」（`site/mu-plugins/ktp-desktop/intake.php`）。既定はオフ。サイトのアドレス（https のみ）と接続キーを入れてオンにすると、wp-cron で 15 分ごとに取り込む。受付プラグインの ZIP もこの画面から保存できる
+- サイト側: 「設定」→「KantanProEX 受付」に接続キーが出る。REST `?rest_route=/ktp-dt-bridge/v1/inbox`（取得）・`/ack`（受け取り済み）を `X-KTP-Bridge-Key` で守る。渡し終えた分は 7 日で消す
+- 受注の作り方は EX 本体と同じ（CF7: `KTPWP_Contact_Form::import_submission()`、WooCommerce: `KTPWP_WooCommerce_Integration::import_order_payload()`）。受付プラグインは WooCommerce の注文を本体の `order_payload()` と同じ形にして預ける。形を変えるときは両方そろえる
+- 取り込んだ預かり分の uuid を覚えておき、「受け取った」を返せずに再び届いても二重にしない
+- **公開商品**: 「サイト公開」にしたサービスを、アプリがサイトへ送る（`POST /catalog`・`/catalog-image`。内容が変わったときだけ。画像は 900px 以内の JPEG に縮めて、足りないものだけ）。サイト側は `bridge/ktp-dt-bridge/catalog.php` がショートコード `[ktp_dt_products]`（EX と同じ `[ktpwp_public_products]` も、EX が無いサイトでは使える）でカード表示し、申し込みフォーム（admin-ajax）の入力を受付箱（`kind=public_order`）に預ける。アプリは `KTPWP_Public_Product_Order::submit_order()` で受注にする（数量・税率・明細は EX と同じ）。完売・保留はサイトに送り直すので、次の同期（15 分以内）でボタンが消える
+- 公開を止めた商品・完売後の申し込みは受注を作らず、連絡先を「最近の取り込み」に残して受け取りは済ませる
+- Stripe の即時購入（`public_instant_purchase`）はまだ対象外（サイトに決済の鍵を置くことになるため）。申し込みは「受付中」で入り、あとから請求する形
 
 ## WordPress 版（KantanProEX（WP））からの移行
 
@@ -64,4 +77,5 @@ scripts/test-dist.sh     # 作った配布版を、普段のデータとは別�
 | `lib/update.js` | アップデートのお知らせ |
 | `php/router.php` | PHP 内蔵サーバー用のルーター |
 | `site/mu-plugins/` | デスクトップ版用の調整（自動ログイン・画面テンプレート・不要な設定の非表示など） |
+| `bridge/ktp-dt-bridge/` | ホームページに入れる受付プラグイン（サイトからの受注） |
 | `assets/baseline-ddl.json` | 初回に作るテーブルの構造（データなし） |

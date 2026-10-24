@@ -168,7 +168,7 @@ add_filter(
 /**
  * 外部への HTTP 通信は原則すべて遮断する（GitHub の更新確認・バナー・規約同意の送信など）。
  *
- * 例外は、本人が設定画面で有効にして API キーを入れた機能だけ（いまは日本郵便の郵便番号 API）。
+ * 例外は、本人が設定画面で有効にして API キーを入れた機能だけ（日本郵便の郵便番号 API・サイトからの受注）。
  * WP_HTTP_BLOCK_EXTERNAL / WP_ACCESSIBLE_HOSTS は定数なので「設定したら通す」ができず、ここで判定する。
  * 遮断はタイムアウトを待たず即座に WP_Error を返すので、オフラインでも画面が待たされない。
  */
@@ -180,6 +180,10 @@ function ktp_desktop_allowed_hosts() {
 	}
 	if ( class_exists( 'KTPWP_Japanpost_Address_API' ) && KTPWP_Japanpost_Address_API::is_enabled() ) {
 		$hosts[] = (string) wp_parse_url( KTPWP_Japanpost_Address_API::get_base_url(), PHP_URL_HOST );
+	}
+	// サイトからの受注（intake.php）をオンにして、アドレスを入れたホームページ
+	if ( function_exists( 'ktp_dt_intake_host' ) ) {
+		$hosts[] = ktp_dt_intake_host();
 	}
 	return array_filter( $hosts );
 }
@@ -431,7 +435,8 @@ add_filter(
  *
  * - ショートコード関連: 業務画面はアプリの1画面に固定なので、ページの指定・ページ幅・ショートコード一覧は不要
  * - 外部サイトが前提の機能: Contact Form 7 からの受注、Stripe 請求連携、公開商品ページ、問い合わせブロック
- *   （デスクトップ版には外から受け付けるサイトがなく、外部とも通信しない）
+ *   （デスクトップ版には外から受け付けるサイトがなく、外部とも通信しない。
+ *    Contact Form 7・WooCommerce の受注は、ホームページの受付プラグイン経由の「サイトからの受注」（intake.php）で取り込む）
  * 郵便番号 API と SMTP は、ネットにつないだときに使えるので残す。
  */
 function ktp_desktop_hidden_settings() {
@@ -723,3 +728,4 @@ require_once __DIR__ . '/ktp-desktop/reports-extra.php';
 require_once __DIR__ . '/ktp-desktop/newsletter.php';
 require_once __DIR__ . '/ktp-desktop/webfax.php';
 require_once __DIR__ . '/ktp-desktop/lan.php';
+require_once __DIR__ . '/ktp-desktop/intake.php';
