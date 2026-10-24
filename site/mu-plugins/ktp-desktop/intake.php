@@ -887,3 +887,52 @@ add_action(
 	},
 	100
 );
+
+// ---- サービスを変更したら、公開商品をすぐサイトへ反映する ----
+// 15 分待たずに反映できるよう、サービスタブでの保存・削除・複製・画像変更のあと、
+// 次に開いた画面で「今すぐ取り込む」と同じ処理を裏で 1 回走らせる（商品の一覧が変わっていなければ何も送らない）。
+const KTP_DT_CATALOG_DIRTY = 'ktp_dt_catalog_dirty';
+
+add_action(
+	'shutdown',
+	function () {
+		if ( 'POST' !== ( $_SERVER['REQUEST_METHOD'] ?? '' ) || ! ktp_dt_intake_can_manage() ) {
+			return;
+		}
+		$s = ktp_dt_intake_settings();
+		if ( ! $s['enabled'] || ! $s['catalog'] ) {
+			return;
+		}
+		$ajax_action = isset( $_REQUEST['action'] ) ? sanitize_key( wp_unslash( $_REQUEST['action'] ) ) : '';
+		$tab         = isset( $_REQUEST['tab_name'] ) ? sanitize_key( wp_unslash( $_REQUEST['tab_name'] ) ) : '';
+		$query_post  = isset( $_POST['query_post'] ) ? sanitize_key( wp_unslash( $_POST['query_post'] ) ) : '';
+		$changed     = 'ktp_duplicate_service' === $ajax_action
+			|| ( 'service' === $tab && '' !== $query_post && ! in_array( $query_post, array( 'istmode', 'srcmode' ), true ) );
+		if ( $changed ) {
+			update_option( KTP_DT_CATALOG_DIRTY, 1, false );
+		}
+	}
+);
+
+add_action(
+	'wp_footer',
+	function () {
+		if ( ! get_option( KTP_DT_CATALOG_DIRTY ) || ! ktp_dt_intake_can_manage() ) {
+			return;
+		}
+		delete_option( KTP_DT_CATALOG_DIRTY );
+		$s = ktp_dt_intake_settings();
+		if ( ! $s['enabled'] || ! $s['catalog'] ) {
+			return;
+		}
+		?>
+<script id="ktp-dt-catalog-sync">
+(function(){
+	var d=new URLSearchParams({action:'ktp_dt_intake_run',nonce:<?php echo wp_json_encode( wp_create_nonce( KTP_DT_INTAKE_NONCE ) ); ?>});
+	fetch(<?php echo wp_json_encode( admin_url( 'admin-ajax.php' ) ); ?>,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},body:d.toString()}).catch(function(){});
+})();
+</script>
+		<?php
+	},
+	101
+);
