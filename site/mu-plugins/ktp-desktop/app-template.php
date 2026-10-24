@@ -59,13 +59,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 	/* デスクトップ版では使わないもの（表示しないだけで、データはそのまま） */
 	/* 規約画面の「ホームへ」: トップページがこの画面そのものなので、押しても同じ画面に戻るだけ */
 	.ktpwp-terms-modal .ktpwp-home-link { display: none !important; }
-	/* サービスの公開商品の欄: 公開の販売ページ（外部サイト）が前提 */
-	.ktpwp-service-public-field,
-	.ktpwp-service-field-block--public-quantity,
-	.ktpwp-service-field-block--instant-purchase,
-	.ktpwp-service-field-block--public-html,
-	/* サービスリストの「公開」列: サイトに公開しないので不要 */
-	.ktp-service-list-table .col-public { display: none !important; }
+	/* 「在庫を管理する」のラベルは本体にスタイルが無く、標準の大きさ（周りより大きい）になる。「サイトに公開」と同じ大きさ・色にそろえる */
+	.ktp-desktop-main label.ktpwp-service-stock-managed { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: #444; white-space: nowrap; }
+	.ktp-desktop-main label.ktpwp-service-stock-managed input[type="checkbox"] { width: auto; margin: 0; flex: 0 0 auto; }
+	/* 「公開フォームの数量」のラジオ・「即時購入」のチェック・「公開用 HTML」の入力欄: 本体にスタイルが無く崩れるので、ほかの欄と同じ大きさ・並びにそろえる */
+	.ktp-desktop-main .ktpwp-service-field-block__control--radio { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+	.ktp-desktop-main label.ktpwp-service-radio-option,
+	.ktp-desktop-main .ktpwp-service-field-block__control label.ktpwp-service-public-field { display: inline-flex; align-items: center; gap: 6px; width: auto; margin: 0; font-size: 14px; color: #444; text-align: left; white-space: nowrap; }
+	.ktp-desktop-main label.ktpwp-service-radio-option input,
+	.ktp-desktop-main .ktpwp-service-field-block__control label.ktpwp-service-public-field input { width: auto; margin: 0; flex: 0 0 auto; }
+	.ktp-desktop-main #public_html { width: 100%; box-sizing: border-box; }
 	/* サービスの在庫数・契約・定期請求項目・初回費用は、WP 版に合わせてラベルを入力欄の上に左揃えで積む（既定は左 25% にラベルを置く並び） */
 	.ktp-desktop-main .ktpwp-service-field-block,
 	.ktp-desktop-main .ktpwp-service-field-block--recurring .ktpwp-service-field-block__label,
@@ -146,6 +149,18 @@ echo $ktp_desktop_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNo
 ?>
 </main>
 <?php wp_footer(); ?>
+<script id="ktp-desktop-instant-purchase-note">
+// 「公開商品の即時購入（Stripe 決済）」の案内文。本体の文は「一般設定で Stripe 請求連携を有効にすると設定できます」だが、
+// デスクトップ版には Stripe 請求連携の設定画面がない。サイトの商品は「申し込み」（受注・受付中）で受け付ける
+(function(){
+	var note = 'デスクトップ版では、ホームページの商品は「申し込む」ボタンで受け付けます（受注が受付中で入り、あとから請求します）。Stripe 決済の即時購入には、まだ対応していません。';
+	function go(){
+		document.querySelectorAll('.ktpwp-service-field-block--instant-purchase .ktpwp-service-field-block__hint').forEach(function(h){ if (h.textContent !== note) { h.textContent = note; } });
+	}
+	go();
+	new MutationObserver(go).observe(document.body, { childList: true, subtree: true });
+})();
+</script>
 <script id="ktp-desktop-quit-button">
 // ヘッダーのログアウトボタン（ログアウト URL は ktp-desktop.php で終了の合図に差し替え済み）を「アプリを終了」の見た目にする
 (function () {
