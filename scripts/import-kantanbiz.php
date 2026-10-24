@@ -446,6 +446,8 @@ class KTP_DT_KantanBiz_Import {
 					'is_public'              => 0,
 					'contract_billing_cycle' => $this->str( $r['contract_billing_cycle'], 'none' ),
 					'stock'                  => max( 0, (int) ( $r['stock'] ?? 1 ) ),
+					// KantanBiz は在庫数を常に使っていたので、在庫数を 1 以外にしていたサービスだけ「在庫を管理する」にする
+					'stock_managed'          => ( isset( $r['stock'] ) && (int) $r['stock'] !== 1 ) ? 1 : 0,
 				)
 			);
 			$this->map['service'][ (int) $r['id'] ] = $id;
