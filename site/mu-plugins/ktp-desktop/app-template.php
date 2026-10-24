@@ -151,11 +151,27 @@ echo $ktp_desktop_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNo
 <?php wp_footer(); ?>
 <script id="ktp-desktop-instant-purchase-note">
 // 「公開商品の即時購入（Stripe 決済）」の案内文。本体の文は「一般設定で Stripe 請求連携を有効にすると設定できます」だが、
-// デスクトップ版には Stripe 請求連携の設定画面がない。サイトの商品は「申し込み」（受注・受付中）で受け付ける
+// デスクトップ版は「サイトからの受注」の画面で Stripe の秘密鍵を入れる（stripe-purchase.php）。
+// 本体は WP 版の Stripe 設定を見てチェックを無効にしているので、秘密鍵が入っていればここで有効にする。
+// また、チェックを外すと値が送られず前の値のまま残る（本体の保存処理）ので、外したときの 0 を先に置く
 (function(){
-	var note = 'デスクトップ版では、ホームページの商品は「申し込む」ボタンで受け付けます（受注が受付中で入り、あとから請求します）。Stripe 決済の即時購入には、まだ対応していません。';
+	var on = <?php echo wp_json_encode( function_exists( 'ktp_dt_stripe_enabled' ) && ktp_dt_stripe_enabled() ); ?>;
+	var note = on
+		? 'チェックすると、ホームページのボタンが「購入する」になり、Stripe の決済ページでそのままカード払いできます。入金されると受注（入金済み）で入ります。'
+		: 'ホームページの商品は「申し込む」ボタンで受け付けます（受注が受付中で入り、あとから請求します）。その場でカード払いにするには、KantanProEX 設定 →「サイトからの受注」で Stripe の秘密鍵を入れてください。';
 	function go(){
-		document.querySelectorAll('.ktpwp-service-field-block--instant-purchase .ktpwp-service-field-block__hint').forEach(function(h){ if (h.textContent !== note) { h.textContent = note; } });
+		document.querySelectorAll('.ktpwp-service-field-block--instant-purchase').forEach(function(block){
+			var h = block.querySelector('.ktpwp-service-field-block__hint');
+			if (h && h.textContent !== note) { h.textContent = note; }
+			var cb = block.querySelector('input[type=checkbox][name=public_instant_purchase]');
+			if (!on || !cb) { return; }
+			if (cb.disabled) { cb.disabled = false; }
+			if (!block.querySelector('input[type=hidden][name=public_instant_purchase]')) {
+				var zero = document.createElement('input');
+				zero.type = 'hidden'; zero.name = 'public_instant_purchase'; zero.value = '0';
+				cb.parentNode.insertBefore(zero, cb);
+			}
+		});
 	}
 	go();
 	new MutationObserver(go).observe(document.body, { childList: true, subtree: true });

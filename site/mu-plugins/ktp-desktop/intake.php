@@ -205,6 +205,8 @@ function ktp_dt_intake_catalog_build() {
 			'open'           => ! empty( $avail['acceptance_open'] ),
 			'status_label'   => (string) ( $avail['status_label'] ?? '' ),
 			'image_hash'     => $img ? $img['hash'] : '',
+			// 即時購入（Stripe 決済）の決済ページ。あればサイトのボタンが「購入する」になる（stripe-purchase.php）
+			'buy_url'        => function_exists( 'ktp_dt_stripe_buy_url' ) ? ktp_dt_stripe_buy_url( (int) $row->id ) : '',
 		);
 	}
 	return array(
@@ -245,7 +247,9 @@ function ktp_dt_intake_catalog_sync( array $site ) {
 	if ( ! ktp_dt_intake_settings()['catalog'] || ! isset( $site['catalog_hash'] ) ) {
 		return $none; // 受付プラグインが古く、商品に対応していない
 	}
-	$cat = ktp_dt_intake_catalog_build();
+	// 即時購入の決済ページを先に合わせる（作れなかった商品は「申し込む」のまま載せる）
+	$stripe_error = function_exists( 'ktp_dt_stripe_sync_links' ) ? ktp_dt_stripe_sync_links() : '';
+	$cat          = ktp_dt_intake_catalog_build();
 	if ( ! $cat ) {
 		return $none;
 	}
@@ -279,7 +283,7 @@ function ktp_dt_intake_catalog_sync( array $site ) {
 		}
 		$pushed = true;
 	}
-	return array( 'count' => count( $cat['services'] ), 'pushed' => $pushed, 'error' => '' );
+	return array( 'count' => count( $cat['services'] ), 'pushed' => $pushed, 'error' => $stripe_error );
 }
 
 /**
@@ -386,11 +390,22 @@ function ktp_dt_intake_run() {
 	$skipped  = 0;
 	$failed   = 0;
 	$error    = '';
-	$failures = array();
-	$site     = null; // 最初の取得応答（公開商品の同期で、サイトの状態を見るのに使う）
+	$failures  = array();
+	$attention = 0; // 即時購入で入金済みなのに受注を作れなかった件数（記録に理由と購入者を残してある）
+	$site      = null; // 最初の取得応答（公開商品の同期で、サイトの状態を見るのに使う）
 	$catalog  = array( 'count' => 0, 'pushed' => false, 'error' => '' );
 
 	try {
+		// 即時購入（Stripe 決済）で入金された分。サイトにつながらなくても取り込めるよう、先に行う（stripe-purchase.php）
+		if ( function_exists( 'ktp_dt_stripe_import_paid' ) ) {
+			$paid      = ktp_dt_stripe_import_paid();
+			$imported += $paid['imported'];
+			$failed   += $paid['failed'];
+			$attention = $paid['attention'];
+			if ( $paid['error'] !== '' ) {
+				$failures['stripe'] = '即時購入の入金を確かめられませんでした: ' . $paid['error'];
+			}
+		}
 		// 1 回に 50 件ずつ、最大 10 回（500 件）まで
 		for ( $round = 0; $round < 10; $round++ ) {
 			$res = ktp_dt_intake_request( 'GET', 'inbox', array( 'limit' => KTP_DT_INTAKE_BATCH ) );
@@ -498,6 +513,9 @@ function ktp_dt_intake_run() {
 	}
 	if ( $skipped ) {
 		$parts[] = $skipped . ' 件は受注を作りませんでした（ブロック中のアドレスなど）。';
+	}
+	if ( $attention ) {
+		$parts[] = '即時購入で入金済みなのに受注を作れなかったものが ' . $attention . ' 件あります（「最近の取り込み」に理由と購入者を残しました）。';
 	}
 	if ( $catalog['pushed'] ) {
 		$parts[] = '公開商品 ' . $catalog['count'] . ' 件をサイトに反映しました。';
@@ -642,6 +660,9 @@ add_action(
 		$what[] = ! empty( $res['cf7'] ) ? 'Contact Form 7: 受付中' : 'Contact Form 7: 受け付けていません';
 		$what[] = ! empty( $res['woo'] ) ? 'WooCommerce: 受付中' : 'WooCommerce: 受け付けていません';
 		$what[] = isset( $res['catalog_hash'] ) ? ( '公開商品: ' . (int) ( $res['catalog_count'] ?? 0 ) . ' 件を掲載中' . ( ! empty( $res['shop'] ) ? '' : '（申し込みは受け付けていません）' ) ) : '公開商品: 受付プラグインが古いため使えません（新しい受付プラグインを入れてください）';
+		if ( function_exists( 'ktp_dt_stripe_enabled' ) && ktp_dt_stripe_enabled() && empty( $res['buy'] ) ) {
+			$what[] = '即時購入: 受付プラグインが古いため「購入する」ボタンを出せません（受付プラグイン 1.2.0 以降を入れてください）';
+		}
 		wp_send_json_success(
 			array(
 				'message' => '「' . sanitize_text_field( (string) ( $res['site'] ?? '' ) ) . '」につながりました。' . implode( '／', $what ) . '。まだ取り込んでいないもの: ' . (int) ( $res['pending'] ?? 0 ) . ' 件',
@@ -787,7 +808,7 @@ function ktp_dt_intake_page_html() {
 	<p style="margin:6px 0;"><code>[ktp_dt_products]</code>　（WordPress 版と同じ <code>[ktpwp_public_products]</code> でも表示できます）</p>
 	<p style="color:#6b7280;font-size:13px;margin:0;">列の数は <code>columns="2"</code>、カテゴリーの絞り込みは <code>category="カテゴリー名"</code>、特定の商品だけは <code>ids="3,5"</code>、1 列の一覧は <code>layout="cards"</code> を付けます。
 	お客様が「申し込む」を押すと、ホームページに預けられ、このアプリが取りに行って受注（受付中）にします。商品の追加・値段・在庫・受付状況の変更は、15 分以内（「今すぐ取り込む」ならすぐ）にホームページへ反映されます。
-	支払いのあとに請求する形です（Stripe の即時購入には対応していません）。</p>
+	あとから請求する形です。その場でカード払いしてもらうには、下の「5. 即時購入（Stripe 決済）」を設定します。</p>
 
 	<h3 style="margin:20px 0 6px;">4. つながるか確かめる</h3>
 	<p>
@@ -795,6 +816,8 @@ function ktp_dt_intake_page_html() {
 		<button type="button" class="button" id="ktp-dt-intake-run" <?php disabled( ! $s['enabled'] ); ?>>今すぐ取り込む</button>
 	</p>
 	<p id="ktp-dt-intake-msg" role="status" style="display:none;font-weight:700;"></p>
+
+	<?php echo function_exists( 'ktp_dt_stripe_section_html' ) ? ktp_dt_stripe_section_html() : ''; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 
 	<h3 style="margin:20px 0 6px;">最近の取り込み</h3>
 	<?php if ( ! $log ) : ?>

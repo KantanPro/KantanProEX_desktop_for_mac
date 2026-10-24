@@ -2,7 +2,7 @@
 /**
  * Plugin Name: KantanProEX（DT）サイト受付
  * Description: Contact Form 7 のお問い合わせ・WooCommerce の注文・商品の申し込みをこのサイトで預かり、パソコンの KantanProEX（DT）が取りに来たら渡します。KantanProEX（DT）の公開商品を、ショートコードでこのサイトに表示します。
- * Version: 1.1.1
+ * Version: 1.2.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: KantanPro
@@ -18,13 +18,14 @@
  * - Contact Form 7: get_posted_data() の値そのまま（KTPWP_Contact_Form::import_submission() が受け取る）
  * - WooCommerce: KTPWP_WooCommerce_Integration::order_payload() と同じ配列（import_order_payload() が受け取る）
  * - 公開商品: DT が商品を送ってくる（catalog.php）。申し込みは kind=public_order で預かり、DT が受注にする
+ *   即時購入の商品は、DT が作った Stripe の決済ページへ「購入する」で進む（入金は DT が Stripe から直接受け取る）
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-const KTP_DT_BRIDGE_VERSION   = '1.1.1';
+const KTP_DT_BRIDGE_VERSION   = '1.2.0';
 const KTP_DT_BRIDGE_DB_OPT    = 'ktp_dt_bridge_db_version';
 const KTP_DT_BRIDGE_KEY_OPT   = 'ktp_dt_bridge_key';
 const KTP_DT_BRIDGE_SET_OPT   = 'ktp_dt_bridge_settings';
@@ -572,6 +573,7 @@ add_action(
 							'cf7'     => $s['cf7'] && class_exists( 'WPCF7_ContactForm' ),
 							'woo'     => $s['woo'] && class_exists( 'WooCommerce' ),
 							'shop'    => $s['shop'],
+							'buy'     => true, // 1.2.0〜: 即時購入（Stripe の決済ページへの「購入する」）を表示できる
 							'catalog_hash'  => ktp_dt_bridge_catalog()['hash'],
 							'catalog_count' => count( ktp_dt_bridge_catalog()['services'] ),
 							'catalog_need_images' => ktp_dt_bridge_catalog_need_images(),

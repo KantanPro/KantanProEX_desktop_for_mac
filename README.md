@@ -27,7 +27,11 @@ KantanProEX（WordPress プラグイン）を、ブラウザも WordPress サイ
 - 取り込んだ預かり分の uuid を覚えておき、「受け取った」を返せずに再び届いても二重にしない
 - **公開商品**: 「サイト公開」にしたサービスを、アプリがサイトへ送る（`POST /catalog`・`/catalog-image`。内容が変わったときだけ。画像は 900px 以内の JPEG に縮めて、足りないものだけ）。サイト側は `bridge/ktp-dt-bridge/catalog.php` がショートコード `[ktp_dt_products]`（EX と同じ `[ktpwp_public_products]` も、EX が無いサイトでは使える）でカード表示し、申し込みフォーム（admin-ajax）の入力を受付箱（`kind=public_order`）に預ける。アプリは `KTPWP_Public_Product_Order::submit_order()` で受注にする（数量・税率・明細は EX と同じ）。完売・保留はサイトに送り直すので、次の同期（15 分以内）でボタンが消える
 - 公開を止めた商品・完売後の申し込みは受注を作らず、連絡先を「最近の取り込み」に残して受け取りは済ませる
-- Stripe の即時購入（`public_instant_purchase`）はまだ対象外（サイトに決済の鍵を置くことになるため）。申し込みは「受付中」で入り、あとから請求する形
+- **即時購入（Stripe 決済）**（`site/mu-plugins/ktp-desktop/stripe-purchase.php`、受付プラグイン 1.2.0〜）: 秘密鍵は「サイトからの受注」の画面で入れ、PC の中だけに置く（WP 版の Stripe 設定 `ktp_general_settings` は使わない。使うと請求メールへの決済リンクなど WP 版の Stripe 請求連携が丸ごと動くため）。
+  「即時購入」にした公開商品ごとにアプリが Stripe の Payment Link を作り、URL だけを `buy_url` としてカタログに載せる。サイトの「購入する」は `buy.stripe.com` へのリンク（それ以外の URL は受付プラグインが捨てる）。
+  取り込みのたびに `GET /v1/checkout/sessions?payment_link=…&status=complete` で入金を取りに行き、`submit_order()` → `KTPWP_Stripe_Billing::sync_public_checkout_session_for_order()` で WP 版と同じ「受注・入金済み・前払い・通知メール」にする（通知の内容は本体と同じ transient `ktpwp_instant_purchase_ctx_{受注ID}` に置く）。取り込んだ Checkout Session ID を覚えて二重にしない。
+  商品名・値段・数量固定・単位が変わったらリンクを作り直して前のリンクを止める。止めたリンクも 3 日間は入金を取りに行く。定期契約・1 円単位でない値段・50 円未満は対象外（「申し込む」のまま）。購入後に公開を止めた等で受注を作れない入金は、理由と購入者を「最近の取り込み」に残す
+- 本体の「即時購入」のチェックは、外して保存しても値が送られず前の値が残る（EX 本体の保存処理）。DT は app-template.php で外したときの 0 を hidden で先に置いている
 
 ## WordPress 版（KantanProEX（WP））からの移行
 

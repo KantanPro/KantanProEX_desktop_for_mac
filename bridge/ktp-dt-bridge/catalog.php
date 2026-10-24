@@ -5,6 +5,7 @@
  * KantanProEX（DT）が「サイト公開」にしたサービスを、接続キー付きでこのサイトへ送ってくる（POST /catalog・/catalog-image）。
  * このプラグインは、受け取った商品をショートコードでカード表示し、申し込みを受付箱（kind=public_order）に預ける。
  * 申し込みを受注にするのは KantanProEX（DT）で、受付箱から取り込むときに行う（在庫・受付可否の判定もそちら）。
+ * 即時購入の商品は、DT が作った Stripe の決済ページ（buy_url）へ「購入する」で進む。入金は DT が Stripe から直接受け取るので、このサイトは鍵も決済情報も持たない。
  *
  * ショートコード: [ktp_dt_products]（KantanProEX（WP）が無いサイトでは、WP 版と同じ [ktpwp_public_products] でも表示できる）
  *   属性: layout=grid|cards|table（cards・table は 1 列の一覧）、columns=1〜4、category=カテゴリー（カンマ区切り）、
@@ -91,6 +92,8 @@ function ktp_dt_bridge_clean_service( $s ) {
 		'open'           => ! empty( $s['open'] ),
 		'status_label'   => sanitize_text_field( (string) ( $s['status_label'] ?? '' ) ),
 		'image_hash'     => preg_match( '/^[a-f0-9]{32}$/', (string) ( $s['image_hash'] ?? '' ) ) ? (string) $s['image_hash'] : '',
+		// 即時購入: DT が作った Stripe の決済ページ（Payment Link）。Stripe のアドレス以外は受け付けない
+		'buy_url'        => preg_match( '#^https://buy\.stripe\.com/[A-Za-z0-9_/-]+$#', (string) ( $s['buy_url'] ?? '' ) ) ? (string) $s['buy_url'] : '',
 	);
 }
 
@@ -306,7 +309,10 @@ function ktp_dt_bridge_render_products( $atts = array() ) {
 			$html .= '<div class="ktp-dtp__html">' . $s['public_html'] . '</div>';
 		}
 		$html .= '</div>';
-		if ( $s['open'] ) {
+		if ( $s['open'] && '' !== ( $s['buy_url'] ?? '' ) && ktp_dt_bridge_settings()['shop'] ) {
+			// 即時購入: Stripe の決済ページへそのまま進む（WP 版の「購入する」と同じ文言）
+			$html .= '<a class="ktp-dtp__apply ktp-dtp__buy" href="' . esc_url( $s['buy_url'] ) . '" rel="noopener">購入する</a>';
+		} elseif ( $s['open'] ) {
 			$html .= '<button type="button" class="ktp-dtp__apply" data-id="' . (int) $s['id'] . '" data-name="' . esc_attr( $s['name'] ) . '" data-fixed="' . ( $s['quantity_fixed'] ? '1' : '0' ) . '">申し込む・問い合わせる</button>';
 		} elseif ( ! $img ) {
 			$html .= '<p class="ktp-dtp__closed">' . esc_html( $s['status_label'] ?: '受付停止中' ) . '</p>';
@@ -382,6 +388,8 @@ function ktp_dt_bridge_products_css() {
 .ktp-dtp__html{font-size:14px;line-height:1.6}
 .ktp-dtp__apply{display:block;width:calc(100% - 28px);margin:4px 14px 14px;min-height:2.75rem;padding:.65rem 1rem;border:0;border-radius:6px;background:#6366f1;color:#fff;font:inherit;font-size:.9rem;font-weight:600;text-align:center;cursor:pointer}
 .ktp-dtp__apply:hover,.ktp-dtp__apply:focus-visible{background:#4f46e5;outline:2px solid #6366f1;outline-offset:2px}
+a.ktp-dtp__buy,a.ktp-dtp__buy:visited{box-sizing:border-box;color:#fff;text-decoration:none}
+a.ktp-dtp__buy:hover{color:#fff}
 .ktp-dtp__closed{margin:0 14px 14px;font-weight:700;color:#646970}
 .ktp-dtp__dialog{border:1px solid var(--ktp-bd);border-radius:12px;padding:0;max-width:480px;width:calc(100% - 32px);max-height:90vh;overflow:auto;margin:auto!important;background:var(--ktp-bg);color:var(--ktp-fg)}
 .ktp-dtp__dialog::backdrop{background:rgba(0,0,0,.5)}

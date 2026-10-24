@@ -185,6 +185,10 @@ function ktp_desktop_allowed_hosts() {
 	if ( function_exists( 'ktp_dt_intake_host' ) ) {
 		$hosts[] = ktp_dt_intake_host();
 	}
+	// 即時購入（stripe-purchase.php）で Stripe の秘密鍵を入れたとき
+	if ( function_exists( 'ktp_dt_stripe_host' ) ) {
+		$hosts[] = ktp_dt_stripe_host();
+	}
 	return array_filter( $hosts );
 }
 
@@ -729,3 +733,4 @@ require_once __DIR__ . '/ktp-desktop/newsletter.php';
 require_once __DIR__ . '/ktp-desktop/webfax.php';
 require_once __DIR__ . '/ktp-desktop/lan.php';
 require_once __DIR__ . '/ktp-desktop/intake.php';
+require_once __DIR__ . '/ktp-desktop/stripe-purchase.php';
