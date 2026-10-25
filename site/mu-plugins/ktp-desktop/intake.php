@@ -660,6 +660,9 @@ add_action(
 		$what[] = ! empty( $res['cf7'] ) ? 'Contact Form 7: 受付中' : 'Contact Form 7: 受け付けていません';
 		$what[] = ! empty( $res['woo'] ) ? 'WooCommerce: 受付中' : 'WooCommerce: 受け付けていません';
 		$what[] = isset( $res['catalog_hash'] ) ? ( '公開商品: ' . (int) ( $res['catalog_count'] ?? 0 ) . ' 件を掲載中' . ( ! empty( $res['shop'] ) ? '' : '（申し込みは受け付けていません）' ) ) : '公開商品: 受付プラグインが古いため使えません（新しい受付プラグインを入れてください）';
+		if ( ! empty( $res['woo'] ) && empty( $res['paid_downloads'] ) ) {
+			$what[] = 'WooCommerce のダウンロード商品の注文を入金済で取り込むには、受付プラグイン 1.3.0 以降を入れてください（今は受注で取り込みます）';
+		}
 		if ( function_exists( 'ktp_dt_stripe_enabled' ) && ktp_dt_stripe_enabled() && empty( $res['buy'] ) ) {
 			$what[] = '即時購入: 受付プラグインが古いため「購入する」ボタンを出せません（受付プラグイン 1.2.0 以降を入れてください）';
 		}

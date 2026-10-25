@@ -2,7 +2,7 @@
 /**
  * Plugin Name: KantanProEX（DT）サイト受付
  * Description: Contact Form 7 のお問い合わせ・WooCommerce の注文・商品の申し込みをこのサイトで預かり、パソコンの KantanProEX（DT）が取りに来たら渡します。KantanProEX（DT）の公開商品を、ショートコードでこのサイトに表示します。
- * Version: 1.2.0
+ * Version: 1.3.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: KantanPro
@@ -386,9 +386,14 @@ function ktp_dt_bridge_order_payload( $order ) {
 	$created  = $order->get_date_created();
 	$fallback = ktp_dt_bridge_order_default_rate( $order );
 	$items    = array();
+	$all_dl   = true;
 	foreach ( $order->get_items() as $item ) {
 		if ( ! $item instanceof WC_Order_Item_Product ) {
 			continue;
+		}
+		$product = $item->get_product();
+		if ( ! $product || ! $product->is_downloadable() ) {
+			$all_dl = false;
 		}
 		$subtotal = (float) $item->get_subtotal();
 		$total    = (float) $item->get_total();
@@ -417,12 +422,16 @@ function ktp_dt_bridge_order_payload( $order ) {
 			'address_2'  => (string) $order->get_billing_address_2(),
 		),
 		'items'   => $items,
+		// 1.3.0〜: 支払い済みで商品がすべてダウンロード商品なら、DT は入金済で取り込み進捗を固定する
+		'is_paid'          => $order->is_paid(),
+		'all_downloadable' => $all_dl && ! empty( $items ),
 	);
 }
 
 /**
  * 注文を受付箱に預ける（1 注文 1 回）。
  * 明細がまだ無い時点（注文の作成途中）なら預けず、後の状態変更のときにもう一度試す。
+ * ダウンロード商品だけの注文は、支払いが済んだ時点でもう一度だけ預ける（DT がその受注を入金済にして固定する）。
  *
  * @param int|WC_Order $order_or_id 注文。
  */
@@ -436,16 +445,28 @@ function ktp_dt_bridge_queue_wc_order( $order_or_id ) {
 		return;
 	}
 	$id = (int) $order->get_id();
-	if ( $id <= 0 || isset( $done[ $id ] ) || $order->get_meta( '_ktp_dt_bridge_queued' ) ) {
+	if ( $id <= 0 ) {
+		return;
+	}
+	$queued      = (bool) $order->get_meta( '_ktp_dt_bridge_queued' );
+	$paid_queued = (bool) $order->get_meta( '_ktp_dt_bridge_paid_queued' );
+	if ( isset( $done[ $id ] ) || ( $queued && $paid_queued ) ) {
 		return;
 	}
 	$payload = ktp_dt_bridge_order_payload( $order );
 	if ( empty( $payload['items'] ) ) {
 		return;
 	}
+	$paid_download = ! empty( $payload['is_paid'] ) && ! empty( $payload['all_downloadable'] );
+	if ( $queued && ! $paid_download ) {
+		return;
+	}
 	if ( ktp_dt_bridge_enqueue( 'woocommerce', $payload ) ) {
 		$done[ $id ] = true;
 		$order->update_meta_data( '_ktp_dt_bridge_queued', (string) time() );
+		if ( $paid_download ) {
+			$order->update_meta_data( '_ktp_dt_bridge_paid_queued', (string) time() );
+		}
 		$order->save_meta_data();
 	}
 }
@@ -574,6 +595,7 @@ add_action(
 							'woo'     => $s['woo'] && class_exists( 'WooCommerce' ),
 							'shop'    => $s['shop'],
 							'buy'     => true, // 1.2.0〜: 即時購入（Stripe の決済ページへの「購入する」）を表示できる
+							'paid_downloads' => true, // 1.3.0〜: WooCommerce の注文に支払い済み・ダウンロード商品の別を付けて渡す
 							'catalog_hash'  => ktp_dt_bridge_catalog()['hash'],
 							'catalog_count' => count( ktp_dt_bridge_catalog()['services'] ),
 							'catalog_need_images' => ktp_dt_bridge_catalog_need_images(),
