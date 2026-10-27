@@ -422,7 +422,7 @@ function init(root){
 var dlg=root.querySelector(".ktp-dtp__dialog"),form=root.querySelector(".ktp-dtp__form"),msg=root.querySelector(".ktp-dtp__msg");
 if(!dlg||!form){return;}
 var cur=0,sending=false;
-root.querySelectorAll(".ktp-dtp__apply").forEach(function(b){b.addEventListener("click",function(){
+root.querySelectorAll(".ktp-dtp__apply:not(.ktp-dtp__buy)").forEach(function(b){b.addEventListener("click",function(){
 cur=b.dataset.id;form.reset();msg.textContent="";msg.className="ktp-dtp__msg";
 root.querySelector(".ktp-dtp__dname").textContent=b.dataset.name;
 var q=form.querySelector(".ktp-dtp__qty");q.style.display=b.dataset.fixed==="1"?"none":"";form.quantity.value=1;
