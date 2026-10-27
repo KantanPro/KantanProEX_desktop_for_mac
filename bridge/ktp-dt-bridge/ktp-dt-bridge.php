@@ -2,7 +2,7 @@
 /**
  * Plugin Name: KantanProEX（DT）サイト受付
  * Description: Contact Form 7 のお問い合わせ・WooCommerce の注文・商品の申し込みをこのサイトで預かり、パソコンの KantanProEX（DT）が取りに来たら渡します。KantanProEX（DT）の公開商品を、ショートコードでこのサイトに表示します。
- * Version: 1.3.0
+ * Version: 1.4.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: KantanPro
@@ -25,7 +25,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-const KTP_DT_BRIDGE_VERSION   = '1.2.0';
+const KTP_DT_BRIDGE_VERSION   = '1.4.0';
 const KTP_DT_BRIDGE_DB_OPT    = 'ktp_dt_bridge_db_version';
 const KTP_DT_BRIDGE_KEY_OPT   = 'ktp_dt_bridge_key';
 const KTP_DT_BRIDGE_SET_OPT   = 'ktp_dt_bridge_settings';
@@ -595,6 +595,7 @@ add_action(
 							'woo'     => $s['woo'] && class_exists( 'WooCommerce' ),
 							'shop'    => $s['shop'],
 							'buy'     => true, // 1.2.0〜: 即時購入（Stripe の決済ページへの「購入する」）を表示できる
+							'recurring_price' => true, // 1.4.0〜: 定期契約の「毎月」「初回費用」を値段の横に表示できる
 							'paid_downloads' => true, // 1.3.0〜: WooCommerce の注文に支払い済み・ダウンロード商品の別を付けて渡す
 							'catalog_hash'  => ktp_dt_bridge_catalog()['hash'],
 							'catalog_count' => count( ktp_dt_bridge_catalog()['services'] ),

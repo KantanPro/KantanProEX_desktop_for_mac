@@ -30,7 +30,8 @@ KantanProEX（WordPress プラグイン）を、ブラウザも WordPress サイ
 - **即時購入（Stripe 決済）**（`site/mu-plugins/ktp-desktop/stripe-purchase.php`、受付プラグイン 1.2.0〜）: 秘密鍵は「サイトからの受注」の画面で入れ、PC の中だけに置く（WP 版の Stripe 設定 `ktp_general_settings` は使わない。使うと請求メールへの決済リンクなど WP 版の Stripe 請求連携が丸ごと動くため）。
   「即時購入」にした公開商品ごとにアプリが Stripe の Payment Link を作り、URL だけを `buy_url` としてカタログに載せる。サイトの「購入する」は `buy.stripe.com` へのリンク（それ以外の URL は受付プラグインが捨てる）。
   取り込みのたびに `GET /v1/checkout/sessions?payment_link=…&status=complete` で入金を取りに行き、`submit_order()` → `KTPWP_Stripe_Billing::sync_public_checkout_session_for_order()` で WP 版と同じ「受注・入金済み・前払い・通知メール」にする（通知の内容は本体と同じ transient `ktpwp_instant_purchase_ctx_{受注ID}` に置く）。取り込んだ Checkout Session ID を覚えて二重にしない。
-  商品名・値段・数量固定・単位が変わったらリンクを作り直して前のリンクを止める。止めたリンクも 3 日間は入金を取りに行く。定期契約・1 円単位でない値段・50 円未満は対象外（「申し込む」のまま）。購入後に公開を止めた等で受注を作れない入金は、理由と購入者を「最近の取り込み」に残す
+  商品名・値段・数量固定・単位が変わったらリンクを作り直して前のリンクを止める。止めたリンクも 3 日間は入金を取りに行く。1 円単位でない値段・50 円未満は対象外（「申し込む」のまま）。購入後に公開を止めた等で受注を作れない入金は、理由と購入者を「最近の取り込み」に残す
+- **定期契約の即時購入**（受付プラグイン 1.4.0〜で「毎月・初回費用」を表示）: Payment Link を subscription 用（周期・毎回の金額＋初回費用は買い切りの価格）で作る。最初の購入は `submit_order()` → `KTPWP_Order_Contract_Conversion::convert()`（`skip_subscription_start`）で受注＋契約にし、`stripe_subscription_id` を DT が直接書く（本体の `attach_subscription_to_contract()` は SDK が無いと保存しないため）。これで本体の毎月の請求・請求メールは止まる。2 回目以降は取り込みのたびに `ktp_dt_stripe_sync_subscriptions()` が `GET /v1/invoices?status=paid` を取り、本体の `handle_subscription_invoice_paid()` に渡して今回分の受注を入金済みで作る。Stripe 側の解約 → 契約「解約」、DT の「解約」→ `cancel_at_period_end`、「一時停止」→ `pause_collection`。制限付きキーには Subscriptions（書き込み）と Invoices（読み取り）が要る。自動テストでは `KTP_DT_STRIPE_API_BASE`（127.0.0.1 のみ有効）で模擬 Stripe に向ける
 - 本体の「即時購入」のチェックは、外して保存しても値が送られず前の値が残る（EX 本体の保存処理）。DT は app-template.php で外したときの 0 を hidden で先に置いている
 
 ## WordPress 版（KantanProEX（WP））からの移行

@@ -12,7 +12,11 @@
  *    KantanProEX 本体の処理（submit_order → sync_public_checkout_session_for_order）で、入金済みの受注にする。
  *    WP 版で Stripe の入金を受けたときと同じ進捗（受注）・入金日・前払い・通知メールになる
  *
- * 対象外: 定期契約のサービス（WP 版は Invoice 方式）、値段が 1 円単位でない・50 円未満のもの（Stripe の制約）。
+ * 定期契約のサービスは Stripe のサブスクリプション（毎回の自動引き落とし）にする。最初の購入は受注＋契約（subscription ID 付き）にし、
+ * 2 回目以降の引き落としと解約・停止は、取り込みのたびに Stripe と見比べて反映する（ktp_dt_stripe_sync_subscriptions）。
+ * 契約に subscription ID が入っていると、本体の毎月の請求（受注の自動生成・請求メール）は止まるので二重請求にならない。
+ *
+ * 対象外: 値段が 1 円単位でない・50 円未満のもの（Stripe の制約）。
  * 対象外の商品は、これまでどおり「申し込む」で受け付ける。
  */
 
@@ -28,6 +32,18 @@ const KTP_DT_STRIPE_NONCE      = 'ktp_dt_stripe';
 const KTP_DT_STRIPE_MIN_AMOUNT = 50;   // Stripe の日本円の最低金額
 const KTP_DT_STRIPE_OLD_DAYS   = 3;    // 止めたリンクの決済も、この日数は取りに行く（止める直前に払われた分）
 const KTP_DT_STRIPE_KEEP       = 2000; // 取り込んだ決済の印を覚えておく件数
+
+/**
+ * Stripe API の入口。自動テストのときだけ、このパソコン内の模擬サーバー（127.0.0.1）へ向けられる
+ * （環境変数 KTP_DT_STRIPE_API_BASE。外部ホストは受け付けず、秘密鍵が別の宛先へ出ないようにする）。
+ */
+function ktp_dt_stripe_api_base() {
+	$base = (string) getenv( 'KTP_DT_STRIPE_API_BASE' );
+	if ( $base !== '' && in_array( wp_parse_url( $base, PHP_URL_HOST ), array( '127.0.0.1', 'localhost' ), true ) ) {
+		return trailingslashit( $base );
+	}
+	return 'https://api.stripe.com/v1/';
+}
 
 function ktp_dt_stripe_settings() {
 	$s = get_option( KTP_DT_STRIPE_OPT, array() );
@@ -65,7 +81,7 @@ function ktp_dt_stripe_request( $method, $path, array $params = array() ) {
 	if ( $key === '' ) {
 		return new WP_Error( 'ktp_dt_stripe_conf', 'Stripe の秘密鍵が入っていません。' );
 	}
-	$url  = 'https://api.stripe.com/v1/' . ltrim( $path, '/' );
+	$url  = ktp_dt_stripe_api_base() . ltrim( $path, '/' );
 	$args = array(
 		'method'  => $method,
 		'timeout' => 30,
@@ -89,7 +105,7 @@ function ktp_dt_stripe_request( $method, $path, array $params = array() ) {
 		return new WP_Error( 'ktp_dt_stripe_key', 'Stripe の秘密鍵が正しくありません。' );
 	}
 	if ( 403 === $code ) {
-		return new WP_Error( 'ktp_dt_stripe_perm', '制限付きキーの権限が足りません（Products・Prices・Payment Links の書き込みと Checkout Sessions の読み取りが要ります）。' );
+		return new WP_Error( 'ktp_dt_stripe_perm', '制限付きキーの権限が足りません（Products・Prices・Payment Links・Subscriptions の書き込みと、Checkout Sessions・Invoices の読み取りが要ります）。' );
 	}
 	if ( $code < 200 || $code >= 300 || ! is_object( $json ) ) {
 		$msg = is_object( $json ) && isset( $json->error->message ) ? (string) $json->error->message : 'HTTP ' . $code;
@@ -129,8 +145,15 @@ function ktp_dt_stripe_ineligible_reason( $row, array $avail ) {
 	if ( ! class_exists( 'KTPWP_Service_DB' ) || ! KTPWP_Service_DB::is_public_instant_purchase( $row ) ) {
 		return 'off';
 	}
-	if ( class_exists( 'KTPWP_Contract_Billing_Cycle' ) && KTPWP_Contract_Billing_Cycle::is_recurring( $row->contract_billing_cycle ?? 'none' ) ) {
-		return '定期契約のサービスは即時購入できません（「申し込む」で受け付けます）';
+	$rec = ktp_dt_stripe_recurring_amounts( $row );
+	if ( $rec ) {
+		if ( ! empty( $rec['provisional'] ) ) {
+			return '初回に請求しない定期請求項目があるため、即時購入できません';
+		}
+		if ( $rec['recurring'] < KTP_DT_STRIPE_MIN_AMOUNT ) {
+			return 'Stripe で決済できるのは毎回 50 円からです（定期請求項目の合計）';
+		}
+		return empty( $avail['acceptance_open'] ) ? '受付停止中（完売・保留）' : '';
 	}
 	$price = (float) $row->price;
 	if ( floor( $price ) != $price ) {
@@ -143,6 +166,58 @@ function ktp_dt_stripe_ineligible_reason( $row, array $avail ) {
 		return '受付停止中（完売・保留）';
 	}
 	return '';
+}
+
+/**
+ * 定期契約のサービスの毎回の金額・初回だけの金額・周期。定期契約でなければ null。
+ * 受注の明細を作る KTPWP_Order_Items::insert_invoice_item_from_public_product() と同じ数え方にする
+ * （取り込み後の金額チェックと一致させるため）。
+ *
+ * @param object $row サービス行。
+ * @return array{interval: string, interval_count: int, recurring: int, initial: int, provisional: bool, label: string}|null
+ */
+function ktp_dt_stripe_recurring_amounts( $row ) {
+	if ( ! class_exists( 'KTPWP_Contract_Billing_Cycle' ) || ! KTPWP_Contract_Billing_Cycle::is_recurring( $row->contract_billing_cycle ?? 'none' ) ) {
+		return null;
+	}
+	if ( ! class_exists( 'KTPWP_Order_Contract_Draft_Resolver' ) && defined( 'KTPWP_PLUGIN_DIR' ) ) {
+		require_once KTPWP_PLUGIN_DIR . 'includes/class-ktpwp-order-contract-draft-resolver.php';
+	}
+	$resolver    = class_exists( 'KTPWP_Order_Contract_Draft_Resolver' ) ? KTPWP_Order_Contract_Draft_Resolver::get_instance() : null;
+	$items       = $resolver ? $resolver->default_recurring_items_for_service( (int) $row->id ) : array();
+	$recurring   = 0;
+	$provisional = false;
+	if ( $items ) {
+		foreach ( $items as $item ) {
+			if ( trim( (string) ( $item['item_name'] ?? '' ) ) === '' ) {
+				continue;
+			}
+			$recurring += (int) round( (float) ( $item['amount'] ?? 0 ) );
+			if ( empty( $item['bill_on_first_invoice'] ) ) {
+				$provisional = true; // 初回の請求に載らない項目がある（毎回の金額と初回の請求が合わなくなる）
+			}
+		}
+	} else {
+		$recurring = (int) round( (float) $row->price );
+	}
+	$initial = 0;
+	if ( $resolver ) {
+		foreach ( $resolver->default_initial_fees_for_service( (int) $row->id ) as $fee ) {
+			if ( trim( (string) ( $fee['fee_name'] ?? '' ) ) !== '' ) {
+				$initial += (int) round( (float) ( $fee['amount'] ?? 0 ) );
+			}
+		}
+	}
+	$cycle  = (string) $row->contract_billing_cycle;
+	$months = KTPWP_Contract_Billing_Cycle::get_interval_months( $cycle );
+	return array(
+		'interval'       => $months >= 12 ? 'year' : 'month',
+		'interval_count' => $months >= 12 ? 1 : max( 1, $months ),
+		'recurring'      => $recurring,
+		'initial'        => $initial,
+		'provisional'    => $provisional,
+		'label'          => KTPWP_Contract_Billing_Cycle::get_label( $cycle ),
+	);
 }
 
 /**
@@ -197,7 +272,8 @@ function ktp_dt_stripe_sync_links() {
 	foreach ( $want as $id => $row ) {
 		$fixed = KTPWP_Service_DB::is_public_quantity_fixed( $row );
 		$name  = trim( (string) $row->service_name );
-		$sig   = md5( $name . '|' . (int) $row->price . '|' . ( $fixed ? 1 : 0 ) . '|' . (string) $row->unit );
+		$rec   = ktp_dt_stripe_recurring_amounts( $row );
+		$sig   = md5( $name . '|' . (int) $row->price . '|' . ( $fixed ? 1 : 0 ) . '|' . (string) $row->unit . ( $rec ? '|rec:' . $rec['interval'] . ':' . $rec['interval_count'] . ':' . $rec['recurring'] . ':' . $rec['initial'] : '' ) );
 		$cur   = $links[ $id ] ?? null;
 		if ( is_array( $cur ) && $cur['sig'] === $sig && ( $cur['mode'] ?? '' ) === $mode ) {
 			if ( empty( $cur['active'] ) ) {
@@ -259,40 +335,54 @@ function ktp_dt_stripe_retire( array $l, $service_id ) {
  * @return object|WP_Error Payment Link。
  */
 function ktp_dt_stripe_create_link( $row, $name, $fixed ) {
-	$price = ktp_dt_stripe_request(
-		'POST',
-		'prices',
-		array(
-			'currency'     => 'jpy',
-			'unit_amount'  => (int) $row->price,
-			'product_data' => array(
-				'name'     => function_exists( 'mb_substr' ) ? mb_substr( $name, 0, 200 ) : substr( $name, 0, 200 ),
-				'metadata' => array( 'ktp_service_id' => (string) (int) $row->id ),
-			),
-			'metadata'     => array( 'ktp_service_id' => (string) (int) $row->id ),
-		)
+	$rec   = ktp_dt_stripe_recurring_amounts( $row );
+	$short = function_exists( 'mb_substr' ) ? mb_substr( $name, 0, 200 ) : substr( $name, 0, 200 );
+	$meta  = array( 'ktp_service_id' => (string) (int) $row->id );
+	$pp    = array(
+		'currency'     => 'jpy',
+		'unit_amount'  => $rec ? $rec['recurring'] : (int) $row->price,
+		'product_data' => array( 'name' => $short, 'metadata' => $meta ),
+		'metadata'     => $meta,
 	);
+	if ( $rec ) {
+		$pp['recurring'] = array( 'interval' => $rec['interval'], 'interval_count' => $rec['interval_count'] );
+	}
+	$price = ktp_dt_stripe_request( 'POST', 'prices', $pp );
 	if ( is_wp_error( $price ) ) {
 		return $price;
 	}
-	$item = array(
+	$item  = array(
 		'price'    => (string) $price->id,
 		'quantity' => 1,
 	);
-	if ( ! $fixed ) {
-		$item['adjustable_quantity'] = array(
+	$items = array( $item );
+	if ( $rec && $rec['initial'] > 0 ) {
+		// 初回費用は買い切りの価格として足す（Stripe は最初の請求にだけ載せる）
+		$fee = ktp_dt_stripe_request(
+			'POST',
+			'prices',
+			array(
+				'currency'     => 'jpy',
+				'unit_amount'  => $rec['initial'],
+				'product_data' => array( 'name' => mb_substr( $short, 0, 190 ) . '（初回費用）', 'metadata' => $meta ),
+				'metadata'     => $meta,
+			)
+		);
+		if ( is_wp_error( $fee ) ) {
+			return $fee;
+		}
+		$items[] = array( 'price' => (string) $fee->id, 'quantity' => 1 );
+	}
+	if ( ! $fixed && ! $rec ) {
+		$items[0]['adjustable_quantity'] = array(
 			'enabled' => 'true',
 			'minimum' => 1,
 			'maximum' => 999,
 		);
 	}
-	return ktp_dt_stripe_request(
-		'POST',
-		'payment_links',
-		array(
-			'line_items'              => array( $item ),
+	$params = array(
+			'line_items'              => $items,
 			'phone_number_collection' => array( 'enabled' => 'true' ),
-			'customer_creation'       => 'if_required',
 			// 受注に入れるお名前・会社名・ご要望（WP 版の購入フォームと同じ項目）
 			'custom_fields'           => array(
 				array(
@@ -320,15 +410,22 @@ function ktp_dt_stripe_create_link( $row, $name, $fixed ) {
 				'type'                => 'hosted_confirmation',
 				'hosted_confirmation' => array(
 					// サイト名はこのアプリの名前（KantanProEX）なので入れない
-					'custom_message' => 'ご購入ありがとうございます。担当者より確認のご連絡をいたします。',
+					'custom_message' => $rec
+						? 'お申し込みありがとうございます。毎回のご請求は自動で行われます。担当者より確認のご連絡をいたします。'
+						: 'ご購入ありがとうございます。担当者より確認のご連絡をいたします。',
 				),
 			),
 			'metadata'                => array(
 				'ktp_service_id' => (string) (int) $row->id,
 				'ktp_dt'         => '1',
 			),
-		)
 	);
+	if ( $rec ) {
+		$params['subscription_data'] = array( 'metadata' => $meta ); // サブスクリプションでは customer_creation が使えない
+	} else {
+		$params['customer_creation'] = 'if_required';
+	}
+	return ktp_dt_stripe_request( 'POST', 'payment_links', $params );
 }
 
 function ktp_dt_stripe_done() {
@@ -450,7 +547,8 @@ function ktp_dt_stripe_import_session( $session, $service_id ) {
 	if ( is_wp_error( $items ) ) {
 		return array( 'result' => 'retry', 'order_id' => 0 );
 	}
-	$quantity = isset( $items->data[0]->quantity ) ? max( 1, (int) $items->data[0]->quantity ) : 1;
+	$is_sub   = ( $session->mode ?? '' ) === 'subscription';
+	$quantity = ( ! $is_sub && isset( $items->data[0]->quantity ) ) ? max( 1, (int) $items->data[0]->quantity ) : 1;
 	$cd       = $session->customer_details ?? null;
 	$email    = sanitize_email( (string) ( $cd->email ?? ( $session->customer_email ?? '' ) ) );
 	$name     = ktp_dt_stripe_custom_field( $session, 'contactname' );
@@ -514,6 +612,11 @@ function ktp_dt_stripe_import_session( $session, $service_id ) {
 		),
 		DAY_IN_SECONDS
 	);
+	$sub_note = '';
+	if ( $is_sub ) {
+		// 契約を作り、subscription ID を契約・受注に残す（これで本体の毎月の請求が止まり、二重請求にならない）
+		$sub_note = ktp_dt_stripe_start_subscription( $order_id, $session );
+	}
 	$billing = KTPWP_Stripe_Billing::get_instance();
 	$billing->save_order_stripe_invoice( $order_id, $sid, '' );
 	$billing->sync_public_checkout_session_for_order( $order_id, $session );
@@ -528,10 +631,262 @@ function ktp_dt_stripe_import_session( $session, $service_id ) {
 			'label'       => $label,
 			'order_id'    => $order_id,
 			'received_at' => (int) ( $session->created ?? 0 ),
-			'message'     => trim( 'Stripe で入金済み。' . $note ),
+			'message'     => trim( 'Stripe で入金済み。' . ( $is_sub ? '毎回の自動引き落としで契約しました。' : '' ) . $sub_note . $note ),
 		)
 	);
 	return array( 'result' => 'ok', 'order_id' => $order_id );
+}
+
+/** Stripe の応答の「ID か展開済みオブジェクト」から ID を取る */
+function ktp_dt_stripe_id_of( $v ) {
+	return is_object( $v ) ? (string) ( $v->id ?? '' ) : (string) $v;
+}
+
+/**
+ * 定期購入の最初の決済から、定期契約を作って subscription ID を残す。
+ *
+ * @return string 問題があったときの説明（無ければ空）。
+ */
+function ktp_dt_stripe_start_subscription( $order_id, $session ) {
+	$sub_id = ktp_dt_stripe_id_of( $session->subscription ?? '' );
+	if ( $sub_id === '' ) {
+		return '定期契約を作れませんでした（Stripe の応答に subscription がありません）。手で契約を作ると二重請求になる恐れがあるので、Stripe の管理画面で確かめてください。';
+	}
+	if ( ! class_exists( 'KTPWP_Order_Contract_Conversion' ) ) {
+		return '定期契約を作れませんでした（契約機能がありません）。';
+	}
+	global $wpdb;
+	$conv  = KTPWP_Order_Contract_Conversion::get_instance();
+	$draft = $conv->get_draft( $order_id );
+	if ( ! $draft ) {
+		return '定期契約を作れませんでした（受注から契約の下書きを作れません）。';
+	}
+	$day    = (int) wp_date( 'j' );
+	$result = $conv->convert(
+		$order_id,
+		array(
+			'client_id'          => (int) $draft['client_id'],
+			'service_id'         => (int) $draft['service_id'],
+			'contract_name'      => (string) $draft['contract_name'],
+			'amount'             => (float) $draft['amount'],
+			'billing_cycle'      => (string) $draft['billing_cycle'],
+			'billing_day'        => $day > 28 ? 99 : $day,
+			'payment_due_mode'   => 'contract',
+			'start_date'         => wp_date( 'Y-m-d' ),
+			'end_date'           => '',
+			'status'             => 'active',
+			'send_reminder_mail' => 0, // 請求予定メールは subscription を見ないので止めておく
+			'memo'               => 'Stripe の定期購入（' . $sub_id . '）',
+		),
+		(array) $draft['initial_fees'],
+		(array) $draft['recurring_items'],
+		true,
+		null,
+		array( 'skip_subscription_start' => true ) // Stripe SDK が無いので、開始の処理は本体に任せない
+	);
+	if ( is_wp_error( $result ) ) {
+		return '定期契約を作れませんでした（' . $result->get_error_message() . '）。Stripe では定期購入が始まっているので、手で契約を作り、subscription ID（' . $sub_id . '）を控えてください。';
+	}
+	$contract_id = (int) $result;
+	$ok          = $wpdb->update( $wpdb->prefix . 'ktp_contract', array( 'stripe_subscription_id' => $sub_id ), array( 'id' => $contract_id ), array( '%s' ), array( '%d' ) );
+	$wpdb->update( $wpdb->prefix . 'ktp_order', array( 'stripe_subscription_id' => $sub_id ), array( 'id' => (int) $order_id ), array( '%s' ), array( '%d' ) );
+	$inv = ktp_dt_stripe_id_of( $session->invoice ?? '' );
+	if ( $inv !== '' ) {
+		ktp_dt_stripe_mark_done( $inv, $order_id ); // 最初の請求は取り込み済み（毎回の取り込みで二重にしない）
+	}
+	if ( false === $ok ) {
+		return '契約に subscription ID を保存できませんでした（' . $sub_id . '）。';
+	}
+	return '';
+}
+
+/**
+ * 契約のうち subscription ID を持つもの。
+ *
+ * @return array<string, object> subscription ID → 契約行。
+ */
+function ktp_dt_stripe_contracts() {
+	global $wpdb;
+	$table = $wpdb->prefix . 'ktp_contract';
+	if ( ! in_array( 'stripe_subscription_id', (array) $wpdb->get_col( "SHOW COLUMNS FROM `{$table}`" ), true ) ) {
+		return array();
+	}
+	$out = array();
+	foreach ( (array) $wpdb->get_results( "SELECT id, client_id, contract_name, status, stripe_subscription_id FROM `{$table}` WHERE stripe_subscription_id IS NOT NULL AND stripe_subscription_id <> ''" ) as $c ) {
+		$out[ (string) $c->stripe_subscription_id ] = $c;
+	}
+	return $out;
+}
+
+function ktp_dt_stripe_flag_get( $name ) {
+	$v = get_option( $name, array() );
+	return is_array( $v ) ? $v : array();
+}
+
+function ktp_dt_stripe_flag_set( $name, $key, $on ) {
+	$v = ktp_dt_stripe_flag_get( $name );
+	if ( $on ) {
+		$v[ $key ] = time();
+	} else {
+		unset( $v[ $key ] );
+	}
+	update_option( $name, $v, false );
+}
+
+/**
+ * 定期購入の 2 回目以降の引き落としと、解約・停止を DT に反映する。
+ *
+ * 1. 毎回の入金: 払われた請求書を取り、本体の handle_subscription_invoice_paid に渡す（SDK が無いので Stripe への問い合わせは省かれ、
+ *    期間の受注を作って入金済みにするところまでを DB だけで行う）
+ * 2. Stripe 側の状態 → DT: 解約されたら契約を「解約」に。引き落としに失敗中なら記録に残す
+ * 3. DT 側の操作 → Stripe: DT で解約したら期間の終わりで止める。一時停止・再開も同様
+ *
+ * @return array{imported: int, failed: int, error: string}
+ */
+function ktp_dt_stripe_sync_subscriptions() {
+	$out = array( 'imported' => 0, 'failed' => 0, 'error' => '' );
+	if ( ! ktp_dt_stripe_enabled() || ! class_exists( 'KTPWP_Stripe_Subscription' ) ) {
+		return $out;
+	}
+	$subs = ktp_dt_stripe_contracts();
+	if ( ! $subs ) {
+		return $out;
+	}
+	global $wpdb;
+	$mode_note = '';
+
+	// 1. 毎回の入金
+	$since = (int) get_option( 'ktp_dt_stripe_sub_since', 0 );
+	$gte   = ( $since ? $since : time() - 40 * DAY_IN_SECONDS ) - DAY_IN_SECONDS;
+	$start = time();
+	$paid  = array();
+	$after = null;
+	for ( $page = 0; $page < 5; $page++ ) {
+		$q = array( 'status' => 'paid', 'limit' => 100, 'created' => array( 'gte' => $gte ) );
+		if ( $after ) {
+			$q['starting_after'] = $after;
+		}
+		$list = ktp_dt_stripe_request( 'GET', 'invoices', $q );
+		if ( is_wp_error( $list ) ) {
+			$out['error'] = $list->get_error_message();
+			break;
+		}
+		$data = isset( $list->data ) && is_array( $list->data ) ? $list->data : array();
+		foreach ( $data as $inv ) {
+			$paid[] = $inv;
+		}
+		if ( empty( $list->has_more ) || ! $data ) {
+			break;
+		}
+		$after = (string) end( $data )->id;
+	}
+	$done = ktp_dt_stripe_done();
+	foreach ( array_reverse( $paid ) as $inv ) { // 古い順に
+		$iid    = (string) ( $inv->id ?? '' );
+		$sub_id = ktp_dt_stripe_id_of( $inv->subscription ?? ( $inv->parent->subscription_details->subscription ?? '' ) );
+		if ( $iid === '' || $sub_id === '' || ! isset( $subs[ $sub_id ] ) || isset( $done[ $iid ] ) ) {
+			continue;
+		}
+		if ( ( $inv->billing_reason ?? '' ) === 'subscription_create' ) {
+			continue; // 最初の請求は、購入の取り込みで済んでいる
+		}
+		$contract = $subs[ $sub_id ];
+		// 本体の処理が読む形に詰め替える（新しい API バージョンでは subscription が parent の中にある）
+		$inv->subscription = $sub_id;
+		if ( ! isset( $inv->metadata ) || ! is_object( $inv->metadata ) ) {
+			$inv->metadata = new stdClass();
+		}
+		$inv->metadata->ktp_contract_id = (string) (int) $contract->id;
+		$line_start = $inv->lines->data[0]->period->start ?? 0;
+		if ( $line_start ) {
+			$inv->period_start = (int) $line_start; // 請求書自体の period_start は前の期間を指すことがあるので、明細の期間を使う
+		}
+		KTPWP_Stripe_Subscription::get_instance()->handle_subscription_invoice_paid( $inv );
+		$oid = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$wpdb->prefix}ktp_order WHERE stripe_invoice_id = %s LIMIT 1", $iid ) );
+		ktp_dt_stripe_mark_done( $iid, $oid ); // 取り込めなかった請求も印を付ける（15 分ごとに同じ失敗を繰り返さない。記録に残す）
+		$label = '定期契約の引き落とし（' . sanitize_text_field( (string) $contract->contract_name ) . '・¥' . number_format( (int) ( $inv->amount_paid ?? 0 ) ) . '）';
+		if ( $oid ) {
+			$out['imported']++;
+			ktp_dt_intake_log( array( 'label' => $label, 'order_id' => $oid, 'received_at' => (int) ( $inv->created ?? 0 ), 'message' => 'Stripe で入金済み。今回分の受注を作りました。' ) );
+		} else {
+			$out['failed']++;
+			ktp_dt_intake_log( array( 'label' => $label, 'order_id' => 0, 'received_at' => (int) ( $inv->created ?? 0 ), 'message' => '入金済みですが、今回分の受注を作れませんでした（契約が解約・一時停止中、請求月の対象外、など）。Stripe の請求書 ' . $iid . ' を確かめ、手で受注を入れてください。' ) );
+		}
+	}
+	if ( '' === $out['error'] ) {
+		update_option( 'ktp_dt_stripe_sub_since', $start, false );
+	}
+
+	// 2・3. 契約ごとに、Stripe の状態と DT の状態を合わせる
+	$cancel_set = ktp_dt_stripe_flag_get( 'ktp_dt_stripe_sub_cancel_set' );
+	$pause_set  = ktp_dt_stripe_flag_get( 'ktp_dt_stripe_sub_pause_set' );
+	$warned     = ktp_dt_stripe_flag_get( 'ktp_dt_stripe_sub_warned' );
+	foreach ( $subs as $sub_id => $c ) {
+		$sub = ktp_dt_stripe_request( 'GET', 'subscriptions/' . rawurlencode( $sub_id ) );
+		if ( is_wp_error( $sub ) ) {
+			if ( false === strpos( $sub->get_error_message(), 'No such' ) && '' === $out['error'] ) {
+				$out['error'] = $sub->get_error_message();
+			}
+			continue; // 別モード（テスト／本番）のものは見えないので触らない
+		}
+		$st = (string) ( $sub->status ?? '' );
+		if ( in_array( $st, array( 'canceled', 'incomplete_expired' ), true ) ) {
+			if ( 'cancelled' !== $c->status && class_exists( 'KTPWP_Contract_DB' ) ) {
+				$db      = KTPWP_Contract_DB::get_instance();
+				$payload = $db->get_contract_payload( (int) $c->id );
+				if ( $payload ) {
+					$ended               = (int) ( $sub->ended_at ?? ( $sub->canceled_at ?? 0 ) );
+					$payload['status']   = 'cancelled';
+					$payload['end_date'] = wp_date( 'Y-m-d', $ended ? $ended : time() );
+					$saved               = $db->save_contract( $payload, (array) $payload['initial_fees'], (array) $payload['recurring_items'] );
+					ktp_dt_intake_log(
+						array(
+							'label'       => '定期契約の解約（' . sanitize_text_field( (string) $c->contract_name ) . '）',
+							'order_id'    => 0,
+							'received_at' => time(),
+							'message'     => is_wp_error( $saved ) ? 'Stripe で解約されましたが、契約を「解約」にできませんでした（' . $saved->get_error_message() . '）。' : 'Stripe で解約されたため、契約を「解約」にしました。',
+						)
+					);
+				}
+			}
+			continue;
+		}
+		if ( in_array( $st, array( 'past_due', 'unpaid' ), true ) ) {
+			$key = $sub_id . ':' . wp_date( 'Y-m-d' );
+			if ( empty( $warned[ $key ] ) ) {
+				$warned = array( $key => time() ) + array_slice( $warned, 0, 50, true );
+				update_option( 'ktp_dt_stripe_sub_warned', $warned, false );
+				ktp_dt_intake_log( array( 'label' => '定期契約の引き落とし失敗（' . sanitize_text_field( (string) $c->contract_name ) . '）', 'order_id' => 0, 'received_at' => time(), 'message' => '引き落としが失敗しています（Stripe が自動で再試行します）。お客様にカードの確認をお願いしてください。' ) );
+			}
+		}
+		// DT で解約 → 支払い済みの期間の終わりで止める。有効に戻したら予約を取り消す（DT が予約したものだけ）
+		$cancelling = ! empty( $sub->cancel_at_period_end );
+		if ( 'cancelled' === $c->status && ! $cancelling ) {
+			$r = ktp_dt_stripe_request( 'POST', 'subscriptions/' . rawurlencode( $sub_id ), array( 'cancel_at_period_end' => 'true' ) );
+			if ( ! is_wp_error( $r ) ) {
+				ktp_dt_stripe_flag_set( 'ktp_dt_stripe_sub_cancel_set', $sub_id, true );
+			}
+		} elseif ( 'cancelled' !== $c->status && $cancelling && isset( $cancel_set[ $sub_id ] ) ) {
+			$r = ktp_dt_stripe_request( 'POST', 'subscriptions/' . rawurlencode( $sub_id ), array( 'cancel_at_period_end' => 'false' ) );
+			if ( ! is_wp_error( $r ) ) {
+				ktp_dt_stripe_flag_set( 'ktp_dt_stripe_sub_cancel_set', $sub_id, false );
+			}
+		}
+		// DT で一時停止 → 引き落としを止める（請求しない）。有効に戻したら再開
+		$pausing = ! empty( $sub->pause_collection );
+		if ( 'paused' === $c->status && ! $pausing ) {
+			$r = ktp_dt_stripe_request( 'POST', 'subscriptions/' . rawurlencode( $sub_id ), array( 'pause_collection' => array( 'behavior' => 'void' ) ) );
+			if ( ! is_wp_error( $r ) ) {
+				ktp_dt_stripe_flag_set( 'ktp_dt_stripe_sub_pause_set', $sub_id, true );
+			}
+		} elseif ( 'active' === $c->status && $pausing && isset( $pause_set[ $sub_id ] ) ) {
+			$r = ktp_dt_stripe_request( 'POST', 'subscriptions/' . rawurlencode( $sub_id ), array( 'pause_collection' => '' ) );
+			if ( ! is_wp_error( $r ) ) {
+				ktp_dt_stripe_flag_set( 'ktp_dt_stripe_sub_pause_set', $sub_id, false );
+			}
+		}
+	}
+	return $out;
 }
 
 // ---- 設定（「サイトからの受注」の画面の中に出す） ----
@@ -611,8 +966,9 @@ function ktp_dt_stripe_section_html() {
 	<p style="margin:0;">サービスの編集画面で「即時購入（Stripe決済）」にチェックした公開商品は、ホームページのボタンが「購入する」になり、お客様は Stripe の決済ページでそのままカード払いできます。
 	入金された分は、このアプリが取り込みのときに Stripe から受け取り、<strong>受注（入金済み）</strong>にします（WordPress 版の即時購入と同じ扱い）。</p>
 	<p style="color:#6b7280;font-size:13px;margin:6px 0 0;">Stripe の秘密鍵はこのパソコンの中だけに置き、ホームページには渡しません（ホームページには決済ページのアドレスだけを送ります）。
-	パソコンが止まっている間に売れた分は、次に起動したときに取り込みます。定期契約のサービスと、値段が 1 円単位でない・50 円未満の商品は対象外です（「申し込む」で受け付けます）。
-	受付プラグインは 1.2.0 以降が必要です。</p>
+	パソコンが止まっている間に売れた分は、次に起動したときに取り込みます。値段が 1 円単位でない・50 円未満の商品は対象外です（「申し込む」で受け付けます）。
+	<strong>定期契約のサービスは、毎回自動で引き落とされます</strong>（初回費用があれば最初の請求に足されます）。契約の「解約」「一時停止」「有効」を変えると、取り込みのときに Stripe にも反映されます（解約は支払い済みの期間の終わりで止まります）。Stripe 側で解約した場合も、契約が「解約」になります。
+	受付プラグインは 1.2.0 以降が必要です（定期契約の「毎月」表示は 1.4.0 以降）。</p>
 	<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 		<input type="hidden" name="action" value="ktp_dt_stripe_save">
 		<?php wp_nonce_field( KTP_DT_STRIPE_NONCE ); ?>
@@ -621,7 +977,7 @@ function ktp_dt_stripe_section_html() {
 				<th scope="row"><label for="ktp-dt-stripe-key">Stripe の秘密鍵</label></th>
 				<td>
 					<input type="password" id="ktp-dt-stripe-key" name="stripe_key" class="regular-text" autocomplete="off" placeholder="<?php echo $s['key'] !== '' ? esc_attr( '設定済み（' . ( ktp_dt_stripe_is_test() ? 'テストモード' : '本番' ) . '）・変えるときだけ入れる' ) : 'sk_live_ / sk_test_ / rk_live_ で始まるキー'; ?>">
-					<p class="description" style="margin:2px 0 0;">Stripe の管理画面「開発者」→「API キー」のシークレットキー。制限付きキーを使う場合は、Products・Prices・Payment Links の書き込みと Checkout Sessions の読み取りを許可してください。</p>
+					<p class="description" style="margin:2px 0 0;">Stripe の管理画面「開発者」→「API キー」のシークレットキー。制限付きキーを使う場合は、Products・Prices・Payment Links・Subscriptions の書き込みと、Checkout Sessions・Invoices の読み取りを許可してください。</p>
 					<?php if ( $s['key'] !== '' ) : ?>
 						<label style="display:block;margin-top:6px;"><input type="checkbox" name="stripe_remove" value="1"> 秘密鍵を外して、即時購入をやめる</label>
 					<?php endif; ?>

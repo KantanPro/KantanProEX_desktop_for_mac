@@ -94,6 +94,9 @@ function ktp_dt_bridge_clean_service( $s ) {
 		'image_hash'     => preg_match( '/^[a-f0-9]{32}$/', (string) ( $s['image_hash'] ?? '' ) ) ? (string) $s['image_hash'] : '',
 		// 即時購入: DT が作った Stripe の決済ページ（Payment Link）。Stripe のアドレス以外は受け付けない
 		'buy_url'        => preg_match( '#^https://buy\.stripe\.com/[A-Za-z0-9_/-]+$#', (string) ( $s['buy_url'] ?? '' ) ) ? (string) $s['buy_url'] : '',
+		// 1.4.0〜: 定期契約の周期（毎月 など）と初回費用。古い DT は送らない
+		'billing_cycle_label' => sanitize_text_field( (string) ( $s['billing_cycle_label'] ?? '' ) ),
+		'initial_fee'    => isset( $s['initial_fee'] ) && is_numeric( $s['initial_fee'] ) ? max( 0.0, (float) $s['initial_fee'] ) : 0.0,
 	);
 }
 
@@ -298,7 +301,8 @@ function ktp_dt_bridge_render_products( $atts = array() ) {
 		}
 		if ( $show['price'] ) {
 			$html .= '<p class="ktp-dtp__price">' . esc_html( ktp_dt_bridge_money( $s['price'] ) )
-				. ( $show['unit'] && '' !== $s['unit'] ? ' <span class="ktp-dtp__unit">/ ' . esc_html( $s['unit'] ) . '</span>' : '' )
+				. ( '' !== ( $s['billing_cycle_label'] ?? '' ) ? ' <span class="ktp-dtp__unit">/ ' . esc_html( $s['billing_cycle_label'] ) . ( ( $s['initial_fee'] ?? 0 ) > 0 ? '（初回 ' . esc_html( ktp_dt_bridge_money( $s['initial_fee'] ) ) . '）' : '' ) . '</span>' : '' )
+				. ( '' === ( $s['billing_cycle_label'] ?? '' ) && $show['unit'] && '' !== $s['unit'] ? ' <span class="ktp-dtp__unit">/ ' . esc_html( $s['unit'] ) . '</span>' : '' )
 				. ( $show['tax'] && null !== $s['tax_rate'] ? ' <span class="ktp-dtp__unit">（税' . esc_html( rtrim( rtrim( number_format( $s['tax_rate'], 2 ), '0' ), '.' ) ) . '%）</span>' : '' )
 				. '</p>';
 		}

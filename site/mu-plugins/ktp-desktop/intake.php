@@ -208,6 +208,14 @@ function ktp_dt_intake_catalog_build() {
 			// 即時購入（Stripe 決済）の決済ページ。あればサイトのボタンが「購入する」になる（stripe-purchase.php）
 			'buy_url'        => function_exists( 'ktp_dt_stripe_buy_url' ) ? ktp_dt_stripe_buy_url( (int) $row->id ) : '',
 		);
+		// 定期契約の即時購入は、値段の横に「毎月」と初回費用を出す（古い受付プラグインは無視する）
+		$rec = ( function_exists( 'ktp_dt_stripe_recurring_amounts' ) && '' !== end( $out )['buy_url'] ) ? ktp_dt_stripe_recurring_amounts( $row ) : null;
+		if ( $rec ) {
+			$last                        = array_key_last( $out );
+			$out[ $last ]['price']       = (float) $rec['recurring'];
+			$out[ $last ]['billing_cycle_label'] = $rec['label'];
+			$out[ $last ]['initial_fee'] = (float) $rec['initial'];
+		}
 	}
 	return array(
 		'hash'     => md5( (string) wp_json_encode( $out ) ),
@@ -404,6 +412,15 @@ function ktp_dt_intake_run() {
 			$attention = $paid['attention'];
 			if ( $paid['error'] !== '' ) {
 				$failures['stripe'] = '即時購入の入金を確かめられませんでした: ' . $paid['error'];
+			}
+		}
+		// 定期購入の 2 回目以降の引き落とし・解約・一時停止（stripe-purchase.php）
+		if ( function_exists( 'ktp_dt_stripe_sync_subscriptions' ) ) {
+			$subs      = ktp_dt_stripe_sync_subscriptions();
+			$imported += $subs['imported'];
+			$attention += $subs['failed'];
+			if ( $subs['error'] !== '' ) {
+				$failures['stripe_sub'] = '定期購入の引き落としを確かめられませんでした: ' . $subs['error'];
 			}
 		}
 		// 1 回に 50 件ずつ、最大 10 回（500 件）まで
@@ -665,6 +682,9 @@ add_action(
 		}
 		if ( function_exists( 'ktp_dt_stripe_enabled' ) && ktp_dt_stripe_enabled() && empty( $res['buy'] ) ) {
 			$what[] = '即時購入: 受付プラグインが古いため「購入する」ボタンを出せません（受付プラグイン 1.2.0 以降を入れてください）';
+		}
+		if ( function_exists( 'ktp_dt_stripe_enabled' ) && ktp_dt_stripe_enabled() && ! empty( $res['buy'] ) && empty( $res['recurring_price'] ) ) {
+			$what[] = '定期契約の即時購入の値段（毎月・初回費用）を表示するには、受付プラグイン 1.4.0 以降を入れてください';
 		}
 		wp_send_json_success(
 			array(
