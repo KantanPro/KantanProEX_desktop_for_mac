@@ -2,7 +2,7 @@
 /**
  * Plugin Name: KantanProEX（DT）サイト受付
  * Description: Contact Form 7 のお問い合わせ・WooCommerce の注文・商品の申し込みをこのサイトで預かり、パソコンの KantanProEX（DT）が取りに来たら渡します。KantanProEX（DT）の公開商品を、ショートコードでこのサイトに表示します。
- * Version: 1.4.1
+ * Version: 1.4.2
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: KantanPro
@@ -25,7 +25,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-const KTP_DT_BRIDGE_VERSION   = '1.4.1';
+const KTP_DT_BRIDGE_VERSION   = '1.4.2';
 const KTP_DT_BRIDGE_DB_OPT    = 'ktp_dt_bridge_db_version';
 const KTP_DT_BRIDGE_KEY_OPT   = 'ktp_dt_bridge_key';
 const KTP_DT_BRIDGE_SET_OPT   = 'ktp_dt_bridge_settings';

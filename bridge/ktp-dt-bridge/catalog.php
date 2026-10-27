@@ -379,8 +379,8 @@ function ktp_dt_bridge_products_css() {
 .ktp-dtp--list .ktp-dtp__item{flex-direction:row;align-items:stretch}
 .ktp-dtp--list .ktp-dtp__image{width:200px;flex:none;align-self:center}
 @media (max-width:720px){.ktp-dtp--list .ktp-dtp__item{flex-direction:column}.ktp-dtp--list .ktp-dtp__image{width:auto}}
-.ktp-dtp__image{position:relative;display:flex;align-items:center;justify-content:center;padding:12px 8px 4px;background:var(--ktp-card,#e2e8f0)}
-.ktp-dtp__image img{display:block;width:auto;height:auto;max-width:88%;max-height:140px;object-fit:contain}
+.ktp-dtp__image{position:relative;display:flex;align-items:center;justify-content:center;padding:12px 14px 4px;background:var(--ktp-card,#e2e8f0)}
+.ktp-dtp__image img{display:block;width:100%;height:auto;max-width:100%;max-height:none;object-fit:contain}
 .ktp-dtp__badge{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);color:#fff;font-weight:700;font-size:18px}
 .ktp-dtp__body{padding:10px 14px 12px;flex:1}
 .ktp-dtp .ktp-dtp__name,.ktp-dtp .ktp-dtp__dtitle{margin:0 0 6px;padding:0;border:0;background:none;color:inherit;font-size:.9rem;font-weight:600;line-height:1.25}
