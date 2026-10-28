@@ -732,6 +732,7 @@ require_once __DIR__ . '/ktp-desktop/reports-extra.php';
 require_once __DIR__ . '/ktp-desktop/newsletter.php';
 require_once __DIR__ . '/ktp-desktop/webfax.php';
 require_once __DIR__ . '/ktp-desktop/lan.php';
+require_once __DIR__ . '/ktp-desktop/voice.php';
 require_once __DIR__ . '/ktp-desktop/intake.php';
 require_once __DIR__ . '/ktp-desktop/stripe-purchase.php';
 require_once __DIR__ . '/ktp-desktop/category-suggest.php';

@@ -28,6 +28,7 @@ const { syncSite, writeWpConfig, setupIfNeeded } = require('./lib/site');
 const { createBackup, autoBackupIfDue, restoreBackup } = require('./lib/backup');
 const { checkForUpdates, isAutoCheckEnabled, setAutoCheckEnabled } = require('./lib/update');
 const lan = require('./lib/lan');
+const voice = require('./lib/voice');
 
 const PREFERRED_PORT = 47321;
 const CRON_INTERVAL_MS = 5 * 60 * 1000;
@@ -42,6 +43,9 @@ let quitting = false;
 const lanSecret = crypto.randomBytes(32).toString('hex');
 let lanGateway = null; // { port, urls, fingerprint, stop }
 let lanBlockerId = null;
+// 音声操作（既定はオフ）。合言葉は起動ごとに作り、PHP と窓口だけが知る
+const voiceSecret = crypto.randomBytes(32).toString('hex');
+let voiceGateway = null; // { port, stop }
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -90,9 +94,10 @@ function setLoadingMessage(msg) {
 // ---- PHP サーバー ----
 async function startPhp() {
   const port = await findPort(PREFERRED_PORT);
-  server = await startServer(paths, port, lanSecret);
+  server = await startServer(paths, port, lanSecret, voiceSecret);
   log(`PHP server ${server.baseUrl}`);
   await startLan();
+  await startVoice();
   clearInterval(cronTimer);
   // WordPress の定期処理（定期請求のメール・リマインダー等）。DISABLE_WP_CRON にしているのでここで回す
   const runCron = () => fetch(`${server.baseUrl}/wp-cron.php?doing_wp_cron`).catch(() => {});
@@ -140,9 +145,56 @@ async function setLanEnabled(on) {
   if (mainWindow && server) mainWindow.loadURL(`${server.baseUrl}/wp-admin/admin.php?page=ktp-dt-lan`);
 }
 
+/** 音声操作の窓口を、設定がオンなら立てる（PHP を起動し直すたびに呼ばれる）。ポートが使用中なら起動せず、状態ファイルにエラーを書く */
+async function startVoice() {
+  await stopVoice();
+  if (!voice.readConfig(paths).enabled || !server) {
+    voice.writeStatus(paths, { enabled: false });
+    return;
+  }
+  try {
+    voiceGateway = await voice.startGateway(paths, { phpBaseUrl: server.baseUrl, secret: voiceSecret, log, onOpen: openFromVoice });
+  } catch (e) {
+    log(`音声操作を開始できませんでした ${e.message}`);
+    voice.writeStatus(paths, { enabled: false, error: String(e.message || e) });
+  }
+}
+
+/** 音声操作の「〇〇を開いて」: メインウィンドウを前面に出し、相対パスの画面を読み込む（パスの検査は lib/voice.js で済み） */
+function openFromVoice(relPath) {
+  if (!mainWindow || mainWindow.isDestroyed() || !server) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  if (!mainWindow.isVisible()) mainWindow.show();
+  if (process.platform === 'darwin') app.focus({ steal: true });
+  mainWindow.focus();
+  if (!relPath) return; // 前面に出すだけ（今の画面のまま）
+  log(`音声操作: 画面を開く ${relPath}`);
+  mainWindow.loadURL(`${server.baseUrl}${relPath}`).catch((e) => {
+    if (!/ERR_ABORTED/.test(String(e))) log(`音声操作: 画面を開けませんでした ${e.message}`);
+  });
+}
+
+async function stopVoice() {
+  if (voiceGateway) {
+    const g = voiceGateway;
+    voiceGateway = null;
+    await g.stop();
+    log('音声窓口を停止');
+  }
+}
+
+/** 設定画面（音声操作）のオン/オフ */
+async function setVoiceEnabled(on) {
+  log(`音声操作を${on ? 'オン' : 'オフ'}にする`);
+  voice.writeConfig(paths, { enabled: on });
+  await startVoice();
+  if (mainWindow && server) mainWindow.loadURL(`${server.baseUrl}/wp-admin/admin.php?page=ktp-dt-voice`);
+}
+
 async function stopPhp() {
   clearInterval(cronTimer);
   await stopLan();
+  await stopVoice();
   if (server) {
     const s = server;
     server = null;
@@ -214,6 +266,12 @@ function guardNavigation(contents) {
     if (isAppUrl(url) && /[?&]ktp_desktop_lan=(on|off)\b/.test(url)) {
       e.preventDefault();
       setLanEnabled(/ktp_desktop_lan=on/.test(url)).catch((err) => log(`LAN 共有の切り替えに失敗 ${err.message}`));
+      return;
+    }
+    // 音声操作のオン/オフ（LAN 共有と同じ方式）
+    if (isAppUrl(url) && /[?&]ktp_desktop_voice=(on|off)\b/.test(url)) {
+      e.preventDefault();
+      setVoiceEnabled(/ktp_desktop_voice=on/.test(url)).catch((err) => log(`音声操作の切り替えに失敗 ${err.message}`));
       return;
     }
     if (!isAppUrl(url)) {
@@ -555,6 +613,7 @@ function buildMenu() {
           ],
         },
         { label: 'LAN 共有（事務所の他の PC から使う）…', click: () => server && mainWindow && mainWindow.loadURL(`${server.baseUrl}/wp-admin/admin.php?page=ktp-dt-lan`) },
+        { label: '音声操作…', click: () => server && mainWindow && mainWindow.loadURL(`${server.baseUrl}/wp-admin/admin.php?page=ktp-dt-voice`) },
         { label: 'サイトからの受注（ホームページの問い合わせ・注文）…', click: () => server && mainWindow && mainWindow.loadURL(`${server.baseUrl}/wp-admin/admin.php?page=ktp-dt-intake`) },
         { type: 'separator' },
         { label: 'バックアップのフォルダを開く', click: () => { fs.mkdirSync(paths.backups, { recursive: true }); shell.openPath(paths.backups); } },
