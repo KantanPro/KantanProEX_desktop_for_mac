@@ -11,6 +11,7 @@
     "prepare:site": "scripts/build-site.sh",
     "start": "env -u ELECTRON_RUN_AS_NODE electron .",
     "build:mac": "scripts/build-site.sh && (chmod -R u+rwX dist/mac 2>/dev/null; rm -rf dist/mac) && env -u ELECTRON_RUN_AS_NODE electron-builder --mac dmg --x64",
+    "install:local": "scripts/install-local.sh",
     "build:icon": "node scripts/build-icon.mjs",
     "build:win": "scripts/fetch-php-win.sh && scripts/build-site.sh && (chmod -R u+rwX dist/win-unpacked 2>/dev/null; rm -rf dist/win-unpacked) && env -u ELECTRON_RUN_AS_NODE electron-builder --win nsis --x64"
   },
