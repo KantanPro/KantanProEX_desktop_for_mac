@@ -7,12 +7,14 @@
  * その前提の部分だけをここに持つ。ブロックテーマ（Twenty Twenty-Five）の全体スタイルは
  * ktp-desktop.php で読み込まないようにしている（入ると本文が 22px になる）。
  * 背景は白。ダークモードはヘッダーのボタンで切り替える（ktp-desktop.php の ktp_desktop_dark_css）。
+ * 設定 → デザインでボディ背景画像を選ぶと、背景に画像を敷いてペインをすりガラスにする（design.php）。
  */
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 ?><!doctype html>
-<html <?php language_attributes(); ?><?php echo ktp_desktop_is_dark() ? ' class="ktp-dark"' : ''; ?>>
+<?php $ktp_desktop_html_class = trim( ( ktp_desktop_is_dark() ? 'ktp-dark ' : '' ) . ktp_dt_design_html_class() ); // ダークモード・背景画像（design.php） ?>
+<html <?php language_attributes(); ?><?php echo '' !== $ktp_desktop_html_class ? ' class="' . esc_attr( $ktp_desktop_html_class ) . '"' : ''; ?>>
 <head>
 <meta charset="<?php bloginfo( 'charset' ); ?>">
 <meta name="viewport" content="width=device-width, initial-scale=1<?php echo function_exists( 'ktp_dt_is_lan' ) && ktp_dt_is_lan() ? ', viewport-fit=cover' : ''; ?>">
@@ -66,6 +68,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 	#wpadminbar { display: none !important; }
 	.ktp-dt-app-version { display: inline-block; margin-left: 0.6em; font-size: 0.5em; font-weight: 400; opacity: 0.75; vertical-align: middle; white-space: nowrap; }
 	.ktp-desktop-main { max-width: none; margin: 0; padding: 12px 16px 24px; }
+	/* 中身が短いタブ（仕事リストが0件など）でもフッターをウィンドウの下端に置く。36px は main の上下の余白 */
+	.ktp-desktop-main > .ktpwp-page-layout { display: flex; flex-direction: column; min-height: calc(100vh - 36px); min-height: calc(100dvh - 36px); }
+	.ktp-desktop-main > .ktpwp-page-layout > .tabs.ktp_plugin_container { margin-bottom: 30px !important; }
+	.ktp-desktop-main > .ktpwp-page-layout > .ktp-footer { margin-top: auto !important; }
 	/* 結果報告の通知（緑）がヘッダー（z-index 100000〜100002）の後ろに隠れるので、常に最前面へ */
 	.success-notification,
 	.ktp-floating-notification { z-index: 2147483647 !important; }
@@ -158,8 +164,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 	.ktp-desktop-main .ktp-table-wrap, .ktp-desktop-main .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 </style>
 <?php endif; ?>
+<?php ktp_dt_design_head(); // ボディ背景画像・すりガラス・オリジナルのヘッダー画像（design.php） ?>
 </head>
 <body <?php body_class( 'ktp-desktop' ); ?>>
+<?php ktp_dt_design_backdrop(); ?>
 <?php wp_body_open(); ?>
 <main class="ktp-desktop-main">
 <?php

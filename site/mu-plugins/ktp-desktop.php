@@ -50,6 +50,8 @@ function ktp_desktop_dark_css() {
 	return 'html.ktp-dark{filter:invert(.9) hue-rotate(180deg)}'
 		. 'html.ktp-dark img,html.ktp-dark video,html.ktp-dark #adminmenuback,html.ktp-dark #adminmenuwrap{filter:invert(1) hue-rotate(180deg)}'
 		. 'html.ktp-dark #adminmenu img{filter:none}'
+		// 色の設定欄（デザインのタブの色など）の見本は、反転すると実際と違う色に見えるので打ち消す
+		. 'html.ktp-dark input[type=color]{filter:invert(1) hue-rotate(180deg)}'
 		. '@media print{html.ktp-dark,html.ktp-dark img,html.ktp-dark video{filter:none!important}}';
 }
 
@@ -766,3 +768,4 @@ require_once __DIR__ . '/ktp-desktop/voice.php';
 require_once __DIR__ . '/ktp-desktop/intake.php';
 require_once __DIR__ . '/ktp-desktop/stripe-purchase.php';
 require_once __DIR__ . '/ktp-desktop/category-suggest.php';
+require_once __DIR__ . '/ktp-desktop/design.php';
