@@ -3,7 +3,7 @@
 const path = require('node:path');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
-const { app, BrowserWindow, Menu, dialog, shell, session, nativeTheme, powerSaveBlocker, clipboard } = require('electron');
+const { app, BrowserWindow, Menu, dialog, shell, session, nativeTheme, powerSaveBlocker, clipboard, screen } = require('electron');
 
 // 開発中はインストール版とデータを分ける
 // 自動テスト用: KTP_TEST_USER_DATA を指定すると、配布版でも本人のデータとは別の場所で動く。
@@ -321,16 +321,77 @@ function guardNavigation(contents) {
   });
 }
 
+// ---- ウィンドウの大きさと位置（閉じたときの状態を次の起動で戻す） ----
+const WINDOW_MIN = { width: 900, height: 600 };
+let windowRestore = null; // 表示するときに戻す最大化・フルスクリーン
+
+function windowStateFile() {
+  return path.join(paths.userData, 'window-state.json');
+}
+
+/** 前回の大きさと位置。モニターを外したなどで画面の外に出てしまう位置なら、大きさだけ使って真ん中に出す */
+function loadWindowState() {
+  let s;
+  try {
+    s = JSON.parse(fs.readFileSync(windowStateFile(), 'utf8'));
+  } catch {
+    return null;
+  }
+  if (!s || !Number.isFinite(s.width) || !Number.isFinite(s.height)) return null;
+  const state = {
+    width: Math.max(WINDOW_MIN.width, Math.round(s.width)),
+    height: Math.max(WINDOW_MIN.height, Math.round(s.height)),
+    isMaximized: !!s.isMaximized,
+    isFullScreen: !!s.isFullScreen,
+  };
+  if (Number.isFinite(s.x) && Number.isFinite(s.y)) {
+    // タイトルバーのあたり（左上から 100×40）がどこかのモニターに入っていれば、そのまま戻す
+    const visible = screen.getAllDisplays().some(({ workArea: a }) =>
+      s.x + 100 > a.x && s.x < a.x + a.width && s.y + 40 > a.y && s.y < a.y + a.height);
+    if (visible) {
+      state.x = Math.round(s.x);
+      state.y = Math.round(s.y);
+    }
+  }
+  return state;
+}
+
+function saveWindowState() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  // 最大化・フルスクリーン中は、元に戻したときの大きさを覚えておく
+  const b = mainWindow.getNormalBounds();
+  const state = { ...b, isMaximized: mainWindow.isMaximized(), isFullScreen: mainWindow.isFullScreen() };
+  try {
+    fs.writeFileSync(windowStateFile(), JSON.stringify(state));
+  } catch (e) {
+    log(`ウィンドウの大きさを保存できませんでした ${e.message}`);
+  }
+}
+
 function createWindow() {
+  const saved = loadWindowState();
   mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
-    minWidth: 900,
-    minHeight: 600,
+    width: saved ? saved.width : 1400,
+    height: saved ? saved.height : 900,
+    ...(saved && saved.x !== undefined ? { x: saved.x, y: saved.y } : {}),
+    minWidth: WINDOW_MIN.width,
+    minHeight: WINDOW_MIN.height,
     title: 'KantanProEX',
     backgroundColor: '#ffffff',
     show: false,
     webPreferences: webPreferences(),
+  });
+  windowRestore = saved;
+  // 閉じるときに保存する。落ちたときにも残るよう、動かしたり大きさを変えたりしたあとにも保存する
+  let saveTimer = null;
+  const saveSoon = () => {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveWindowState, 1000);
+  };
+  ['resize', 'move', 'maximize', 'unmaximize', 'enter-full-screen', 'leave-full-screen'].forEach((ev) => mainWindow.on(ev, saveSoon));
+  mainWindow.on('close', () => {
+    clearTimeout(saveTimer);
+    saveWindowState();
   });
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -384,6 +445,9 @@ function openApp() {
   const show = () => {
     if (shown || !mainWindow) return;
     shown = true;
+    const st = windowRestore;
+    if (st && st.isFullScreen) mainWindow.setFullScreen(true);
+    else if (st && st.isMaximized) mainWindow.maximize();
     mainWindow.show();
     closeSplash();
     // 表示した瞬間の画面の状態を記録する（規約画面などが描き終わってから出せているかの確認用）

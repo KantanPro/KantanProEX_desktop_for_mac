@@ -206,8 +206,23 @@ add_action(
 			}
 			$wp_settings_fields['ktp-design']['design_setting_section'] = $sorted;
 		}
+
+		// 本体の「カスタムCSS」は出さない（DT版では使い道がなく、書いても効き先がわかりにくい）
+		unset( $wp_settings_fields['ktp-design']['design_setting_section']['custom_css'] );
 	},
 	20
+);
+
+// 欄を消すと書いた CSS を消せなくなるので、WP版から持ち込んだ値なども効かせない
+// （本体の保存処理は送られてこない custom_css を捨てるので、一度保存すれば中身も消える）
+add_filter(
+	'option_ktp_design_settings',
+	function ( $value ) {
+		if ( is_array( $value ) ) {
+			unset( $value['custom_css'] );
+		}
+		return $value;
+	}
 );
 
 // 本体の「デフォルトに戻す」で、こちらの設定も一緒に戻す。

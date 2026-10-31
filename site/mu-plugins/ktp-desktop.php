@@ -468,8 +468,9 @@ add_filter(
 
 /**
  * デスクトップ版では使わない設定を隠す（設定値は消さない。表示しないだけ）。
+ * 見出しごとの設定は保存フォームを本体と共有していて、欄を消すと保存のたびに値が消えるので、画面で隠すだけにする。
  *
- * - ショートコード関連: 業務画面はアプリの1画面に固定なので、ページの指定・ページ幅・ショートコード一覧は不要
+ * - ショートコード関連: 業務画面はアプリの1画面に固定なので、ショートコード一覧は不要
  * - 外部サイトが前提の機能: Contact Form 7 からの受注、Stripe 請求連携、公開商品ページ、問い合わせブロック
  *   （デスクトップ版には外から受け付けるサイトがなく、外部とも通信しない。
  *    Contact Form 7・WooCommerce の受注は、ホームページの受付プラグイン経由の「サイトからの受注」（intake.php）で取り込む）
@@ -478,9 +479,41 @@ add_filter(
 function ktp_desktop_hidden_settings() {
 	return array(
 		'sections' => array( 'ショートコード', '問い合わせフォーム（Contact Form 7）設定', 'Stripe 請求連携', 'プラグイン削除時のデータ保持設定' ),
-		'rows'     => array( '業務画面ページ', '公開商品カードの背景色', '固定ページの幅' ),
 	);
 }
+
+/**
+ * WP版だけの設定項目は、DT版では登録ごと外す（本体の項目の登録 = admin_init 10 のあと）。
+ * - 業務画面ページ: 業務画面はアプリの1画面に固定。保存で値が無くなっても本体は自動で探すので困らない
+ * - 公開商品カードの背景色: 公開商品ページは使わない
+ * - 固定ページの幅: 画面はウィンドウの幅いっぱいに広げる（下で幅の CSS も止める）。保存で値が無くても本体は前の値を残す
+ */
+add_action(
+	'admin_init',
+	function () {
+		global $wp_settings_fields;
+		unset(
+			$wp_settings_fields['ktp-general']['general_setting_section']['ktp_page_id'],
+			$wp_settings_fields['ktp-design']['design_setting_section']['public_product_card_bg_color'],
+			$wp_settings_fields['ktp-design']['design_setting_section']['page_content_widths']
+		);
+	},
+	20
+);
+
+// 本体は業務画面のページに「固定ページの幅」（標準 1400px）の上限を付けるので、DT版では付けない
+// （入れ物の style 属性に付く分は app-template.php の CSS で打ち消す）
+add_action(
+	'init',
+	function () {
+		if ( ! class_exists( 'KTPWP_Settings' ) ) {
+			return;
+		}
+		$settings = KTPWP_Settings::get_instance();
+		remove_action( 'wp_head', array( $settings, 'output_page_content_width_styles' ), 20 );
+		remove_filter( 'body_class', array( $settings, 'filter_body_class_for_page_content_width' ) );
+	}
+);
 
 add_action(
 	'admin_menu',
@@ -510,11 +543,6 @@ add_action(
 		// 次の見出し、または保存ボタンを含む要素（.ktp-submit-button / p.submit）の手前で止める
 		var stop = function (n) { return !n || n.tagName === 'H2' || n.querySelector('h2') || n.matches('[type=submit], .submit, .ktp-submit-button') || n.querySelector('[type=submit]'); };
 		do { el.style.display = 'none'; el = el.nextElementSibling; } while (!stop(el));
-	});
-	// 表の行（項目名が一致する tr）を隠す
-	root.querySelectorAll('tr').forEach(function (tr) {
-		var th = tr.querySelector('th');
-		if (th && conf.rows.indexOf(th.textContent.trim()) !== -1) { tr.style.display = 'none'; }
 	});
 })();
 </script>

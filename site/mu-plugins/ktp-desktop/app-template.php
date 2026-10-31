@@ -70,6 +70,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 	.ktp-desktop-main { max-width: none; margin: 0; padding: 12px 16px 24px; }
 	/* 中身が短いタブ（仕事リストが0件など）でもフッターをウィンドウの下端に置く。36px は main の上下の余白 */
 	.ktp-desktop-main > .ktpwp-page-layout { display: flex; flex-direction: column; min-height: calc(100vh - 36px); min-height: calc(100dvh - 36px); }
+	/* 本体が「固定ページの幅」（標準 1400px）を style 属性で付けるので打ち消し、ウィンドウの幅いっぱいに広げる */
+	.ktp-desktop-main > .ktpwp-page-layout--sized { max-width: none !important; }
+	/* レポートの中身も、本体の style 属性の 1200px を打ち消してウィンドウの幅に合わせる（印刷の見た目は変えない） */
+	@media screen { .ktp-desktop-main #ktp_report_inner_content { max-width: none !important; } }
+	/* レポートのグラフは高さを決めた箱に入れて、幅は箱に合わせて描き直す（下の ktp-desktop-report-charts） */
+	.ktp-report-chart-item .ktp-dt-chart-box { position: relative; height: 360px; }
+	.ktp-report-chart-item .ktp-dt-chart-box canvas { width: 100% !important; height: 100% !important; max-height: none !important; }
 	.ktp-desktop-main > .ktpwp-page-layout > .tabs.ktp_plugin_container { margin-bottom: 30px !important; }
 	.ktp-desktop-main > .ktpwp-page-layout > .ktp-footer { margin-top: auto !important; }
 	/* 結果報告の通知（緑）がヘッダー（z-index 100000〜100002）の後ろに隠れるので、常に最前面へ */
@@ -218,6 +225,49 @@ echo $ktp_desktop_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNo
 		a.setAttribute('aria-label', 'アプリを終了');
 		a.innerHTML = POWER;
 	});
+})();
+</script>
+<script id="ktp-desktop-report-charts">
+// レポートのグラフをウィンドウの幅に合わせる。本体は 400×300 の固定（responsive: false）で描き、CSS で幅だけ広げるので、
+// 広い画面では文字が横に伸びて見える。DT版では高さを決めた箱に入れて、箱の大きさに合わせて描き直させる
+// （印刷はグラフを画像にしてから写すので、画面の大きさが変わっても印刷には響かない）
+(function () {
+	if (typeof Chart === 'undefined' || !Chart.register) { return; }
+	Chart.register({
+		id: 'ktpDtReportFit',
+		beforeInit: function (chart) {
+			var canvas = chart.canvas;
+			var item = canvas && canvas.closest('#ktp_report_inner_content .ktp-report-chart-item');
+			if (!item) { return; }
+			if (!canvas.parentElement.classList.contains('ktp-dt-chart-box')) {
+				var box = document.createElement('div');
+				box.className = 'ktp-dt-chart-box';
+				canvas.parentNode.insertBefore(box, canvas);
+				box.appendChild(canvas);
+			}
+			chart.options.responsive = true;
+			chart.options.maintainAspectRatio = false;
+		}
+	});
+})();
+</script>
+<script id="ktp-desktop-settings-button">
+// ヘッダーの「設定」は押したらそのまま設定画面へ移る（本体は広い画面だとプルダウンを開くが、DT版ではプルダウンを使わない）。
+// 本体の開閉処理は document で拾うので、それより先に window で拾って止める
+(function () {
+	document.querySelectorAll('.ktp-header-settings-menu').forEach(function (menu) {
+		var dropdown = menu.querySelector('.ktp-header-settings-dropdown');
+		if (dropdown) { dropdown.remove(); }
+		var btn = menu.querySelector('.ktp-header-settings-toggle');
+		if (btn) { btn.removeAttribute('aria-haspopup'); btn.removeAttribute('aria-expanded'); }
+	});
+	window.addEventListener('click', function (e) {
+		var btn = e.target.closest && e.target.closest('.ktp-header-settings-toggle');
+		if (!btn) { return; }
+		e.preventDefault();
+		e.stopPropagation();
+		window.location.href = btn.getAttribute('data-settings-url') || <?php echo wp_json_encode( admin_url( 'admin.php?page=ktp-settings' ) ); ?>;
+	}, true);
 })();
 </script>
 <script id="ktp-desktop-theme-toggle">
