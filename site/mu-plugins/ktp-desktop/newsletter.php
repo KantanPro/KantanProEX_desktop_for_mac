@@ -165,6 +165,9 @@ function ktp_dt_nl_compose( $body_personalized ) {
 
 /** 宛先の選択を検証して返す */
 function ktp_dt_nl_request() {
+	if ( ! ktp_dt_is_paid() ) {
+		wp_send_json_error( array( 'message' => '一斉メールは有料版の機能です（KantanProEX 設定 → ライセンス）。' ), 403 );
+	}
 	if ( ! ktp_dt_nl_can() ) {
 		wp_send_json_error( array( 'message' => '権限がありません。' ), 403 );
 	}
@@ -278,6 +281,9 @@ add_filter(
 	function ( $page ) {
 		if ( null !== $page || ! isset( $_GET['ktp_dt_page'] ) || 'newsletter' !== $_GET['ktp_dt_page'] || ! ktp_dt_nl_can() ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			return $page;
+		}
+		if ( ! ktp_dt_is_paid() ) {
+			return ktp_dt_locked_screen_html( 'newsletter', home_url( '/' ) );
 		}
 		global $wpdb;
 		$target = isset( $_GET['target'] ) && 'supplier' === $_GET['target'] ? 'supplier' : 'client'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended

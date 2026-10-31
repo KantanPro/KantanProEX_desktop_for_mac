@@ -29,6 +29,7 @@ const { createBackup, autoBackupIfDue, restoreBackup } = require('./lib/backup')
 const { checkForUpdates, isAutoCheckEnabled, setAutoCheckEnabled } = require('./lib/update');
 const lan = require('./lib/lan');
 const voice = require('./lib/voice');
+const license = require('./lib/license');
 
 const PREFERRED_PORT = 47321;
 const CRON_INTERVAL_MS = 5 * 60 * 1000;
@@ -108,7 +109,8 @@ async function startPhp() {
 /** LAN 共有の窓口を、設定がオンなら立てる（PHP を起動し直すたびに呼ばれる） */
 async function startLan() {
   await stopLan();
-  if (!lan.readConfig(paths).enabled || !server) {
+  // 無料版（試用が切れた後）は窓口を立てない。設定（lan.json）は消さないので、ライセンスを入れて「オン」にし直せば使える
+  if (!lan.readConfig(paths).enabled || !server || !license.paidFeaturesAllowed(paths)) {
     lan.writeStatus(paths, { enabled: false });
     return;
   }
@@ -139,6 +141,11 @@ async function stopLan() {
 
 /** 設定画面（?ktp_dt_page=lan）のオン/オフ */
 async function setLanEnabled(on) {
+  if (on && !license.paidFeaturesAllowed(paths)) {
+    log('LAN 共有は有料版の機能なのでオンにしない');
+    if (mainWindow && server) mainWindow.loadURL(`${server.baseUrl}/wp-admin/admin.php?page=ktp-dt-lan`);
+    return;
+  }
   log(`LAN 共有を${on ? 'オン' : 'オフ'}にする`);
   lan.writeConfig(paths, { enabled: on });
   await startLan();
@@ -148,7 +155,8 @@ async function setLanEnabled(on) {
 /** 音声操作の窓口を、設定がオンなら立てる（PHP を起動し直すたびに呼ばれる）。ポートが使用中なら起動せず、状態ファイルにエラーを書く */
 async function startVoice() {
   await stopVoice();
-  if (!voice.readConfig(paths).enabled || !server) {
+  // 無料版（試用が切れた後）は窓口を立てない（設定は消さない）
+  if (!voice.readConfig(paths).enabled || !server || !license.paidFeaturesAllowed(paths)) {
     voice.writeStatus(paths, { enabled: false });
     return;
   }
@@ -185,6 +193,11 @@ async function stopVoice() {
 
 /** 設定画面（音声操作）のオン/オフ */
 async function setVoiceEnabled(on) {
+  if (on && !license.paidFeaturesAllowed(paths)) {
+    log('音声操作は有料版の機能なのでオンにしない');
+    if (mainWindow && server) mainWindow.loadURL(`${server.baseUrl}/wp-admin/admin.php?page=ktp-dt-voice`);
+    return;
+  }
   log(`音声操作を${on ? 'オン' : 'オフ'}にする`);
   voice.writeConfig(paths, { enabled: on });
   await startVoice();
@@ -679,6 +692,7 @@ function buildMenu() {
         { label: 'LAN 共有（事務所の他の PC から使う）…', click: () => server && mainWindow && mainWindow.loadURL(`${server.baseUrl}/wp-admin/admin.php?page=ktp-dt-lan`) },
         { label: '音声操作…', click: () => server && mainWindow && mainWindow.loadURL(`${server.baseUrl}/wp-admin/admin.php?page=ktp-dt-voice`) },
         { label: 'サイトからの受注（ホームページの問い合わせ・注文）…', click: () => server && mainWindow && mainWindow.loadURL(`${server.baseUrl}/wp-admin/admin.php?page=ktp-dt-intake`) },
+        { label: 'ライセンス（無料版・有料版）…', click: () => server && mainWindow && mainWindow.loadURL(`${server.baseUrl}/wp-admin/admin.php?page=ktp-dt-license`) },
         { type: 'separator' },
         { label: 'バックアップのフォルダを開く', click: () => { fs.mkdirSync(paths.backups, { recursive: true }); shell.openPath(paths.backups); } },
         { label: 'データのフォルダを開く', click: () => shell.openPath(paths.userData) },

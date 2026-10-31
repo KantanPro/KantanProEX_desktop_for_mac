@@ -812,6 +812,9 @@ add_action(
 		if ( ! ktp_dt_is_voice() || ktp_dt_is_lan() ) {
 			ktp_dt_voice_json( 403, array( 'speech' => 'この要求は受け付けられません。', 'confirm' => null ) );
 		}
+		if ( ! ktp_dt_is_paid() ) {
+			ktp_dt_voice_json( 403, array( 'speech' => '音声操作は有料版の機能です。', 'confirm' => null ) );
+		}
 		if ( 'POST' !== ( $_SERVER['REQUEST_METHOD'] ?? '' ) ) {
 			ktp_dt_voice_json( 405, array( 'speech' => 'POST で送ってください。', 'confirm' => null ) );
 		}
@@ -970,6 +973,10 @@ add_action(
 			'manage_options',
 			KTP_DT_VOICE_PAGE,
 			function () {
+				if ( ktp_dt_license_can_manage() && ! ktp_dt_is_paid() ) {
+					echo '<div class="wrap">' . ktp_dt_locked_screen_html( 'voice', home_url( '/' ) ) . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+					return;
+				}
 				if ( ! ktp_dt_lan_can_manage() ) {
 					return;
 				}

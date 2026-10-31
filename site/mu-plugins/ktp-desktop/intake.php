@@ -33,7 +33,8 @@ function ktp_dt_intake_settings() {
 	$s = get_option( KTP_DT_INTAKE_OPT, array() );
 	$s = is_array( $s ) ? $s : array();
 	return array(
-		'enabled' => ! empty( $s['enabled'] ),
+		// 無料版（試用が切れた後）は、保存してある設定はそのままで「オフ」として扱う（cron の取り込みも止まる）
+		'enabled' => ! empty( $s['enabled'] ) && ktp_dt_is_paid(),
 		'url'     => isset( $s['url'] ) ? (string) $s['url'] : '',
 		'key'     => isset( $s['key'] ) ? (string) $s['key'] : '',
 		// 公開商品をサイトに掲載するか（既定はオン。「サイト公開」にしたサービスだけが対象）
@@ -589,7 +590,7 @@ add_action(
 // ---- 設定画面（KantanProEX 設定 → サイトからの受注） ----
 
 function ktp_dt_intake_can_manage() {
-	return current_user_can( 'manage_options' ) && ! ( function_exists( 'ktp_dt_is_lan' ) && ktp_dt_is_lan() );
+	return current_user_can( 'manage_options' ) && ! ( function_exists( 'ktp_dt_is_lan' ) && ktp_dt_is_lan() ) && ktp_dt_is_paid();
 }
 
 add_action(
@@ -605,6 +606,10 @@ add_action(
 			'manage_options',
 			KTP_DT_INTAKE_PAGE,
 			function () {
+				if ( ktp_dt_license_can_manage() && ! ktp_dt_is_paid() ) {
+					echo '<div class="wrap">' . ktp_dt_locked_screen_html( 'intake', home_url( '/' ) ) . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+					return;
+				}
 				if ( ktp_dt_intake_can_manage() ) {
 					echo '<div class="wrap">' . ktp_dt_intake_page_html() . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 				}

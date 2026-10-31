@@ -247,7 +247,8 @@ add_filter(
 // ---------------------------------------------------------------------------
 
 function ktp_dt_lan_can_manage() {
-	return ! ktp_dt_is_lan() && is_user_logged_in() && current_user_can( 'manage_options' );
+	// 無料版（試用が切れた後）は LAN 共有・スタッフの設定をさせない（設定値は消さない）
+	return ! ktp_dt_is_lan() && is_user_logged_in() && current_user_can( 'manage_options' ) && ktp_dt_is_paid();
 }
 
 /** 一覧に出すスタッフ（「スタッフ管理」でオンにしてある人だけ。管理者は出さない） */
@@ -650,6 +651,10 @@ add_action(
 			'manage_options',
 			KTP_DT_LAN_PAGE,
 			function () {
+				if ( ktp_dt_license_can_manage() && ! ktp_dt_is_paid() ) {
+					echo '<div class="wrap">' . ktp_dt_locked_screen_html( 'lan', home_url( '/' ) ) . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+					return;
+				}
 				if ( ! ktp_dt_lan_can_manage() ) {
 					return;
 				}

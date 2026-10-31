@@ -20,7 +20,8 @@ function ktp_dt_yen( $n ) {
 }
 
 function ktp_dt_report_can() {
-	return is_user_logged_in() && ( current_user_can( 'edit_posts' ) || current_user_can( 'ktpwp_access' ) );
+	// 無料版（試用が切れた後）はレポート追加（仕入・支払、資金繰り、進捗）を出さない
+	return is_user_logged_in() && ( current_user_can( 'edit_posts' ) || current_user_can( 'ktpwp_access' ) ) && ktp_dt_is_paid();
 }
 
 /** 発注済・仕入完了の原価明細（ボツの案件を除く）。支払情報つき */

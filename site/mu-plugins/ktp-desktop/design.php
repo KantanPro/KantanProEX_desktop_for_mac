@@ -34,6 +34,10 @@ function ktp_dt_design() {
 	$o         = get_option( KTP_DT_DESIGN_OPTION, array() );
 	$o         = is_array( $o ) ? $o : array();
 	$strengths = ktp_dt_design_strengths();
+	// 無料版（試用が切れた後）は背景画像を使わない（保存してある設定はそのまま。標準の背景になる）
+	if ( ! ktp_dt_is_paid() ) {
+		return array( 'body_bg_image' => 0, 'body_bg_none' => false, 'header_bg_none' => false, 'bg_strength' => 'normal' );
+	}
 	return array(
 		'body_bg_image'  => isset( $o['body_bg_image'] ) ? absint( $o['body_bg_image'] ) : 0,
 		'body_bg_none'   => ! empty( $o['body_bg_none'] ),
@@ -43,6 +47,11 @@ function ktp_dt_design() {
 }
 
 function ktp_dt_sanitize_design( $input ) {
+	// 無料版は欄を出さないので、保存してある値をそのまま残す（送られてこない値で上書きしない）
+	if ( ! ktp_dt_is_paid() ) {
+		$cur = get_option( KTP_DT_DESIGN_OPTION, array() );
+		return is_array( $cur ) ? $cur : array();
+	}
 	$input     = is_array( $input ) ? $input : array();
 	$id        = isset( $input['body_bg_image'] ) ? absint( $input['body_bg_image'] ) : 0;
 	$strengths = ktp_dt_design_strengths();
@@ -240,6 +249,10 @@ add_action(
 );
 
 function ktp_dt_body_bg_image_field() {
+	if ( ! ktp_dt_is_paid() ) {
+		echo '<div style="max-width:520px">' . ktp_dt_locked_screen_html( 'design' ) . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		return;
+	}
 	$d       = ktp_dt_design();
 	$url     = ktp_dt_body_bg_url();
 	$custom  = $url && ! ktp_dt_body_bg_is_default();
@@ -265,6 +278,10 @@ function ktp_dt_body_bg_image_field() {
 }
 
 function ktp_dt_bg_strength_field() {
+	if ( ! ktp_dt_is_paid() ) {
+		echo '<span style="color:#6b7280;font-size:12px;">有料版で使えます。</span>';
+		return;
+	}
 	$d = ktp_dt_design();
 	foreach ( ktp_dt_design_strengths() as $key => $s ) {
 		printf(

@@ -25,7 +25,8 @@ function ktp_dt_fax_providers() {
 }
 
 function ktp_dt_fax_can() {
-	return is_user_logged_in() && ( current_user_can( 'edit_posts' ) || current_user_can( 'ktpwp_access' ) );
+	// 無料版（試用が切れた後）は FAX 送信のボタンを出さず、送信・設定の ajax も受け付けない
+	return is_user_logged_in() && ( current_user_can( 'edit_posts' ) || current_user_can( 'ktpwp_access' ) ) && ktp_dt_is_paid();
 }
 
 function ktp_dt_fax_settings() {
@@ -178,7 +179,13 @@ add_action(
 add_filter(
 	'ktp_desktop_custom_page',
 	function ( $page ) {
-		if ( null !== $page || ! isset( $_GET['ktp_dt_page'] ) || 'webfax' !== $_GET['ktp_dt_page'] || ! ktp_dt_fax_can() ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( null !== $page || ! isset( $_GET['ktp_dt_page'] ) || 'webfax' !== $_GET['ktp_dt_page'] || ! is_user_logged_in() ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			return $page;
+		}
+		if ( ! ktp_dt_is_paid() ) {
+			return ktp_dt_locked_screen_html( 'webfax', home_url( '/' ) );
+		}
+		if ( ! ktp_dt_fax_can() ) {
 			return $page;
 		}
 		$s    = ktp_dt_fax_settings();

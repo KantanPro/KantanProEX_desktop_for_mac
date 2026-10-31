@@ -1,8 +1,8 @@
 <?php
 /**
- * ユーザー登録（任意）。登録するとメール署名の後ろの宣伝文が入らなくなる。
+ * ユーザー登録（任意）。登録するとメール署名の後ろと書類の下端の宣伝が入らなくなる。
  *
- * ライセンス管理ではない。登録しなくても機能の制限はなく、検証は行わない。
+ * ライセンス管理ではない（有料版かどうかの判定は license.php）。登録しても機能の制限は変わらず、検証は行わない。
  * 登録すると、メールアドレスを kantanpro.com のニュースレター（MailPoet「KantanProEX（DT）」）に裏で登録する。
  * 登録していない人のデータは一切送らない。
  */
@@ -73,7 +73,8 @@ function ktp_desktop_registered_email() {
 add_filter(
 	'ktpwp_mail_signature',
 	function ( $signature ) {
-		if ( ktp_desktop_registered_email() !== '' ) {
+		// 宣伝を入れるのは、有料版（paid / legacy）でもなく、ユーザー登録もしていないときだけ
+		if ( ! ktp_dt_show_ad() ) {
 			return $signature;
 		}
 		return $signature . "\n\n――\nこのメールは「" . KANTANPRO_PLUGIN_NAME . "」で作成しています。\nhttps://www.kantanpro.com/";
@@ -107,14 +108,14 @@ function ktp_desktop_render_register_page() {
 		} else {
 			$email = isset( $_POST['ktp_desktop_reg_email'] ) ? sanitize_email( wp_unslash( $_POST['ktp_desktop_reg_email'] ) ) : '';
 			if ( is_email( $email ) ) {
-				// 宣伝文を消す登録は、通信できなくてもその場で完了させる。ニュースレターへの登録は裏で行い、失敗したら後で再送する。
+				// 宣伝を消す登録は、通信できなくてもその場で完了させる。ニュースレターへの登録は裏で行い、失敗したら後で再送する。
 				// 同じメールアドレスの解除が送信待ちのまま再登録されたら、解除は取り消す。
 				if ( get_option( KTP_DESKTOP_PENDING_UNSUB ) === $email ) {
 					delete_option( KTP_DESKTOP_PENDING_UNSUB );
 				}
 				update_option( KTP_DESKTOP_REG_OPTION, array( 'email' => $email, 'newsletter' => false ), false );
 				ktp_desktop_sync_newsletter();
-				$message = '登録しました。以後、メールの署名の後ろに宣伝文は入りません。';
+				$message = '登録しました。以後、メールの署名と書類の下端に宣伝は入りません。';
 			} else {
 				$message  = 'メールアドレスを正しく入力してください。';
 				$is_error = true;
@@ -128,10 +129,10 @@ function ktp_desktop_render_register_page() {
 		<?php if ( $message ) : ?>
 			<div class="notice <?php echo $is_error ? 'notice-error' : 'notice-success'; ?>"><p><?php echo esc_html( $message ); ?></p></div>
 		<?php endif; ?>
-		<p>ユーザー登録は任意です。登録しなくても、すべての機能をそのまま使えます。</p>
+		<p>ユーザー登録は任意です。登録しても機能の制限は変わりません（有料版の機能はライセンスキーで使えます）。</p>
 		<p>ユーザー登録をすると、次のメリットがあります。</p>
 		<ul style="list-style:disc;margin-left:1.5em">
-			<li>顧客・協力会社へのメールの署名の後ろに入る「このメールは <?php echo esc_html( KANTANPRO_PLUGIN_NAME ); ?> で作成しています」の宣伝文が、最初から入らなくなります（毎回消さなくて済みます）。</li>
+			<li>無料版・試用期間中に、顧客・協力会社へのメールの署名の後ろに入る「このメールは <?php echo esc_html( KANTANPRO_PLUGIN_NAME ); ?> で作成しています」の宣伝文と、書類（印刷・PDF）の下端の宣伝の 1 行が、入らなくなります。</li>
 			<li>アップデート情報や、便利な活用方法などをメールでお届けします（配信の停止は、届いたメールのリンクからいつでもできます）。</li>
 		</ul>
 		<form method="post">
@@ -161,7 +162,7 @@ add_action(
 add_action(
 	'wp_footer',
 	function () {
-		if ( ktp_desktop_registered_email() !== '' ) {
+		if ( ! ktp_dt_show_ad() ) {
 			return;
 		}
 		$url = admin_url( 'admin.php?page=ktp-desktop-register' );
