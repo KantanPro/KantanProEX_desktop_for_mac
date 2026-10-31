@@ -149,6 +149,8 @@ function ktp_dt_design_head() {
 	}
 	/* 中身は乗算で重ねる（白は透けて、色の付いた行・見出しは色だけが乗る） */
 	html.ktp-dt-has-backdrop :is(<?php echo $panes; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>) > * { mix-blend-mode: multiply; }
+	/* 仕事リストの表は本体だと上の余白が 0（上の進捗ボタンの欄と白地でつながって見える前提）。ペインが分かれるので上にも余白を付ける */
+	html.ktp-dt-has-backdrop .ktp_work_list_box { padding-top: 20px !important; }
 	@media print { .ktp-dt-backdrop { display: none !important; } }
 <?php endif; ?>
 <?php if ( $header ) : ?>
