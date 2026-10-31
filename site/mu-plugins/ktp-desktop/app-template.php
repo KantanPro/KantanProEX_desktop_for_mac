@@ -6,17 +6,31 @@
  * （本文 18px、表のセル 0.8em、全要素の余白リセットなど）。テーマを通さない代わりに、
  * その前提の部分だけをここに持つ。ブロックテーマ（Twenty Twenty-Five）の全体スタイルは
  * ktp-desktop.php で読み込まないようにしている（入ると本文が 22px になる）。
- * 背景は常に白（ダークモードにしない）。
+ * 背景は白。ダークモードはヘッダーのボタンで切り替える（ktp-desktop.php の ktp_desktop_dark_css）。
  */
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 ?><!doctype html>
-<html <?php language_attributes(); ?>>
+<html <?php language_attributes(); ?><?php echo ktp_desktop_is_dark() ? ' class="ktp-dark"' : ''; ?>>
 <head>
 <meta charset="<?php bloginfo( 'charset' ); ?>">
 <meta name="viewport" content="width=device-width, initial-scale=1<?php echo function_exists( 'ktp_dt_is_lan' ) && ktp_dt_is_lan() ? ', viewport-fit=cover' : ''; ?>">
 <meta name="color-scheme" content="light">
+<script>
+// ダークモードでは Mac の部品を暗くするため、アプリ全体を Mac のダーク表示にする（main.js）。画面は反転で暗くするので、
+// 本体のスクリプト（レポートのグラフの文字色など）には、Mac のダーク設定を「ライト」と答える（ダーク用の色と反転が重なると読めなくなる）
+(function () {
+	var mm = window.matchMedia;
+	if (!mm) { return; }
+	window.matchMedia = function (q) {
+		var s = String(q);
+		if (/prefers-color-scheme\s*:\s*dark/i.test(s)) { return mm.call(window, 'not all'); }
+		if (/prefers-color-scheme\s*:\s*light/i.test(s)) { return mm.call(window, 'all'); }
+		return mm.call(window, q);
+	};
+})();
+</script>
 <link rel="icon" href="data:,"><?php // アプリのウィンドウなのでファビコンは不要（/favicon.ico の 404 を防ぐ） ?>
 <?php if ( function_exists( 'ktp_dt_is_lan' ) && ktp_dt_is_lan() ) : // iPad などのホーム画面に追加したとき用 ?>
 <link rel="apple-touch-icon" href="<?php echo esc_url( WPMU_PLUGIN_URL . '/ktp-desktop/apple-touch-icon.png' ); ?>">
@@ -55,6 +69,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 	/* 結果報告の通知（緑）がヘッダー（z-index 100000〜100002）の後ろに隠れるので、常に最前面へ */
 	.success-notification,
 	.ktp-floating-notification { z-index: 2147483647 !important; }
+	/* 本体のポップアップは z-index 9999〜10001 で、ヘッダー（100000〜100002）だけ暗くならず手前に残るので、ヘッダーより上へ */
+	.ktp-delete-popup-overlay,
+	#ktp-purchase-status-choice-dialog,
+	#ktp-purchase-order-email-popup,
+	#ktp-service-selector-popup,
+	#ktp-supplier-selector-modal { z-index: 100003 !important; }
+	/* ダークモード（反転）と、その切り替えボタン */
+	<?php echo ktp_desktop_dark_css(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+
+	.ktp_header .navigation-links a.ktp-dt-theme-toggle { cursor: pointer; }
 
 	/* デスクトップ版では使わないもの（表示しないだけで、データはそのまま） */
 	/* 規約画面の「ホームへ」: トップページがこの画面そのものなので、押しても同じ画面に戻るだけ */
@@ -186,6 +210,82 @@ echo $ktp_desktop_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNo
 		a.setAttribute('aria-label', 'アプリを終了');
 		a.innerHTML = POWER;
 	});
+})();
+</script>
+<script id="ktp-desktop-theme-toggle">
+// ヘッダーの「ダークモード / ライトモード」切り替えボタン（ヘルプの前に置く）。
+// 選んだ表示はクッキーに残し、次の画面からはサーバー側で <html class="ktp-dark"> を付ける（ktp-desktop.php）
+(function () {
+	var MOON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>';
+	var SUN = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zM2 13h2a1 1 0 0 0 0-2H2a1 1 0 0 0 0 2zm18 0h2a1 1 0 0 0 0-2h-2a1 1 0 0 0 0 2zM11 2v2a1 1 0 0 0 2 0V2a1 1 0 0 0-2 0zm0 18v2a1 1 0 0 0 2 0v-2a1 1 0 0 0-2 0zM5.99 4.58a.996.996 0 0 0-1.41 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 0 0-1.41 1.41l1.06 1.06c.39.39 1.03.39 1.41 0a.996.996 0 0 0 0-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 0 0-1.41-1.41l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 0 0-1.41-1.41l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg>';
+	var root = document.documentElement;
+	// ポップアップの暗い幕（半透明の黒）は、反転すると白っぽい幕になり画面が明るく見える。ダークモードの間だけ、
+	// 画面全体を覆う半透明の黒い幕を半透明の白に差し替える（反転後は暗い幕になる）。幕は本体の JS がインライン style で作るので、出たときに拾う
+	var DIM_CANDIDATES = 'body > *, [class*="overlay"], [class*="modal"], [id*="popup"], [id*="modal"], [id*="dialog"]';
+	var dimQueued = false;
+	function dimAlpha(el) {
+		var cs = getComputedStyle(el);
+		if (cs.position !== 'fixed') { return 0; }
+		var m = cs.backgroundColor.match(/^rgba\(0, 0, 0, ([\d.]+)\)$/);
+		var alpha = m ? Number(m[1]) : 0;
+		if (!(alpha > 0 && alpha < 1)) { return 0; }
+		var r = el.getBoundingClientRect();
+		return r.width >= window.innerWidth * 0.9 && r.height >= window.innerHeight * 0.9 ? alpha : 0;
+	}
+	function fixDims() {
+		dimQueued = false;
+		if (!root.classList.contains('ktp-dark')) { return; }
+		document.querySelectorAll(DIM_CANDIDATES).forEach(function (el) {
+			if (el.hasAttribute('data-ktp-dt-dim')) { return; }
+			var alpha = dimAlpha(el);
+			if (alpha) {
+				el.setAttribute('data-ktp-dt-dim', '');
+				el.style.setProperty('background-color', 'rgba(255, 255, 255, ' + Math.min(0.85, alpha + 0.1) + ')', 'important');
+			}
+		});
+	}
+	function queueDims() {
+		if (!dimQueued) { dimQueued = true; requestAnimationFrame(fixDims); }
+	}
+	var dimObserver = new MutationObserver(queueDims);
+	function watchDims() {
+		if (root.classList.contains('ktp-dark')) {
+			dimObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
+			queueDims();
+		} else {
+			dimObserver.disconnect();
+			document.querySelectorAll('[data-ktp-dt-dim]').forEach(function (el) {
+				el.removeAttribute('data-ktp-dt-dim');
+				el.style.removeProperty('background-color');
+			});
+		}
+	}
+	function paint(a) {
+		var dark = root.classList.contains('ktp-dark');
+		var label = dark ? 'ライトモードにする' : 'ダークモードにする';
+		a.title = label;
+		a.setAttribute('aria-label', label);
+		a.innerHTML = dark ? SUN : MOON;
+	}
+	document.querySelectorAll('.ktp_header .navigation-links').forEach(function (nav) {
+		var a = document.createElement('a');
+		a.href = '#';
+		a.className = 'ktp-dt-theme-toggle';
+		a.setAttribute('role', 'button');
+		a.style.cssText = 'display: inline-flex; align-items: center; gap: 4px; color: #0073aa; text-decoration: none;';
+		paint(a);
+		a.addEventListener('click', function (e) {
+			e.preventDefault();
+			var dark = root.classList.toggle('ktp-dark');
+			document.cookie = 'ktp_dt_theme=' + (dark ? 'dark' : 'light') + '; path=/; max-age=315360000; SameSite=Lax';
+			document.querySelectorAll('.ktp-dt-theme-toggle').forEach(paint);
+			watchDims();
+		});
+		var help = nav.querySelector('a[title="ヘルプ"]');
+		nav.insertBefore(a, help || null);
+		nav.insertBefore(document.createTextNode(' '), help || null);
+	});
+	watchDims();
 })();
 </script>
 </body>

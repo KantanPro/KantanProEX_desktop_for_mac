@@ -29,6 +29,31 @@ function ktp_desktop_app_version() {
 }
 
 /**
+ * ダークモード（ヘッダーの月/太陽ボタンで切り替え、app-template.php）。
+ * 選んだ表示はクッキー ktp_dt_theme に残す。クッキーはポート番号を区別しないので、起動のたびにポートが変わっても引き継がれ、
+ * LAN（iPad など）からは端末ごとに選べる。サーバー側で <html> にクラスを付けるので、読み込み直後から暗い画面で出る
+ */
+function ktp_desktop_is_dark() {
+	return isset( $_COOKIE['ktp_dt_theme'] ) && 'dark' === $_COOKIE['ktp_dt_theme'];
+}
+
+/**
+ * ダークモードの CSS。本体の色はほぼ CSS・JS に直書き（色の変数がない）で、ポップアップも JS のインライン style で作られるため、
+ * 色を一つずつ上書きするのではなく、画面全体の明るさを反転して色合い（hue）を戻す。写真・アイコン画像は反転を打ち消して元の色に戻す。
+ * iframe（設定の画面の会社情報の編集欄など）は中身も画面なので、打ち消さずに一緒に反転する。
+ * 設定の画面の左メニューは元から暗い色なので、反転を打ち消して暗いまま残す。
+ * ルート要素（html）の filter は position: fixed の基準を変えないので、ポップアップや通知の位置はそのまま。
+ * Mac のダーク設定（prefers-color-scheme）は画面の中では使わない（常にライトと答える、app-template.php。本体のダーク用の色と反転が重なるため）。
+ * Mac の部品（プルダウンの選択肢など）は main.js がこのクッキーを見てダークにする
+ */
+function ktp_desktop_dark_css() {
+	return 'html.ktp-dark{filter:invert(.9) hue-rotate(180deg)}'
+		. 'html.ktp-dark img,html.ktp-dark video,html.ktp-dark #adminmenuback,html.ktp-dark #adminmenuwrap{filter:invert(1) hue-rotate(180deg)}'
+		. 'html.ktp-dark #adminmenu img{filter:none}'
+		. '@media print{html.ktp-dark,html.ktp-dark img,html.ktp-dark video{filter:none!important}}';
+}
+
+/**
  * 利用規約の文中の「プラグイン」「WordPress」を、デスクトップ版（アプリ）に合わせた言葉に置き換える。
  * 本体の規約は WordPress プラグイン向けの文なので、画面に出す直前に言葉だけ直す（意味は変えない）。
  * 規約の本文が入っているページ（第1条・Article 1 がある HTML）にだけ当てる
@@ -421,6 +446,11 @@ add_action(
 			// FileMaker 版データ取り込みは、上部のファイルメニュー（各種取り込み）から開く。ページは残し、左メニューの項目だけ隠す
 			. '#adminmenu a[href$="page=ktp-fm-import"]{display:none!important}'
 			. '</style>';
+		// 設定の画面もアプリと同じ表示にする（切り替えはアプリのヘッダーのボタン）
+		if ( ktp_desktop_is_dark() ) {
+			echo '<style id="ktp-desktop-dark">' . ktp_desktop_dark_css() . '</style>'
+				. '<script>document.documentElement.classList.add("ktp-dark");</script>';
+		}
 	}
 );
 add_filter( 'admin_footer_text', '__return_empty_string', PHP_INT_MAX );

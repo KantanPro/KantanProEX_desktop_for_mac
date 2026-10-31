@@ -688,8 +688,15 @@ async function boot() {
 }
 
 app.whenReady().then(() => {
-  // 背景は常に白。Mac がダークモードでも画面をダーク表示にしない（プラグインのダーク用 CSS も効かせない）
+  // Mac がダークモードでも画面をダーク表示にしない。ダークモードはヘッダーのボタンで切り替え、画面は反転で暗くする（ktp-desktop.php）。
+  // ボタンで選んだ表示（クッキー ktp_dt_theme）に合わせて、プルダウンの選択肢・右クリックメニュー・確認ダイアログ・タイトルバーなど
+  // Mac の部品（反転が効かない）も暗くする。画面の中の prefers-color-scheme は常にライトと答える（app-template.php。本体のダーク用の色と反転が重なるため）
   nativeTheme.themeSource = 'light';
+  const applyThemeCookie = (value) => { nativeTheme.themeSource = value === 'dark' ? 'dark' : 'light'; };
+  session.defaultSession.cookies.get({ name: 'ktp_dt_theme' }).then((list) => list.length && applyThemeCookie(list[0].value)).catch(() => {});
+  session.defaultSession.cookies.on('changed', (_e, cookie, _cause, removed) => {
+    if (cookie.name === 'ktp_dt_theme' && !removed) applyThemeCookie(cookie.value);
+  });
   if (!app.isPackaged && process.platform === 'darwin' && ICON_DATA_URL) {
     app.dock.setIcon(path.join(__dirname, 'assets', 'icon', 'icon-1024.png'));
   }
