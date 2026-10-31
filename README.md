@@ -16,6 +16,22 @@ KantanProEX（WordPress プラグイン）を、ブラウザも WordPress サイ
 - データは `~/Library/Application Support/KantanProEX/` に置き、起動時に1日1回「書類」フォルダへ自動でバックアップします。
 - WordPress 版との違い（デスクトップ版で調整している内容）は `site/mu-plugins/ktp-desktop.php` にまとめています。プラグイン本体は改変しません。
 
+## 無料版と有料版（ライセンス）
+
+アプリは 1 本のまま（無料版と有料版でビルドは分けない）。有料版かどうかはライセンスキーで決める（`site/mu-plugins/ktp-desktop/license.php`）。
+
+- 状態: `paid`（有効なキー）／`legacy`（無料版に対応する前から入っていたインストール＝既存の購入者。有料版と同じ）／`trial`（新規インストールから 30 日。全機能）／`free`（試用が終わった状態）
+- 無料のまま: 顧客・サービス・受注・仕事リスト・明細・タスク・請求の取り消し・支払予定・書類の作成と印刷/PDF・請求書メールの送信・バックアップ/復元・CSV 書き出し・取り込み・郵便番号・ダークモード・利用規約まわり
+- 有料版だけ: LAN 共有（スタッフ・iPad/iPhone）、サイトからの受注・Stripe 即時購入・定期契約の自動処理、協力会社タブ、契約（定期請求リスト・契約の ajax）、レポートタブ、一斉メール、音声操作、Web-FAX、デザインの背景画像
+- 判定関数: `ktp_dt_is_paid()`（paid/legacy/trial なら true＝全機能）、`ktp_dt_license_state()`、`ktp_dt_trial_days_left()`、`ktp_dt_has_paid_license()`（paid/legacy。宣伝の 1 行を消す判定。試用中は宣伝を出す）、`ktp_dt_show_ad()`（有料版でなく、ユーザー登録もしていない）、`ktp_dt_locked_screen_html($feature)`（案内画面の共通部品）。EX 本体の `KTPWP_Edition` は 127.0.0.1 で常に有効になるので判定に使わない
+- 新規か既存かの見分け: `lib/site.js` が初回セットアップの最初に `data/fresh-install.json` を書く。無ければ既存（legacy）。記録は DB の option `ktp_dt_license` と、データ置き場の `license.json`（Electron も読む）の二重持ち。バックアップの復元で DB が古い状態に戻っても、legacy/paid が free に落ちない（どちらかが legacy なら legacy、キーは正しいほう、試用の開始は早いほう）
+- キー: `base64url(JSON {"p":"ktp-dt","e":メール,"i":発行ID,"t":時刻}) . base64url(署名)`。署名は ECDSA P-256 + SHA-256（同梱 PHP には sodium が無く openssl はある。`openssl_verify`）。アプリには公開鍵だけが入っている。期限なし
+- キーの発行: `bin/php scripts/issue-license.php <購入者のメール> [発行ID]`（秘密鍵は `~/.kantanpro/dt-license/private.pem`、権限 600、リポジトリには置かない。無くすと発行も既発行キーの確認もできなくなるので控えを別に保管する）
+- 入力画面: 「KantanProEX 設定」→「ライセンス」（メニューのファイル→「ライセンス…」からも）。試用中・無料版はヘッダーに小さく「試用期間 あと◯日」「無料版」を出す
+- 無料版の制限の入れ方: DT の独自機能は各ファイルの入口で判定（設定値は消さない）。EX 本体のタブ（協力会社・レポート・定期請求リスト）は、本体は変えず `do_shortcode_tag` で該当パネルを案内画面に差し替え、契約・レポートの ajax は `admin_init` で断る。LAN 共有・音声操作は PHP 側で断るほか、Electron も窓口を立てない（`lib/license.js`）
+- 宣伝の 1 行: 書類（ajax `ktp_get_order_preview` の応答の HTML）の下端と、メール署名に入れる。印刷/PDF の経路は変えていない。一括請求書・顧客別の請求書印刷には入れていない
+- テスト用の環境変数: `KTP_TEST_LICENSE_NOW_OFFSET_DAYS=31`（判定の時刻を日数だけずらす。`KTP_TEST_USER_DATA` を付けたテスト起動のときだけ効く）。確認の例: 別のデータ場所で `KTP_TEST_USER_DATA=work/xxx env -u ELECTRON_RUN_AS_NODE electron .`（新規なら trial、31 日ずらすと free）。既存インストールの確認は、`data/fresh-install.json`・`license.json` と DB の option `ktp_dt_license` が無い状態で起動する（legacy になる）
+
 ## サイトからの受注（ホームページの問い合わせ・注文）
 
 デスクトップ版には外から受け付ける口がないので、ホームページ（WordPress）に受付プラグイン `bridge/ktp-dt-bridge` を入れてもらい、
