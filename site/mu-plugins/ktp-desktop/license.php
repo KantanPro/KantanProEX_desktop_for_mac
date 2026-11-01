@@ -341,7 +341,7 @@ function ktp_dt_locked_screen_html( $feature, $back_url = '' ) {
 		<p style="margin:0;color:#4b5563;font-size:13px;"><?php echo esc_html( $f[1] ); ?></p>
 	</div>
 	<?php if ( '' !== $why ) : ?>
-		<p style="margin:0 0 10px;color:#4b5563;font-size:13px;"><?php echo esc_html( $why ); ?>顧客・サービス・受注・書類の作成と印刷・PDF・バックアップなどは、これまでどおり無料でお使いいただけます。データも消えません。</p>
+		<p style="margin:0 0 10px;color:#4b5563;font-size:13px;"><?php echo esc_html( $why ); ?>顧客・サービス・協力会社・受注・書類の作成と印刷・PDF・バックアップなどは、これまでどおり無料でお使いいただけます。データも消えません。</p>
 	<?php endif; ?>
 	<p style="margin:14px 0 0;">
 		<?php if ( ktp_dt_license_can_manage() ) : ?>
@@ -437,10 +437,14 @@ function ktp_dt_license_render_page() {
 	<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 		<input type="hidden" name="action" value="ktp_dt_license_save">
 		<?php wp_nonce_field( KTP_DT_LICENSE_NONCE ); ?>
-		<p><textarea name="license_key" rows="4" style="width:100%;font-family:monospace;font-size:12px;" placeholder="購入後にメールでお送りするライセンスキーを貼り付けます" required></textarea></p>
+		<p><input type="text" name="license_key" style="width:100%;font-family:monospace;font-size:12px;" placeholder="購入後にメールでお送りするライセンスキーを貼り付けます" autocomplete="off" spellcheck="false" required></p>
 		<p><button type="submit" class="button button-primary">キーを確認して有料版にする</button></p>
 	</form>
 	<?php endif; ?>
+	<p style="margin:12px 0 0;font-size:12px;color:#6b7280;line-height:1.7;">
+		このキーは購入した事業者の中でだけお使いください（何台・Mac / Windows どちらでも使えます）。キーには購入時のメールアドレスが含まれているため、他の人に渡したりネットに載せたりしないでください。
+		詳しくは<a href="<?php echo esc_url( KTP_DESKTOP_TERMS_URL ); ?>">利用規約</a>をご覧ください。
+	</p>
 
 	<h2 style="margin:24px 0 8px;font-size:16px;">有料版でできること</h2>
 	<ul style="list-style:disc;margin-left:1.5em;">
@@ -448,7 +452,7 @@ function ktp_dt_license_render_page() {
 			<li><?php echo esc_html( $b ); ?></li>
 		<?php endforeach; ?>
 	</ul>
-	<p style="color:#4b5563;font-size:13px;">無料版でも、顧客・サービス・受注・仕事リスト・書類の作成と印刷・PDF・請求書メールの送信・バックアップと復元・CSV 書き出し・取り込み・ダークモードはずっと使えます。</p>
+	<p style="color:#4b5563;font-size:13px;">無料版でも、顧客・サービス・協力会社・受注・仕事リスト・書類の作成と印刷・PDF・請求書メールの送信・バックアップと復元・CSV 書き出し・取り込み・ダークモードはずっと使えます。</p>
 	<?php if ( 'paid' !== $state && 'legacy' !== $state ) : ?>
 	<p><a href="<?php echo esc_url( KTP_DT_BUY_URL ); ?>" target="_blank" rel="noopener" class="button button-primary button-hero">購入する</a></p>
 	<?php endif; ?>
