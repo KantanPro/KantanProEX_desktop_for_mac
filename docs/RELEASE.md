@@ -7,14 +7,11 @@
 1. `package.json` の `version` を上げる（例: 0.1.0 → 0.2.0）
 2. `npm run build:mac` で `dist/KantanProEX-<版>.dmg` を作る
 3. `scripts/test-dist.sh` で配布版を自動テストする（普段使っているデータには触れない）
-4. kantanpro.com の WooCommerce 商品 **ID 19249**「【買い切り】KantanProEX デスクトップ版（Mac）」のダウンロードファイルを差し替える
-   - dmg は WordPress が許可しない種類なので、**ZIP に入れて**上げる（`zip -0 KantanProEX-Mac-<版>.zip KantanProEX-<版>.dmg`）
-   - **Cloudflare は 100MB 超のアップロードを 413 で断る。** サーバー本体（`origin.kantanpro.com` と同じ IP）へ直接送る:
-     `curl --resolve www.kantanpro.com:443:<origin の IP> -u "$WP_USER:$WP_APP_PASSWORD" -F type=downloadable_product -F file=@zip https://www.kantanpro.com/wp-json/wp/v2/media`
-     （ブラウザ相当の User-Agent を付ける。約4分。`--http1.1` と長めの `-m` で。1回目は途中で切れることがある）
-   - `type=downloadable_product` で購入者専用の `woocommerce_uploads/` に入る（直リンクは 403）
-   - `PUT wc/v3/products/19249` の `downloads` の `file` と `name` を新しい ZIP に更新（**`id`（UUID）は変えない**。購入済みの人の権限が切れる）
-   - 購入済みの人は「マイアカウント → ダウンロード」（`/wc-account/downloads/`）から新しい版を取れる
+4. 無料ダウンロードを差し替える（2026-11-01 から無料版。アプリは誰でも落とせ、有料版はライセンスキーで決まる。商品 19249 はライセンスだけを売り、配布ファイルは持たない）
+   - 手順は `~/.kantanpro/bin/dt-release.py`（オリジンの IP を含むのでリポジトリの外）が通す: `check` → `build` → テスト結果を読む → `publish --go` → `verify`
+   - dmg は WordPress が許可しない種類なので **ZIP に入れて**、**公開の uploads** に上げる（`type=downloadable_product` は付けない）
+   - **Cloudflare は 100MB 超のアップロードを 413 で断る。** サーバー本体（オリジン）へ `curl --resolve` で直接送る（約4分、途中で切れたら再試行）
+   - 変わらない URL **`/dl/kantanproex-dt-mac`**・**`/dl/kantanproex-dt-windows`**（Redirection の 302）の転送先を新しい ZIP に差し替える。商品ページのボタンも `update.json` の `url` / `url_win` もこの URL を指す
 5. `update.json` の `version`・`released`・`notes` を書き換えて main に push する
 
 ## 注意
@@ -33,9 +30,7 @@ Mac 版と同じリポジトリ・同じソース（`site/mu-plugins/`・`main.j
 2. **実機の Windows で動作確認する**（この Mac では Windows のアプリを動かせないため、自動テストはできない）
    - インストール → 起動 → 利用規約に同意 → 顧客・受注書を作る → 印刷（PDF 保存）→ 終了
    - KantanBiz の ZIP を「ファイル → KantanBiz から取り込む…」で取り込む
-3. 配布: kantanpro.com の WooCommerce 商品 **ID 19280**「【買い切り】KantanProEX（DT）for Windows」（Mac 版とは別の商品）の
-   ダウンロードファイルを差し替える（`zip -0 KantanProEX-DT-for-Windows-<版>.zip KantanProEX-Setup-<版>.exe` を、
-   Mac 版と同じ手順でアップロードし、`PUT wc/v3/products/19280` の `downloads` を更新。**`id`（UUID）は変えない**）
+3. 配布: `zip -0 KantanProEX-DT-for-Windows-<版>.zip KantanProEX-Setup-<版>.exe` を Mac 版と同じく公開の uploads に上げ、`/dl/kantanproex-dt-windows` の転送先を差し替える（`dt-release.py publish win --go`）
 4. `update.json` の Windows 用の `version_win` と `url_win` を書き換えて push（Mac 用の `version` / `url` とは別に進められる）
 
 ### Windows 版の注意

@@ -24,7 +24,7 @@ const KTP_DT_LICENSE_SEEN_OPT   = 'ktp_dt_license_seen'; // 最後に見た時�
 const KTP_DT_LICENSE_PAGE       = 'ktp-dt-license';
 const KTP_DT_LICENSE_NONCE      = 'ktp_dt_license';
 const KTP_DT_TRIAL_DAYS         = 30;
-const KTP_DT_BUY_URL            = 'https://www.kantanpro.com/?p=19249';
+const KTP_DT_BUY_URL            = 'https://www.kantanpro.com/product/kantanproex-desktop/';
 const KTP_DT_AD_TEXT            = 'KantanProEX（DT）で作成 — 無料で使える業務管理アプリ kantanpro.com';
 
 // 公開鍵（ECDSA P-256）の一覧。鍵番号（キーの payload の "k"）→ PEM。
@@ -44,7 +44,7 @@ OzJcH0LLmUegETMiiIT4gbqcQ19wI/zDBLrGszvjsDUdcz3sGSyKMpX6/w==
 );
 
 // 無料版に対応した版のリリース日（日本時間）。目印が無いインストールでも、オーナーの登録日がこれより前のときだけ既存（legacy）とみなす
-const KTP_DT_FREEMIUM_SINCE = '2026-11-02 00:00:00';
+const KTP_DT_FREEMIUM_SINCE = '2026-11-01 00:00:00';
 
 // ---------------------------------------------------------------------------
 // 時刻

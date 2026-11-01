@@ -3,7 +3,7 @@
 KantanProEX（WordPress プラグイン）を、ブラウザも WordPress サイトもインターネットも使わずに動かすデスクトップアプリ（Mac 版・Windows 版）です。
 データはお使いのパソコン（Mac / Windows）の中だけに保存されます。
 
-- 製品の購入・ダウンロード: [kantanpro.com](https://www.kantanpro.com/)（買い切り）
+- ダウンロード（無料）・有料版ライセンスの購入（買い切り）: [kantanpro.com](https://www.kantanpro.com/product/kantanproex-desktop/)
 - このリポジトリには、アプリを組み立てるためのコードと、アップデートのお知らせ用のファイル（`update.json`）を置いています。
   アプリ本体（Mac は dmg、Windows はインストーラー .exe）はここでは配布していません。
 
