@@ -1,8 +1,8 @@
 {
-  "version": "1.0.54",
+  "version": "1.0.55",
   "released": "2026-11-01",
-  "notes": "1.0.54 になりました。ウィンドウの大きさと位置を覚えて、次に開いたとき前回と同じ状態（最大化・フルスクリーンも）で出るようにしました。画面とレポートはウィンドウの幅いっぱいに広がり、レポートのグラフも幅に合わせて描き直します。ヘッダーの「設定」は、押すとそのまま設定画面に移ります。",
-  "url": "https://www.kantanpro.com/wc-account/downloads/",
-  "version_win": "1.0.54",
-  "url_win": "https://www.kantanpro.com/wc-account/downloads/"
+  "notes": "1.0.55 になりました。アプリを無料でダウンロードして使えるようになり、有料版はライセンスキーで使う仕組みに変わりました。これまでお使いの方は、何もしなくてもそのまま有料版としてお使いいただけます。メニュー「ファイル」→「ライセンス（無料版・有料版）…」で今の状態を確かめられます。",
+  "url": "https://www.kantanpro.com/dl/kantanproex-dt-mac",
+  "version_win": "1.0.55",
+  "url_win": "https://www.kantanpro.com/dl/kantanproex-dt-windows"
 }
