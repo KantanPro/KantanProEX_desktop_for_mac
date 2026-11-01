@@ -105,6 +105,7 @@ function ktp_dt_license_verify_key( $key ) {
 		'email'  => (string) ( $d['e'] ?? '' ),
 		'id'     => (string) ( $d['i'] ?? '' ),
 		'issued' => (int) ( $d['t'] ?? 0 ),
+		'code'   => (string) ( $d['c'] ?? '' ), // 引き継ぎの合言葉（発行のときに作り、台帳にも残す。古いキーには無い）
 	);
 }
 
@@ -431,6 +432,19 @@ function ktp_dt_license_render_page() {
 			<p style="margin:4px 0 0;">ご購入ありがとうございます。登録メール: <?php echo esc_html( $info['email'] ); ?><?php echo '' !== $info['id'] ? '（' . esc_html( $info['id'] ) . '）' : ''; ?></p>
 		<?php endif; ?>
 	</div>
+
+	<?php if ( 'paid' === $state && $info && '' !== $info['code'] ) : ?>
+	<?php
+	// 引き継ぎの合言葉: 発行ID・発行日・合言葉を 1 行にまとめて出す。メールアドレス・名義の変更（事業の引き継ぎを含む）のとき、この 1 行を送ってもらう
+	$ktp_dt_handover = '注文 ' . $info['id'] . ' ・ ' . wp_date( 'Y-m-d', $info['issued'] ) . ' 発行 ・ 合言葉 ' . $info['code'];
+	?>
+	<h2 style="margin:20px 0 8px;font-size:16px;">引き継ぎの合言葉</h2>
+	<p style="margin:0 0 8px;font-size:13px;color:#4b5563;">メールアドレスを変えるときや、ご家族・後継の方に引き継ぐときは、この 1 行を kantanpro.com のお問い合わせに送ってください。新しいメールアドレスでキーを発行し直します。紙に控えておくと安心です。</p>
+	<p style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0;">
+		<input type="text" readonly value="<?php echo esc_attr( $ktp_dt_handover ); ?>" style="flex:1;min-width:260px;font-family:monospace;font-size:13px;" onclick="this.select()">
+		<button type="button" class="button" onclick="var i=this.previousElementSibling;i.select();navigator.clipboard&&navigator.clipboard.writeText(i.value);this.textContent='コピーしました';">コピー</button>
+	</p>
+	<?php endif; ?>
 
 	<?php if ( 'paid' === $state ) : ?>
 	<details style="margin:16px 0 0;">

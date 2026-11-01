@@ -4,10 +4,10 @@
  *
  * 使い方: bin/php scripts/issue-license.php <購入者のメールアドレス> [発行ID] [差し替える前の発行ID]
  *   秘密鍵は ~/.kantanpro/dt-license/private.pem（環境変数 KTP_DT_LICENSE_KEY_FILE で変えられる）。リポジトリには置かない。
- *   キーの形式: base64url(JSON {"p":"ktp-dt","e":メール,"i":発行ID,"t":発行時刻}) . base64url(署名 ECDSA P-256 + SHA-256 の DER)
+ *   キーの形式: base64url(JSON {"p":"ktp-dt","e":メール,"i":発行ID,"t":発行時刻,"c":引き継ぎの合言葉}) . base64url(署名 ECDSA P-256 + SHA-256 の DER)
  *   期限なし（買い切り）。確認は site/mu-plugins/ktp-desktop/license.php の ktp_dt_license_verify_key()。
  *
- * 発行するたびに、秘密鍵と同じフォルダの issued.csv（発行日時・メール・発行ID・差し替え前の発行ID）に 1 行足す。
+ * 発行するたびに、秘密鍵と同じフォルダの issued.csv（発行日時・メール・発行ID・差し替え前の発行ID・引き継ぎの合言葉）に 1 行足す。
  * メールアドレス・名義を変える人（本人のアドレス変更・事業の引き継ぎ）には、新しいメールで発行し直し、3 番目に前の発行ID を渡す（例: 19500 → 19500-r1）。
  * 前のキーは取り消せない（アプリはネットにつながずに確かめるため）ので、そのまま有効のまま残る。
  */
@@ -36,8 +36,15 @@ if ( ! $pem ) {
 	fwrite( STDERR, "秘密鍵を読めませんでした: {$file}\n" );
 	exit( 5 );
 }
-$now     = time();
-$payload = json_encode( array( 'p' => 'ktp-dt', 'e' => $email, 'i' => $id, 't' => $now ), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
+$now = time();
+// 引き継ぎの合言葉（8 文字・読み間違えやすい 0/O/1/I/L/U を除く）。キーの中に入れて署名し、台帳にも残す
+$alphabet = '23456789ABCDEFGHJKMNPQRSTVWXYZ';
+$code     = '';
+for ( $n = 0; $n < 8; $n++ ) {
+	$code .= $alphabet[ random_int( 0, strlen( $alphabet ) - 1 ) ];
+}
+$code    = substr( $code, 0, 4 ) . '-' . substr( $code, 4 );
+$payload = json_encode( array( 'p' => 'ktp-dt', 'e' => $email, 'i' => $id, 't' => $now, 'c' => $code ), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
 if ( ! openssl_sign( $payload, $sig, $pem, OPENSSL_ALGO_SHA256 ) ) {
 	fwrite( STDERR, "署名できませんでした。\n" );
 	exit( 6 );
@@ -52,9 +59,9 @@ $is_new = ! file_exists( $ledger );
 $fh     = fopen( $ledger, 'ab' );
 if ( $fh ) {
 	if ( $is_new ) {
-		fputcsv( $fh, array( '発行日時', 'メール', '発行ID', '差し替え前の発行ID' ) );
+		fputcsv( $fh, array( '発行日時', 'メール', '発行ID', '差し替え前の発行ID', '引き継ぎの合言葉' ) );
 	}
-	fputcsv( $fh, array( date( 'Y-m-d H:i:s', $now ), $email, $id, $replaces ) );
+	fputcsv( $fh, array( date( 'Y-m-d H:i:s', $now ), $email, $id, $replaces, $code ) );
 	fclose( $fh );
 } else {
 	fwrite( STDERR, "台帳に書けませんでした: {$ledger}（キーは発行しました）\n" );
