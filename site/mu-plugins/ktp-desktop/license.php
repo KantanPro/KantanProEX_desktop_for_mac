@@ -294,7 +294,7 @@ function ktp_dt_license_features() {
 	return array(
 		'lan'        => array( 'LAN 共有・スタッフ・iPad / iPhone から使う', '事務所のほかのパソコンや iPad・iPhone から、スタッフがブラウザでログインして同じデータを使えます。人が増えても、データは親機の中だけに置けます。' ),
 		'intake'     => array( 'サイトからの受注・Stripe 即時購入', 'ホームページのお問い合わせ（Contact Form 7）や WooCommerce の注文を 15 分ごとに自動で受注に取り込みます。Stripe のカード払いも、入金済みの受注として入ります。' ),
-		'supplier'   => array( '協力会社・発注・原価', '外注先の管理、発注、原価（仕入）と粗利の管理ができます。外注を使う規模の事業者向けです。' ),
+		'duplicate'  => array( '受注書・サービス・顧客・協力会社の複製', '登録済みの受注書・サービス・顧客・協力会社を、ボタン 1 つでそっくり複製できます。似た案件や取引先をすばやく作れます。' ),
 		'contract'   => array( '契約・定期請求（継続請求）', '毎月の請求を自動で作ります。契約の管理、請求書メールの自動送信、支払いの催促も任せられます。' ),
 		'report'     => array( 'レポート', '月別の売上・粗利・顧客別の取引実績・仕入と支払・資金繰り予定などを、表とグラフで見られます。' ),
 		'newsletter' => array( '顧客・協力会社への一斉メール', 'お知らせやご案内を、顧客・協力会社のメールアドレス宛てにまとめて送れます（宛名の差し込み、カテゴリーでの絞り込みつき）。' ),
@@ -524,6 +524,10 @@ add_action(
 			// レポート
 			'ktp_get_report_data', 'ktpwp_get_report_data',
 		);
+		// 複製（受注書・サービス）
+		if ( in_array( $action, array( 'ktp_duplicate_order', 'ktp_duplicate_service' ), true ) ) {
+			wp_send_json_error( array( 'message' => '複製は有料版の機能です。' ), 403 );
+		}
 		if ( in_array( $action, $blocked, true ) ) {
 			wp_send_json_error( array( 'message' => 'この機能は有料版で使えます（KantanProEX 設定 → ライセンス）。' ), 403 );
 		}
@@ -531,15 +535,27 @@ add_action(
 	0
 );
 
-/** 協力会社タブへの書き込み（POST）は無料版では処理しない */
+/**
+ * レポートタブへの書き込み（POST）と、複製（query_post=duplicate / duplication）は無料版では処理しない。
+ * 複製を断ったときは目印を立て、画面側で案内を出す（データは何も変えない）
+ */
 add_action(
 	'init',
 	function () {
 		if ( 'POST' !== ( $_SERVER['REQUEST_METHOD'] ?? '' ) || ! ktp_dt_feature_locked() ) {
 			return;
 		}
-		$tab = isset( $_POST['tab_name'] ) && is_string( $_POST['tab_name'] ) ? sanitize_key( wp_unslash( $_POST['tab_name'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
-		if ( in_array( $tab, array( 'supplier', 'report' ), true ) ) {
+		$tab  = isset( $_POST['tab_name'] ) && is_string( $_POST['tab_name'] ) ? sanitize_key( wp_unslash( $_POST['tab_name'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		$qp   = isset( $_POST['query_post'] ) && is_string( $_POST['query_post'] ) ? sanitize_key( wp_unslash( $_POST['query_post'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		if ( in_array( $qp, array( 'duplicate', 'duplication' ), true ) ) {
+			// 本体は POST で空のまま来るとナンス検査で止まるので、何もしない GET として表示させる
+			$GLOBALS['ktp_dt_duplicate_blocked'] = true;
+			$_POST                               = array();
+			$_REQUEST                            = array_diff_key( $_REQUEST, array( 'query_post' => 1, 'data_id' => 1 ) );
+			$_SERVER['REQUEST_METHOD']           = 'GET';
+			return;
+		}
+		if ( 'report' === $tab ) {
 			$_POST = array();
 		}
 	},
@@ -559,7 +575,7 @@ add_action(
 );
 
 /**
- * タブの中身を案内画面に差し替える（協力会社・レポート・定期請求リスト）。
+ * タブの中身を案内画面に差し替える（レポート・定期請求リスト）。
  * 本体のタブの作りは、各パネルが <div class="tab_content" id="◯◯_content"> で並ぶ。本体は変えず、出来上がった HTML の該当パネルだけ差し替える
  */
 function ktp_dt_replace_tab_panel( $output, $panel, $next, $html ) {
@@ -600,15 +616,15 @@ add_filter(
 		}
 		$tab = isset( $_GET['tab_name'] ) ? sanitize_key( wp_unslash( $_GET['tab_name'] ) ) : ( isset( $_POST['tab_name'] ) ? sanitize_key( wp_unslash( $_POST['tab_name'] ) ) : '' ); // phpcs:ignore WordPress.Security.NonceVerification
 		$back = add_query_arg( 'tab_name', 'list', home_url( '/' ) );
-		if ( 'supplier' === $tab ) {
-			$feature = 'supplier';
-			$panel   = array( 'supplier', 'report' );
-		} elseif ( 'report' === $tab ) {
+		if ( 'report' === $tab ) {
 			$feature = 'report';
 			$panel   = array( 'report', '' );
 		} elseif ( 'list' === ( '' === $tab ? 'list' : $tab ) && isset( $_GET['recurring_billing'] ) && '1' === (string) $_GET['recurring_billing'] ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			$feature = 'contract';
 			$panel   = array( 'list', 'order' );
+		} elseif ( ! empty( $GLOBALS['ktp_dt_duplicate_blocked'] ) ) {
+			// 複製の POST を断った。元の画面の上に案内を出す
+			return ktp_dt_locked_screen_html( 'duplicate', '' ) . $output;
 		} else {
 			return $output;
 		}
@@ -665,4 +681,54 @@ add_action(
 		);
 	},
 	0
+);
+
+/**
+ * 複製ボタン（受注書・サービス）は、無料版では押すと案内を出す。
+ * 本体のクリック処理より先に（capture 段階で）止める。行追加で前の行をコピーする動きは複製機能ではないので対象外
+ */
+add_action(
+	'wp_footer',
+	function () {
+		if ( ! is_user_logged_in() || ! ktp_dt_feature_locked() ) {
+			return;
+		}
+		$html = ktp_dt_locked_screen_html( 'duplicate', '' );
+		?>
+<script id="ktp-desktop-duplicate-lock">
+(function () {
+	var html = <?php echo wp_json_encode( $html ); ?>;
+	function show() {
+		var o = document.getElementById('ktp-dt-dup-overlay');
+		if (o) { o.style.display = 'flex'; return; }
+		o = document.createElement('div');
+		o.id = 'ktp-dt-dup-overlay';
+		o.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto;';
+		o.innerHTML = html;
+		var box = o.firstElementChild;
+		if (box) { box.style.margin = '0 auto'; box.style.position = 'relative'; }
+		var close = document.createElement('button');
+		close.type = 'button';
+		close.textContent = '閉じる';
+		close.style.cssText = 'margin-left:8px;padding:8px 18px;border:1px solid #9ca3af;background:#fff;color:#374151;border-radius:6px;font-weight:600;cursor:pointer;';
+		var p = box ? box.querySelector('a[target=_blank]').parentNode : null;
+		if (p) { p.appendChild(close); }
+		close.addEventListener('click', function () { o.style.display = 'none'; });
+		o.addEventListener('click', function (e) { if (e.target === o) { o.style.display = 'none'; } });
+		document.body.appendChild(o);
+	}
+	window.addEventListener('click', function (e) {
+		var t = e.target;
+		if (!t || !t.closest) { return; }
+		var b = t.closest('#orderDuplicateButton, .ktp-service-duplicate-btn');
+		if (!b || b.disabled) { return; }
+		e.preventDefault();
+		e.stopImmediatePropagation();
+		show();
+	}, true);
+})();
+</script>
+		<?php
+	},
+	99
 );
