@@ -22,7 +22,7 @@ KantanProEX（WordPress プラグイン）を、ブラウザも WordPress サイ
 
 - 状態: `paid`（有効なキー）／`legacy`（無料版に対応する前から入っていたインストール＝既存の購入者。有料版と同じ）／`trial`（新規インストールから 30 日。全機能）／`free`（試用が終わった状態）
 - 無料のまま: 顧客・サービス・受注・仕事リスト・明細・タスク・請求の取り消し・支払予定・書類の作成と印刷/PDF・請求書メールの送信・バックアップ/復元・CSV 書き出し・取り込み・郵便番号・ダークモード・利用規約まわり
-- 有料版だけ: LAN 共有（スタッフ・iPad/iPhone）、サイトからの受注・Stripe 即時購入・定期契約の自動処理、受注書・サービス・顧客・協力会社の複製、契約（定期請求リスト・契約の ajax）、レポートタブ、一斉メール、音声操作、Web-FAX、デザインの背景画像
+- 有料版だけ: LAN 共有（スタッフ・iPad/iPhone）、サイトからの受注・Stripe 即時購入・定期契約の自動処理、受注書・サービスの複製（顧客・協力会社の複製の POST も念のため止める。本体に画面のボタンは無い）、契約（定期請求リスト・契約の ajax）、レポートタブ、一斉メール、音声操作、Web-FAX、デザインの背景画像
 - 判定関数: `ktp_dt_is_paid()`（paid/legacy/trial なら true＝全機能）、`ktp_dt_license_state()`、`ktp_dt_trial_days_left()`、`ktp_dt_has_paid_license()`（paid/legacy。宣伝の 1 行を消す判定。試用中は宣伝を出す）、`ktp_dt_show_ad()`（有料版でなく、ユーザー登録もしていない）、`ktp_dt_locked_screen_html($feature)`（案内画面の共通部品）。EX 本体の `KTPWP_Edition` は 127.0.0.1 で常に有効になるので判定に使わない
 - 新規か既存かの見分け: `lib/site.js` が初回セットアップの最初に `data/fresh-install.json` を書く。無ければ既存（legacy）。記録は DB の option `ktp_dt_license` と、データ置き場の `license.json`（Electron も読む）の二重持ち。バックアップの復元で DB が古い状態に戻っても、legacy/paid が free に落ちない（どちらかが legacy なら legacy、キーは正しいほう、試用の開始は早いほう）
 - キー: `base64url(JSON {"p":"ktp-dt","e":メール,"i":発行ID,"t":時刻}) . base64url(署名)`。署名は ECDSA P-256 + SHA-256（同梱 PHP には sodium が無く openssl はある。`openssl_verify`）。アプリには公開鍵だけが入っている。期限なし
