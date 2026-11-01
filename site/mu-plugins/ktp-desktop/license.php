@@ -29,13 +29,17 @@ const KTP_DT_AD_TEXT            = 'KantanProEX（DT）で作成 — 無料で使
 
 // 公開鍵（ECDSA P-256）の一覧。鍵番号（キーの payload の "k"）→ PEM。
 // - kms1: Google Cloud KMS の本番の鍵（kantanpro.com が自動で発行する）。
-//   ★ KMS の公開鍵 PEM が届いたら、下の __KMS1_PUBLIC_KEY__ の部分を PEM 全体（-----BEGIN PUBLIC KEY----- から END まで）に差し替える。
-//   目印のままの間は、kms1 のキーは常に不合格になる。
+//   鍵バージョンを増やしたときは、新しい鍵番号（kms2 など）として足す（古い番号を消すと、その鍵で発行したキーが無効になる）。
 // - bk1 : 予備の鍵。KMS が使えないときだけ scripts/issue-license.php で発行する（秘密鍵は ~/.kantanpro/dt-license/backup-bk1-private.pem）。
 // 鍵番号が無いキー、一覧に無い番号のキーは不合格。以前の手元の鍵（private.pem）は一覧に入れない（信用しない）
 const KTP_DT_LICENSE_KMS1_PLACEHOLDER = '__KMS1_PUBLIC_KEY__';
 const KTP_DT_LICENSE_PUBKEYS          = array(
-	'kms1' => '__KMS1_PUBLIC_KEY__',
+	// projects/ktp-search-console/locations/asia-northeast1/keyRings/kantanpro-license/cryptoKeys/dt-license/cryptoKeyVersions/1（2026-11-01 作成）
+	'kms1' => '-----BEGIN PUBLIC KEY-----
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEy4FYzFiuiEgcXYWyV2CGpitVTr/p
+Hvav00j2UlbKf9ndeuEzyVX8PFT5aHi2Y1g7vrDP/G70YL30NWwNsP3mqQ==
+-----END PUBLIC KEY-----
+',
 	'bk1'  => '-----BEGIN PUBLIC KEY-----
 MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEI4/WLJ0ZsB0xvuyrKf7VP5dr0k4t
 OzJcH0LLmUegETMiiIT4gbqcQ19wI/zDBLrGszvjsDUdcz3sGSyKMpX6/w==
