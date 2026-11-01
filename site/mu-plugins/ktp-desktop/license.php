@@ -27,12 +27,24 @@ const KTP_DT_TRIAL_DAYS         = 30;
 const KTP_DT_BUY_URL            = 'https://www.kantanpro.com/?p=19249';
 const KTP_DT_AD_TEXT            = 'KantanProEX（DT）で作成 — 無料で使える業務管理アプリ kantanpro.com';
 
-// 公開鍵（ECDSA P-256）。対になる秘密鍵は ~/.kantanpro/dt-license/private.pem にだけある
-const KTP_DT_LICENSE_PUBKEY = '-----BEGIN PUBLIC KEY-----
-MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEqltgtKeFK0DQ6ap7YMv4NFhQoNa0
-Mnb5//MkgE/godgEXId0IvniSbnu00EWz3kAIs0ck5I+51U1cQth9csqIg==
+// 公開鍵（ECDSA P-256）の一覧。鍵番号（キーの payload の "k"）→ PEM。
+// - kms1: Google Cloud KMS の本番の鍵（kantanpro.com が自動で発行する）。
+//   ★ KMS の公開鍵 PEM が届いたら、下の __KMS1_PUBLIC_KEY__ の部分を PEM 全体（-----BEGIN PUBLIC KEY----- から END まで）に差し替える。
+//   目印のままの間は、kms1 のキーは常に不合格になる。
+// - bk1 : 予備の鍵。KMS が使えないときだけ scripts/issue-license.php で発行する（秘密鍵は ~/.kantanpro/dt-license/backup-bk1-private.pem）。
+// 鍵番号が無いキー、一覧に無い番号のキーは不合格。以前の手元の鍵（private.pem）は一覧に入れない（信用しない）
+const KTP_DT_LICENSE_KMS1_PLACEHOLDER = '__KMS1_PUBLIC_KEY__';
+const KTP_DT_LICENSE_PUBKEYS          = array(
+	'kms1' => '__KMS1_PUBLIC_KEY__',
+	'bk1'  => '-----BEGIN PUBLIC KEY-----
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEI4/WLJ0ZsB0xvuyrKf7VP5dr0k4t
+OzJcH0LLmUegETMiiIT4gbqcQ19wI/zDBLrGszvjsDUdcz3sGSyKMpX6/w==
 -----END PUBLIC KEY-----
-';
+',
+);
+
+// 無料版に対応した版のリリース日（日本時間）。目印が無いインストールでも、オーナーの登録日がこれより前のときだけ既存（legacy）とみなす
+const KTP_DT_FREEMIUM_SINCE = '2026-11-02 00:00:00';
 
 // ---------------------------------------------------------------------------
 // 時刻
@@ -82,7 +94,7 @@ function ktp_dt_b64url_decode( $s ) {
 }
 
 /**
- * ライセンスキーを確かめる。正しければ { email, id, issued }、正しくなければ false
+ * ライセンスキーを確かめる。正しければ { kid, email, id, issued, code }、正しくなければ false
  */
 function ktp_dt_license_verify_key( $key ) {
 	$key = preg_replace( '/\s+/', '', (string) $key );
@@ -94,14 +106,20 @@ function ktp_dt_license_verify_key( $key ) {
 	if ( '' === $payload || '' === $sig ) {
 		return false;
 	}
-	if ( 1 !== openssl_verify( $payload, $sig, KTP_DT_LICENSE_PUBKEY, OPENSSL_ALGO_SHA256 ) ) {
+	$d = json_decode( $payload, true );
+	if ( ! is_array( $d ) || 'ktp-dt' !== ( $d['p'] ?? '' ) || ! is_string( $d['k'] ?? null ) ) {
 		return false;
 	}
-	$d = json_decode( $payload, true );
-	if ( ! is_array( $d ) || 'ktp-dt' !== ( $d['p'] ?? '' ) ) {
+	$kid  = $d['k'];
+	$keys = KTP_DT_LICENSE_PUBKEYS;
+	if ( ! isset( $keys[ $kid ] ) || ! is_string( $keys[ $kid ] ) || false === strpos( $keys[ $kid ], 'BEGIN PUBLIC KEY' ) ) {
+		return false; // 一覧に無い鍵番号、または PEM が未設定（目印のまま）
+	}
+	if ( 1 !== openssl_verify( $payload, $sig, $keys[ $kid ], OPENSSL_ALGO_SHA256 ) ) {
 		return false;
 	}
 	return array(
+		'kid'    => $kid,
 		'email'  => (string) ( $d['e'] ?? '' ),
 		'id'     => (string) ( $d['i'] ?? '' ),
 		'issued' => (int) ( $d['t'] ?? 0 ),
@@ -133,6 +151,22 @@ function ktp_dt_license_fresh_marker() {
 	return is_array( $d ) ? $d : array();
 }
 
+/** 無料版に対応した版のリリース日時（UNIX 時刻、日本時間として扱う） */
+function ktp_dt_license_freemium_since() {
+	$dt = date_create( KTP_DT_FREEMIUM_SINCE, new DateTimeZone( 'Asia/Tokyo' ) );
+	return $dt ? $dt->getTimestamp() : PHP_INT_MAX;
+}
+
+/** オーナー（ID がいちばん小さい管理者）の登録日（UNIX 時刻）。取れなければ 0 */
+function ktp_dt_license_owner_registered() {
+	$admins = get_users( array( 'role' => 'administrator', 'number' => 1, 'orderby' => 'ID', 'order' => 'ASC' ) );
+	if ( ! $admins ) {
+		return 0;
+	}
+	$t = strtotime( (string) $admins[0]->user_registered . ' UTC' ); // user_registered は UTC で保存される
+	return $t ? (int) $t : 0;
+}
+
 function ktp_dt_license_read_file() {
 	$f = ktp_dt_license_file();
 	if ( '' === $f || ! is_readable( $f ) ) {
@@ -162,10 +196,17 @@ function ktp_dt_license_record() {
 	$origin = 'trial';
 	if ( ! $db && ! $file ) {
 		$marker = ktp_dt_license_fresh_marker();
+		$start  = null !== $marker && ! empty( $marker['at'] ) ? (int) $marker['at'] : time();
 		if ( null === $marker ) {
-			$origin = 'legacy'; // 目印が無い = 無料版に対応する前から入っていた
+			// 目印が無い。目印・記録を消しただけで有料扱いにならないよう、オーナー（管理者）の登録日が
+			// 無料版に対応した版のリリース日より前のときだけ「前から入っていた」とみなす。そうでなければ試用（開始は登録日）
+			$reg = ktp_dt_license_owner_registered();
+			if ( $reg > 0 && $reg < ktp_dt_license_freemium_since() ) {
+				$origin = 'legacy';
+			} else {
+				$start = $reg > 0 ? $reg : time();
+			}
 		}
-		$start = null !== $marker && ! empty( $marker['at'] ) ? (int) $marker['at'] : time();
 		$rec   = array( 'origin' => $origin, 'trial_start' => $start, 'key' => '' );
 	} else {
 		// どちらかが legacy なら legacy。試用の開始は早いほう。キーは正しいほう
