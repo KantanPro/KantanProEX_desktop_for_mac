@@ -432,7 +432,18 @@ function ktp_dt_license_render_page() {
 		<?php endif; ?>
 	</div>
 
-	<?php if ( 'paid' !== $state ) : ?>
+	<?php if ( 'paid' === $state ) : ?>
+	<details style="margin:16px 0 0;">
+		<summary style="cursor:pointer;font-size:13px;">キーを入れ替える（メールアドレスを変えて、新しいキーを受け取ったときなど）</summary>
+		<p style="margin:8px 0 0;font-size:13px;color:#4b5563;">新しいキーを貼り付けると、こちらに入れ替わります。今のキーもそのまま有効なので、入れ替えなくても有料版は使い続けられます。</p>
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+			<input type="hidden" name="action" value="ktp_dt_license_save">
+			<?php wp_nonce_field( KTP_DT_LICENSE_NONCE ); ?>
+			<p><input type="text" name="license_key" style="width:100%;font-family:monospace;font-size:12px;" placeholder="新しいライセンスキーを貼り付けます" autocomplete="off" spellcheck="false" required></p>
+			<p><button type="submit" class="button">新しいキーに入れ替える</button></p>
+		</form>
+	</details>
+	<?php else : ?>
 	<h2 style="margin:20px 0 8px;font-size:16px;">ライセンスキーを入れる</h2>
 	<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 		<input type="hidden" name="action" value="ktp_dt_license_save">
