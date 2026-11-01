@@ -1,8 +1,8 @@
 {
-  "version": "1.0.57",
+  "version": "1.0.58",
   "released": "2026-11-02",
-  "notes": "1.0.57 になりました。アップデートの確認を kantanpro.com を通して行うようにしました（1日1回まで。業務データやお客様を特定する情報は送りません）。アプリの機能は 1.0.56 と同じです。",
+  "notes": "1.0.58 になりました。サービスのインポートで、Excel で保存し直したファイルの列がずれる・上書きのときファイルに無い項目が初期値に戻る・Excel の CSV が文字化けする、の3点を直しました。インポートした商品はすぐホームページにも反映され、Google スプレッドシートからも取り込めるようになりました。",
   "url": "https://www.kantanpro.com/dl/kantanproex-dt-mac",
-  "version_win": "1.0.57",
+  "version_win": "1.0.58",
   "url_win": "https://www.kantanpro.com/dl/kantanproex-dt-windows"
 }
