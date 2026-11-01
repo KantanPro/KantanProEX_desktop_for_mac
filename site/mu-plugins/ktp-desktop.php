@@ -207,6 +207,11 @@ function ktp_desktop_allowed_hosts() {
 	if ( ! empty( $GLOBALS['ktp_desktop_allow_newsletter'] ) ) {
 		$hosts[] = 'www.kantanpro.com';
 	}
+	// サービスのインポートで「Googleスプレッドシート」を選び、URL を入れて取り込む、その1回のあいだだけ
+	// （共有リンクの CSV 書き出しは googleusercontent.com へ転送されるが、転送は WordPress の HTTP が中で追うので入口だけでよい）
+	if ( ! empty( $GLOBALS['ktp_desktop_allow_gsheets'] ) ) {
+		$hosts[] = 'docs.google.com';
+	}
 	if ( class_exists( 'KTPWP_Japanpost_Address_API' ) && KTPWP_Japanpost_Address_API::is_enabled() ) {
 		$hosts[] = (string) wp_parse_url( KTPWP_Japanpost_Address_API::get_base_url(), PHP_URL_HOST );
 	}
@@ -220,6 +225,16 @@ function ktp_desktop_allowed_hosts() {
 	}
 	return array_filter( $hosts );
 }
+
+add_action(
+	'admin_post_ktp_service_import',
+	function () {
+		if ( isset( $_POST['format'] ) && 'google_sheets' === sanitize_key( wp_unslash( $_POST['format'] ) ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing -- 本体の処理でナンスを確かめる
+			$GLOBALS['ktp_desktop_allow_gsheets'] = true;
+		}
+	},
+	0
+);
 
 add_filter(
 	'pre_http_request',

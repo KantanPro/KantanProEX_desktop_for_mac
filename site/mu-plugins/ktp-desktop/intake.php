@@ -940,7 +940,7 @@ add_action(
 );
 
 // ---- サービスを変更したら、公開商品をすぐサイトへ反映する ----
-// 15 分待たずに反映できるよう、サービスタブでの保存・削除・複製・画像変更のあと、
+// 15 分待たずに反映できるよう、サービスタブでの保存・削除・複製・画像変更・インポートのあと、
 // 次に開いた画面で「今すぐ取り込む」と同じ処理を裏で 1 回走らせる（商品の一覧が変わっていなければ何も送らない）。
 const KTP_DT_CATALOG_DIRTY = 'ktp_dt_catalog_dirty';
 
@@ -957,7 +957,9 @@ add_action(
 		$ajax_action = isset( $_REQUEST['action'] ) ? sanitize_key( wp_unslash( $_REQUEST['action'] ) ) : '';
 		$tab         = isset( $_REQUEST['tab_name'] ) ? sanitize_key( wp_unslash( $_REQUEST['tab_name'] ) ) : '';
 		$query_post  = isset( $_POST['query_post'] ) ? sanitize_key( wp_unslash( $_POST['query_post'] ) ) : '';
+		// Excel などからのインポート（admin-post の ktp_service_import）も、まとめて変わるのですぐ反映する
 		$changed     = 'ktp_duplicate_service' === $ajax_action
+			|| 'ktp_service_import' === $ajax_action
 			|| ( 'service' === $tab && '' !== $query_post && ! in_array( $query_post, array( 'istmode', 'srcmode' ), true ) );
 		if ( $changed ) {
 			update_option( KTP_DT_CATALOG_DIRTY, 1, false );
