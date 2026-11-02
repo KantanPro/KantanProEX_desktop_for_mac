@@ -1,7 +1,7 @@
 {
   "name": "kantanproex-desktop",
   "productName": "KantanProEX",
-  "version": "1.0.59",
+  "version": "1.0.60",
   "description": "KantanProEX のデスクトップ版（ブラウザもネットも不要）",
   "main": "main.js",
   "private": true,
@@ -10,7 +10,7 @@
     "prepare:php": "scripts/fetch-php.sh",
     "prepare:site": "scripts/build-site.sh",
     "start": "env -u ELECTRON_RUN_AS_NODE electron .",
-    "build:mac": "scripts/build-site.sh && (chmod -R u+rwX dist/mac 2>/dev/null; rm -rf dist/mac) && env -u ELECTRON_RUN_AS_NODE electron-builder --mac dmg --x64",
+    "build:mac": "scripts/build-site.sh && (chmod -R u+rwX dist/mac dist/mac-universal* 2>/dev/null; rm -rf dist/mac dist/mac-universal*) && env -u ELECTRON_RUN_AS_NODE electron-builder --mac dmg --universal && mv dist/mac-universal dist/mac && rm -rf dist/mac-universal-*-temp",
     "install:local": "scripts/install-local.sh",
     "build:icon": "node scripts/build-icon.mjs",
     "build:win": "scripts/fetch-php-win.sh && scripts/build-site.sh && (chmod -R u+rwX dist/win-unpacked 2>/dev/null; rm -rf dist/win-unpacked) && env -u ELECTRON_RUN_AS_NODE electron-builder --win nsis --x64"
@@ -22,6 +22,7 @@
   "build": {
     "appId": "com.kantanpro.kantanproex.desktop",
     "productName": "KantanProEX",
+    "afterPack": "scripts/after-pack.js",
     "copyright": "KantanPro",
     "directories": {
       "output": "dist"
@@ -53,10 +54,12 @@
         {
           "target": "dmg",
           "arch": [
-            "x64"
+            "universal"
           ]
         }
       ],
+      "artifactName": "${productName}-${version}.${ext}",
+      "x64ArchFiles": "Contents/Resources/bin/php",
       "identity": null,
       "icon": "build/icon.icns",
       "extraResources": [

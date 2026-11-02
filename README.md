@@ -88,11 +88,11 @@ KantanBiz のオーナーが「デスクトップ版へ移行」から書き出�
 
 ## 組み立て方（開発者向け）
 
-必要なもの: macOS（Intel / x64）、Node.js、KantanProEX プラグインのソース。
+必要なもの: macOS、Node.js、KantanProEX プラグインのソース。Mac 版はユニバーサル（Intel と Apple シリコンの両方で動く1本）で、簡易署名（ad-hoc）を付けて作る（scripts/after-pack.js）。
 
 ```bash
 npm install
-npm run prepare:php      # 静的ビルドの PHP を bin/ に取得
+npm run prepare:php      # 静的ビルドの PHP（Intel 用と Apple シリコン用をまとめたもの）を bin/ に取得
 npm run prepare:site     # WordPress 一式を site-template/ に組み立て（KTPEX_SOURCE_DIR でプラグインの場所を指定）
 npm start                # 開発用に起動（データは KantanProEX-dev に分かれる）
 npm run build:mac        # dist/KantanProEX-<版>.dmg を作る
