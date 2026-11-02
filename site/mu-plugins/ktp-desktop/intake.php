@@ -28,6 +28,7 @@ const KTP_DT_INTAKE_HOOK    = 'ktp_dt_intake_poll';
 const KTP_DT_INTAKE_BATCH   = 50;
 const KTP_DT_INTAKE_KEEP    = 2000; // 取り込んだ印を覚えておく件数
 const KTP_DT_INTAKE_LOG_MAX = 50;
+const KTP_DT_INTAKE_URLS    = 'ktp_dt_intake_site_urls'; // 受付プラグイン 1.5.0〜 が教える、商品ページの URL の形とフィードの URL
 
 function ktp_dt_intake_settings() {
 	$s = get_option( KTP_DT_INTAKE_OPT, array() );
@@ -45,6 +46,34 @@ function ktp_dt_intake_settings() {
 function ktp_dt_intake_state() {
 	$s = get_option( KTP_DT_INTAKE_STATE, array() );
 	return is_array( $s ) ? $s : array();
+}
+
+/**
+ * 取得応答から、商品ページの URL の形（%d が商品 ID）とフィードの URL を覚える。
+ * つないでいるサイトの URL だけを受け取る（古い受付プラグインは送ってこないので、空にする）。
+ */
+function ktp_dt_intake_remember_site_urls( array $res ) {
+	$host = strtolower( (string) wp_parse_url( ktp_dt_intake_settings()['url'], PHP_URL_HOST ) );
+	$ok   = function ( $url ) use ( $host ) {
+		$url = (string) $url;
+		return ( '' !== $host && preg_match( '#^https?://#i', $url ) && strtolower( (string) wp_parse_url( $url, PHP_URL_HOST ) ) === $host ) ? $url : '';
+	};
+	$item = $ok( $res['item_url'] ?? '' );
+	$urls = array(
+		'item' => ( '' !== $item && 1 === substr_count( $item, '%d' ) ) ? $item : '',
+		'feed' => $ok( $res['feed_url'] ?? '' ),
+	);
+	if ( get_option( KTP_DT_INTAKE_URLS ) !== $urls ) {
+		update_option( KTP_DT_INTAKE_URLS, $urls, false );
+	}
+}
+
+function ktp_dt_intake_site_urls() {
+	$u = get_option( KTP_DT_INTAKE_URLS, array() );
+	return array(
+		'item' => is_array( $u ) && isset( $u['item'] ) ? (string) $u['item'] : '',
+		'feed' => is_array( $u ) && isset( $u['feed'] ) ? (string) $u['feed'] : '',
+	);
 }
 
 /** localhost など、このパソコンの中のサイト（検証用）。ここだけは http でも接続する */
@@ -433,6 +462,7 @@ function ktp_dt_intake_run() {
 			}
 			if ( null === $site ) {
 				$site = $res;
+				ktp_dt_intake_remember_site_urls( $res );
 			}
 			$entries = isset( $res['entries'] ) && is_array( $res['entries'] ) ? $res['entries'] : array();
 			if ( ! $entries ) {
@@ -658,6 +688,7 @@ add_action(
 		// つなぎ先を変えたら、前のサイトの状態は消す（取り込んだ印は残す）
 		if ( $url !== $old['url'] ) {
 			delete_option( KTP_DT_INTAKE_STATE );
+			delete_option( KTP_DT_INTAKE_URLS );
 		}
 		wp_safe_redirect( admin_url( 'admin.php?page=' . KTP_DT_INTAKE_PAGE . '&ktp_dt_msg=' . $msg ) );
 		exit;
@@ -678,6 +709,7 @@ add_action(
 		if ( is_wp_error( $res ) ) {
 			wp_send_json_error( array( 'message' => $res->get_error_message() ) );
 		}
+		ktp_dt_intake_remember_site_urls( $res );
 		$what = array();
 		$what[] = ! empty( $res['cf7'] ) ? 'Contact Form 7: 受付中' : 'Contact Form 7: 受け付けていません';
 		$what[] = ! empty( $res['woo'] ) ? 'WooCommerce: 受付中' : 'WooCommerce: 受け付けていません';
@@ -690,6 +722,9 @@ add_action(
 		}
 		if ( function_exists( 'ktp_dt_stripe_enabled' ) && ktp_dt_stripe_enabled() && ! empty( $res['buy'] ) && empty( $res['recurring_price'] ) ) {
 			$what[] = '定期契約の即時購入の値段（毎月・初回費用）を表示するには、受付プラグイン 1.4.0 以降を入れてください';
+		}
+		if ( isset( $res['catalog_hash'] ) && empty( $res['item_url'] ) ) {
+			$what[] = '商品ごとのページの URL を使うには、受付プラグイン 1.5.0 以降を入れてください';
 		}
 		wp_send_json_success(
 			array(
@@ -748,6 +783,45 @@ add_action(
 		exit;
 	}
 );
+
+/**
+ * 「サイト公開」にした商品ごとのページの URL（コピーして SNS・ブログに貼る）と、Google ショッピング用フィードの URL。
+ * URL の形は受付プラグイン（1.5.0〜）が取得応答で教えてくれたもの。
+ */
+function ktp_dt_intake_item_urls_html( array $s ) {
+	if ( ! $s['enabled'] || ! $s['catalog'] || ! class_exists( 'KTPWP_Service_DB' ) ) {
+		return '';
+	}
+	$urls = ktp_dt_intake_site_urls();
+	$html = '<h4 style="margin:14px 0 4px;">商品ごとのページ</h4>';
+	if ( '' === $urls['item'] ) {
+		return $html . '<p style="color:#6b7280;font-size:13px;margin:0;">商品ごとのページの URL（SNS・ブログ・Google ショッピングに使えます）は、受付プラグイン 1.5.0 以降で使えます。上の「受付プラグイン（ZIP）を保存」で新しいものを入れ直し、「今すぐ取り込む」を押すと、ここに URL が出ます。</p>';
+	}
+	$rows = KTPWP_Service_DB::get_instance()->get_services( 'service', array( 'is_public' => true, 'limit' => 0, 'order_by' => 'id', 'order' => 'DESC' ) );
+	if ( ! $rows ) {
+		return $html . '<p style="color:#6b7280;font-size:13px;margin:0;">「サイト公開」にした商品がまだありません。</p>';
+	}
+	$html .= '<p style="margin:0 0 6px;">ホームページの商品ごとのページです。SNS・ブログ・LINE・メールに貼ると、商品名と画像のカードで表示されます（新しく公開した商品は、ホームページに反映されてから開けます）。</p>'
+		. '<table class="widefat striped" style="margin:0 0 8px;"><tbody>';
+	foreach ( (array) $rows as $row ) {
+		$u     = sprintf( $urls['item'], (int) $row->id );
+		$html .= '<tr><td style="width:38%;">' . esc_html( (string) $row->service_name ) . '</td>'
+			. '<td><input type="text" readonly class="ktp-dt-url" value="' . esc_attr( $u ) . '" style="width:100%;font-family:monospace;font-size:12px;" onclick="this.select()"></td>'
+			. '<td style="width:1%;white-space:nowrap;"><button type="button" class="button ktp-dt-copy">コピー</button></td></tr>';
+	}
+	$html .= '</tbody></table>';
+	if ( '' !== $urls['feed'] ) {
+		$html .= '<h4 style="margin:14px 0 4px;">Google ショッピング用フィード</h4>'
+			. '<p style="display:flex;gap:6px;margin:0 0 4px;"><input type="text" readonly class="ktp-dt-url" value="' . esc_attr( $urls['feed'] ) . '" style="flex:1;font-family:monospace;font-size:12px;" onclick="this.select()"><button type="button" class="button ktp-dt-copy">コピー</button></p>'
+			. '<p style="color:#6b7280;font-size:13px;margin:0;">Google Merchant Center の「商品 → フィードを追加 → スケジュールされた取得」にこの URL を登録すると、商品が Google ショッピング（無料掲載）に載ります。載るのは画像があり、0 円でなく、定期契約でない商品です。値段が税抜のときは、ホームページの「設定 → KantanProEX 受付」で「値段は税抜」にチェックすると税込で載ります。</p>';
+	}
+	$html .= '<script>document.querySelectorAll("#ktp-dt-intake .ktp-dt-copy").forEach(function(b){b.addEventListener("click",function(){'
+		. 'var i=b.closest("tr,p").querySelector(".ktp-dt-url");i.select();'
+		. 'var done=function(){b.textContent="コピーしました";setTimeout(function(){b.textContent="コピー";},1500);};'
+		. 'if(navigator.clipboard){navigator.clipboard.writeText(i.value).then(done,function(){document.execCommand("copy");done();});}else{document.execCommand("copy");done();}'
+		. '});});</script>';
+	return $html;
+}
 
 function ktp_dt_intake_page_html() {
 	$s       = ktp_dt_intake_settings();
@@ -837,6 +911,7 @@ function ktp_dt_intake_page_html() {
 	<p style="color:#6b7280;font-size:13px;margin:0;">列の数は <code>columns="2"</code>、カテゴリーの絞り込みは <code>category="カテゴリー名"</code>、特定の商品だけは <code>ids="3,5"</code>、1 列の一覧は <code>layout="cards"</code> を付けます。
 	お客様が「申し込む」を押すと、ホームページに預けられ、このアプリが取りに行って受注（受付中）にします。商品の追加・値段・在庫・受付状況の変更は、15 分以内（「今すぐ取り込む」ならすぐ）にホームページへ反映されます。
 	あとから請求する形です。その場でカード払いしてもらうには、下の「5. 即時購入（Stripe 決済）」を設定します。</p>
+	<?php echo ktp_dt_intake_item_urls_html( $s ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 
 	<h3 style="margin:20px 0 6px;">4. つながるか確かめる</h3>
 	<p>

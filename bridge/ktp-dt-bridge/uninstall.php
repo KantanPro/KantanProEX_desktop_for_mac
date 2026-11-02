@@ -9,10 +9,11 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 
 global $wpdb;
 $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}ktp_dt_bridge_inbox" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-foreach ( array( 'ktp_dt_bridge_db_version', 'ktp_dt_bridge_key', 'ktp_dt_bridge_settings', 'ktp_dt_bridge_last_pull', 'ktp_dt_bridge_catalog', 'ktp_dt_bridge_images' ) as $option ) {
+foreach ( array( 'ktp_dt_bridge_db_version', 'ktp_dt_bridge_key', 'ktp_dt_bridge_settings', 'ktp_dt_bridge_last_pull', 'ktp_dt_bridge_catalog', 'ktp_dt_bridge_images', 'ktp_dt_bridge_flush_rules', 'ktp_dt_bridge_list_page' ) as $option ) {
 	delete_option( $option );
 }
 wp_clear_scheduled_hook( 'ktp_dt_bridge_cleanup' );
+delete_transient( 'ktp_dt_bridge_flush_rules' );
 
 // 商品の画像
 $ktp_uploads = wp_upload_dir( null, false );

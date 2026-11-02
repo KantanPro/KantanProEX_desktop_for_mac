@@ -56,6 +56,8 @@ KantanProEX（WordPress プラグイン）を、ブラウザも WordPress サイ
 - 受注の作り方は EX 本体と同じ（CF7: `KTPWP_Contact_Form::import_submission()`、WooCommerce: `KTPWP_WooCommerce_Integration::import_order_payload()`）。受付プラグインは WooCommerce の注文を本体の `order_payload()` と同じ形にして預ける。形を変えるときは両方そろえる
 - 取り込んだ預かり分の uuid を覚えておき、「受け取った」を返せずに再び届いても二重にしない
 - **公開商品**: 「サイト公開」にしたサービスを、アプリがサイトへ送る（`POST /catalog`・`/catalog-image`。内容が変わったときだけ。画像は 900px 以内の JPEG に縮めて、足りないものだけ）。サイト側は `bridge/ktp-dt-bridge/catalog.php` がショートコード `[ktp_dt_products]`（EX と同じ `[ktpwp_public_products]` も、EX が無いサイトでは使える）でカード表示し、申し込みフォーム（admin-ajax）の入力を受付箱（`kind=public_order`）に預ける。アプリは `KTPWP_Public_Product_Order::submit_order()` で受注にする（数量・税率・明細は EX と同じ）。完売・保留はサイトに送り直すので、次の同期（15 分以内）でボタンが消える
+- **商品ごとのページとフィード**（受付プラグイン 1.5.0〜、`bridge/ktp-dt-bridge/item.php`）: サイトの `/item/{ID}/`（パーマリンクが基本設定なら `/?ktp_item={ID}`）に商品 1 件のページを出す。テーマの header/footer の中に出し（ブロックテーマはテンプレートパーツ）、OGP・canonical・JSON-LD（Product）を付ける。重複しないよう Cocoon・Yoast・Rank Math・AIOSEO・Jetpack の OGP 等はそのページだけ止める。一覧カードの商品名・画像はこのページへのリンク（`link=no` で外せる。Cocoon の目次が見出しの中身を書き換えるので、リンクは h3 の外に置く）。
+  `/?ktp_feed=google` は Google Merchant Center 用の RSS（画像あり・0 円でない・定期契約でない商品だけ。受付プラグインの「値段は税抜」設定で税込にする）。商品ページは `wp-sitemap.xml` にも入る。取得応答の `item_url`（%d が ID）・`feed_url` をアプリが覚え、「サイトからの受注」画面に商品ごとの URL とコピーボタンを出す
 - 公開を止めた商品・完売後の申し込みは受注を作らず、連絡先を「最近の取り込み」に残して受け取りは済ませる
 - **即時購入（Stripe 決済）**（`site/mu-plugins/ktp-desktop/stripe-purchase.php`、受付プラグイン 1.2.0〜）: 秘密鍵は「サイトからの受注」の画面で入れ、PC の中だけに置く（WP 版の Stripe 設定 `ktp_general_settings` は使わない。使うと請求メールへの決済リンクなど WP 版の Stripe 請求連携が丸ごと動くため）。
   「即時購入」にした公開商品ごとにアプリが Stripe の Payment Link を作り、URL だけを `buy_url` としてカタログに載せる。サイトの「購入する」は `buy.stripe.com` へのリンク（それ以外の URL は受付プラグインが捨てる）。

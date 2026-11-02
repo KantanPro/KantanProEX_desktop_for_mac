@@ -9,7 +9,8 @@
  *
  * ショートコード: [ktp_dt_products]（KantanProEX（WP）が無いサイトでは、WP 版と同じ [ktpwp_public_products] でも表示できる）
  *   属性: layout=grid|cards|table（cards・table は 1 列の一覧）、columns=1〜4、category=カテゴリー（カンマ区切り）、
- *         ids=商品 ID（カンマ区切り）、limit=件数、show_image / show_price / show_unit / show_category / show_memo / show_tax / show_filter=yes|no
+ *         ids=商品 ID（カンマ区切り）、limit=件数、show_image / show_price / show_unit / show_category / show_memo / show_tax / show_filter=yes|no、
+ *         link=yes|no（商品名と画像を、商品ごとのページ（item.php）へのリンクにする）
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -241,6 +242,7 @@ function ktp_dt_bridge_render_products( $atts = array() ) {
 			'show_memo'     => 'yes',
 			'show_tax'      => 'no',
 			'show_filter'   => 'yes',
+			'link'          => 'yes',
 		),
 		(array) $atts
 	);
@@ -270,6 +272,10 @@ function ktp_dt_bridge_render_products( $atts = array() ) {
 	foreach ( array( 'image', 'price', 'unit', 'category', 'memo', 'tax', 'filter' ) as $k ) {
 		$show[ $k ] = ktp_dt_bridge_flag( $a[ 'show_' . $k ] );
 	}
+	$link = ktp_dt_bridge_flag( $a['link'] );
+	if ( $link ) {
+		ktp_dt_bridge_remember_list_url();
+	}
 	$categories = array();
 	foreach ( $services as $s ) {
 		if ( '' !== $s['category'] && ! in_array( $s['category'], $categories, true ) ) {
@@ -289,43 +295,61 @@ function ktp_dt_bridge_render_products( $atts = array() ) {
 	}
 	$html .= '<div class="ktp-dtp__list ktp-dtp__list--cols-' . (int) $cols . '">';
 	foreach ( $services as $s ) {
-		$img = $show['image'] && '' !== $s['image_hash'] ? ktp_dt_bridge_image_url( $s['id'], $s['image_hash'] ) : '';
-		$html .= '<article class="ktp-dtp__item' . ( $s['open'] ? '' : ' is-closed' ) . '" data-cat="' . esc_attr( $s['category'] ) . '">';
-		if ( $img ) {
-			$html .= '<div class="ktp-dtp__image"><img src="' . esc_url( $img ) . '" alt="' . esc_attr( $s['name'] ) . '" loading="lazy">'
-				. ( $s['open'] ? '' : '<span class="ktp-dtp__badge">' . esc_html( $s['status_label'] ?: '受付停止中' ) . '</span>' ) . '</div>';
-		}
-		$html .= '<div class="ktp-dtp__body"><h3 class="ktp-dtp__name">' . esc_html( $s['name'] ) . '</h3>';
-		if ( $show['category'] && '' !== $s['category'] ) {
-			$html .= '<p class="ktp-dtp__cat">' . esc_html( $s['category'] ) . '</p>';
-		}
-		if ( $show['price'] ) {
-			$html .= '<p class="ktp-dtp__price">' . esc_html( ktp_dt_bridge_money( $s['price'] ) )
-				. ( '' !== ( $s['billing_cycle_label'] ?? '' ) ? ' <span class="ktp-dtp__unit">/ ' . esc_html( $s['billing_cycle_label'] ) . ( ( $s['initial_fee'] ?? 0 ) > 0 ? '（初回 ' . esc_html( ktp_dt_bridge_money( $s['initial_fee'] ) ) . '）' : '' ) . '</span>' : '' )
-				. ( '' === ( $s['billing_cycle_label'] ?? '' ) && $show['unit'] && '' !== $s['unit'] ? ' <span class="ktp-dtp__unit">/ ' . esc_html( $s['unit'] ) . '</span>' : '' )
-				. ( $show['tax'] && null !== $s['tax_rate'] ? ' <span class="ktp-dtp__unit">（税' . esc_html( rtrim( rtrim( number_format( $s['tax_rate'], 2 ), '0' ), '.' ) ) . '%）</span>' : '' )
-				. '</p>';
-		}
-		if ( $show['memo'] && '' !== $s['memo'] ) {
-			$html .= '<p class="ktp-dtp__memo">' . nl2br( esc_html( $s['memo'] ) ) . '</p>';
-		}
-		if ( '' !== $s['public_html'] ) {
-			$html .= '<div class="ktp-dtp__html">' . $s['public_html'] . '</div>';
-		}
-		$html .= '</div>';
-		if ( $s['open'] && '' !== ( $s['buy_url'] ?? '' ) && ktp_dt_bridge_settings()['shop'] ) {
-			// 即時購入: Stripe の決済ページへそのまま進む（WP 版の「購入する」と同じ文言）
-			$html .= '<a class="ktp-dtp__apply ktp-dtp__buy" href="' . esc_url( $s['buy_url'] ) . '" rel="noopener">購入する</a>';
-		} elseif ( $s['open'] ) {
-			$html .= '<button type="button" class="ktp-dtp__apply" data-id="' . (int) $s['id'] . '" data-name="' . esc_attr( $s['name'] ) . '" data-fixed="' . ( $s['quantity_fixed'] ? '1' : '0' ) . '">申し込む・問い合わせる</button>';
-		} elseif ( ! $img ) {
-			$html .= '<p class="ktp-dtp__closed">' . esc_html( $s['status_label'] ?: '受付停止中' ) . '</p>';
-		}
-		$html .= '</article>';
+		$html .= ktp_dt_bridge_render_card( $s, $show, $link );
 	}
 	$html .= '<p class="ktp-dtp__none" hidden>該当する商品がありません。</p></div>';
 	$html .= ktp_dt_bridge_products_form();
 	$html .= '</div>';
+	return $html;
+}
+
+/** 値段の行（定期契約は「/ 毎月（初回 …）」、それ以外は単位。一覧と個別ページで同じ書き方） */
+function ktp_dt_bridge_price_html( array $s, array $show ) {
+	return '<p class="ktp-dtp__price">' . esc_html( ktp_dt_bridge_money( $s['price'] ) )
+		. ( '' !== ( $s['billing_cycle_label'] ?? '' ) ? ' <span class="ktp-dtp__unit">/ ' . esc_html( $s['billing_cycle_label'] ) . ( ( $s['initial_fee'] ?? 0 ) > 0 ? '（初回 ' . esc_html( ktp_dt_bridge_money( $s['initial_fee'] ) ) . '）' : '' ) . '</span>' : '' )
+		. ( '' === ( $s['billing_cycle_label'] ?? '' ) && $show['unit'] && '' !== $s['unit'] ? ' <span class="ktp-dtp__unit">/ ' . esc_html( $s['unit'] ) . '</span>' : '' )
+		. ( $show['tax'] && null !== $s['tax_rate'] ? ' <span class="ktp-dtp__unit">（税' . esc_html( rtrim( rtrim( number_format( $s['tax_rate'], 2 ), '0' ), '.' ) ) . '%）</span>' : '' )
+		. '</p>';
+}
+
+/** 「購入する」「申し込む・問い合わせる」のボタン（受付停止中で画像が無いときは、その表示） */
+function ktp_dt_bridge_action_html( array $s, $has_img ) {
+	if ( $s['open'] && '' !== ( $s['buy_url'] ?? '' ) && ktp_dt_bridge_settings()['shop'] ) {
+		// 即時購入: Stripe の決済ページへそのまま進む（WP 版の「購入する」と同じ文言）
+		return '<a class="ktp-dtp__apply ktp-dtp__buy" href="' . esc_url( $s['buy_url'] ) . '" rel="noopener">購入する</a>';
+	}
+	if ( $s['open'] ) {
+		return '<button type="button" class="ktp-dtp__apply" data-id="' . (int) $s['id'] . '" data-name="' . esc_attr( $s['name'] ) . '" data-fixed="' . ( $s['quantity_fixed'] ? '1' : '0' ) . '">申し込む・問い合わせる</button>';
+	}
+	return $has_img ? '' : '<p class="ktp-dtp__closed">' . esc_html( $s['status_label'] ?: '受付停止中' ) . '</p>';
+}
+
+/** 一覧のカード 1 枚。$link が true なら、商品名と画像を個別ページ（item.php）へのリンクにする */
+function ktp_dt_bridge_render_card( array $s, array $show, $link ) {
+	$img  = $show['image'] && '' !== $s['image_hash'] ? ktp_dt_bridge_image_url( $s['id'], $s['image_hash'] ) : '';
+	$url  = $link ? ktp_dt_bridge_item_url( $s['id'] ) : '';
+	$html = '<article class="ktp-dtp__item' . ( $s['open'] ? '' : ' is-closed' ) . '" data-cat="' . esc_attr( $s['category'] ) . '">';
+	if ( $img ) {
+		$tag   = '<img src="' . esc_url( $img ) . '" alt="' . esc_attr( $s['name'] ) . '" loading="lazy">';
+		$html .= '<div class="ktp-dtp__image">' . ( $url ? '<a href="' . esc_url( $url ) . '" tabindex="-1">' . $tag . '</a>' : $tag )
+			. ( $s['open'] ? '' : '<span class="ktp-dtp__badge">' . esc_html( $s['status_label'] ?: '受付停止中' ) . '</span>' ) . '</div>';
+	}
+	// リンクは見出しの外に置く（Cocoon などの目次機能が見出しの中身を書き換え、中のリンクを消すため）
+	$name  = '<h3 class="ktp-dtp__name">' . esc_html( $s['name'] ) . '</h3>';
+	$html .= '<div class="ktp-dtp__body">' . ( $url ? '<a class="ktp-dtp__namelink" href="' . esc_url( $url ) . '">' . $name . '</a>' : $name );
+	if ( $show['category'] && '' !== $s['category'] ) {
+		$html .= '<p class="ktp-dtp__cat">' . esc_html( $s['category'] ) . '</p>';
+	}
+	if ( $show['price'] ) {
+		$html .= ktp_dt_bridge_price_html( $s, $show );
+	}
+	if ( $show['memo'] && '' !== $s['memo'] ) {
+		$html .= '<p class="ktp-dtp__memo">' . nl2br( esc_html( $s['memo'] ) ) . '</p>';
+	}
+	if ( '' !== $s['public_html'] ) {
+		$html .= '<div class="ktp-dtp__html">' . $s['public_html'] . '</div>';
+	}
+	$html .= '</div>' . ktp_dt_bridge_action_html( $s, '' !== $img ) . '</article>';
 	return $html;
 }
 
@@ -385,6 +409,8 @@ function ktp_dt_bridge_products_css() {
 .ktp-dtp__body{padding:10px 14px 12px;flex:1}
 .ktp-dtp .ktp-dtp__name,.ktp-dtp .ktp-dtp__dtitle{margin:0 0 6px;padding:0;border:0;background:none;color:inherit;font-size:.9rem;font-weight:600;line-height:1.25}
 .ktp-dtp .ktp-dtp__name::before,.ktp-dtp .ktp-dtp__name::after{content:none}
+.ktp-dtp a.ktp-dtp__namelink{display:block;color:inherit;text-decoration:none}.ktp-dtp a.ktp-dtp__namelink:hover .ktp-dtp__name{text-decoration:underline}
+.ktp-dtp__image a{display:block;width:100%}
 .ktp-dtp__cat{margin:6px 0 4px;font-size:.85rem;line-height:1.2;color:#646970}
 .ktp-dtp__price{margin:0 0 8px;font-weight:600;font-size:1rem;line-height:1.25}
 .ktp-dtp__unit{font-weight:400;font-size:.9rem;color:#50575e}
@@ -408,6 +434,21 @@ a.ktp-dtp__buy:hover{color:#fff}
 .ktp-dtp__actions button{padding:9px 16px;border-radius:8px;font-size:15px;cursor:pointer;border:1px solid var(--ktp-bd);background:transparent;color:inherit}
 .ktp-dtp__actions .ktp-dtp__send{background:var(--ktp-ac);border-color:var(--ktp-ac);color:#fff}
 .ktp-dtp__actions button[disabled]{opacity:.6;cursor:default}
+.ktp-dtp--item{max-width:1000px;margin:1.5em auto 2.5em;padding:0 16px;box-sizing:border-box}
+.ktp-dtp__back{margin:0 0 16px;font-size:14px}
+.ktp-dtp__pg{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px;align-items:start}
+.ktp-dtp__pg--noimg{grid-template-columns:minmax(0,1fr)}
+@media (max-width:720px){.ktp-dtp__pg{grid-template-columns:minmax(0,1fr);gap:16px}}
+.ktp-dtp__pg-image{position:relative;padding:16px;border-radius:8px;overflow:hidden;background:var(--ktp-card,#e2e8f0)}
+.ktp-dtp__pg-image img{display:block;width:100%;height:auto;max-width:100%}
+.ktp-dtp .ktp-dtp__pg-title{margin:0 0 8px;padding:0;border:0;background:none;color:inherit;font-size:1.6rem;font-weight:700;line-height:1.35}
+.ktp-dtp .ktp-dtp__pg-title::before,.ktp-dtp .ktp-dtp__pg-title::after{content:none}
+.ktp-dtp__pg .ktp-dtp__cat,.ktp-dtp__pg .ktp-dtp__unit{color:inherit;opacity:.72}
+.ktp-dtp__pg .ktp-dtp__price{margin:10px 0 16px;font-size:1.4rem}
+.ktp-dtp__pg .ktp-dtp__apply{display:inline-block;width:auto;min-width:260px;margin:0 0 20px}
+.ktp-dtp__pg .ktp-dtp__closed{margin:0 0 20px}
+.ktp-dtp__pg .ktp-dtp__memo,.ktp-dtp__pg .ktp-dtp__html{font-size:15px;line-height:1.8}
+@media (max-width:720px){.ktp-dtp__pg .ktp-dtp__apply{display:block;width:100%;min-width:0}}
 </style>';
 }
 

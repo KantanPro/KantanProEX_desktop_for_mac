@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: KantanProEX（DT）サイト受付
- * Description: Contact Form 7 のお問い合わせ・WooCommerce の注文・商品の申し込みをこのサイトで預かり、パソコンの KantanProEX（DT）が取りに来たら渡します。KantanProEX（DT）の公開商品を、ショートコードでこのサイトに表示します。
- * Version: 1.4.2
+ * Description: Contact Form 7 のお問い合わせ・WooCommerce の注文・商品の申し込みをこのサイトで預かり、パソコンの KantanProEX（DT）が取りに来たら渡します。KantanProEX（DT）の公開商品を、ショートコードと商品ごとのページでこのサイトに表示します。
+ * Version: 1.5.1
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: KantanPro
@@ -25,7 +25,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-const KTP_DT_BRIDGE_VERSION   = '1.4.2';
+const KTP_DT_BRIDGE_VERSION   = '1.5.1';
 const KTP_DT_BRIDGE_DB_OPT    = 'ktp_dt_bridge_db_version';
 const KTP_DT_BRIDGE_KEY_OPT   = 'ktp_dt_bridge_key';
 const KTP_DT_BRIDGE_SET_OPT   = 'ktp_dt_bridge_settings';
@@ -38,6 +38,7 @@ const KTP_DT_BRIDGE_KEEP_ACKED_DAYS   = 7;
 const KTP_DT_BRIDGE_KEEP_PENDING_DAYS = 180;
 
 require_once __DIR__ . '/catalog.php';
+require_once __DIR__ . '/item.php';
 
 function ktp_dt_bridge_table() {
 	global $wpdb;
@@ -53,6 +54,8 @@ function ktp_dt_bridge_settings() {
 		'shop'    => ! isset( $s['shop'] ) || ! empty( $s['shop'] ),
 		// KantanProEX 本体の既定（受け入れる言語は日本語だけ）に合わせる
 		'ja_only' => ! isset( $s['ja_only'] ) || ! empty( $s['ja_only'] ),
+		// 1.5.0〜: KantanProEX の値段が税抜か（Google ショッピング用フィードと商品ページの構造化データを税込にする）
+		'tax_excluded' => ! empty( $s['tax_excluded'] ),
 	);
 }
 
@@ -100,6 +103,8 @@ register_deactivation_hook(
 	__FILE__,
 	function () {
 		wp_clear_scheduled_hook( 'ktp_dt_bridge_cleanup' );
+		// 商品ページのルールを残さない（次の読み込みで、このプラグイン抜きで作り直される）
+		delete_option( 'rewrite_rules' );
 	}
 );
 
@@ -600,6 +605,9 @@ add_action(
 							'catalog_hash'  => ktp_dt_bridge_catalog()['hash'],
 							'catalog_count' => count( ktp_dt_bridge_catalog()['services'] ),
 							'catalog_need_images' => ktp_dt_bridge_catalog_need_images(),
+							// 1.5.0〜: 商品ごとのページの URL の形（%d が商品 ID）と、Google ショッピング用フィードの URL
+							'item_url' => ktp_dt_bridge_item_url_template(),
+							'feed_url' => ktp_dt_bridge_feed_url(),
 							'pending' => ktp_dt_bridge_pending_count(),
 							'entries' => $entries,
 						)
@@ -670,6 +678,7 @@ add_action(
 					'woo'     => ! empty( $_POST['woo'] ),
 					'shop'    => ! empty( $_POST['shop'] ),
 					'ja_only' => ! empty( $_POST['ja_only'] ),
+					'tax_excluded' => ! empty( $_POST['tax_excluded'] ),
 				),
 				false
 			);
@@ -741,6 +750,7 @@ function ktp_dt_bridge_page() {
 				<td>
 					<label><input type="checkbox" name="shop" value="1" <?php checked( $s['shop'] ); ?>> 商品の申し込みを預かる</label>
 					<p class="description">KantanProEX（DT）で「サイト公開」にした商品を、固定ページなどに <code>[ktp_dt_products]</code> と書いて表示します。申し込みは KantanProEX（DT）が取りに来て受注にします。</p>
+					<p><label><input type="checkbox" name="tax_excluded" value="1" <?php checked( $s['tax_excluded'] ); ?>> KantanProEX の値段は税抜（商品ページに税込を添え、Google ショッピング用フィードは税込で出す）</label></p>
 				</td>
 			</tr>
 			<tr>
@@ -761,6 +771,37 @@ function ktp_dt_bridge_page() {
 	<p>まだ渡していないもの: <strong><?php echo esc_html( number_format_i18n( ktp_dt_bridge_pending_count() ) ); ?> 件</strong><br>
 	KantanProEX（DT）が最後に取りに来た時刻: <strong><?php echo $last ? esc_html( wp_date( 'Y-m-d H:i', $last ) ) : 'まだありません'; ?></strong></p>
 	<p class="description">渡し終えたものは <?php echo (int) KTP_DT_BRIDGE_KEEP_ACKED_DAYS; ?> 日後に、このサイトから消します。</p>
+
+	<?php if ( $ktp_cat['services'] ) : ?>
+	<h2>商品ページの URL</h2>
+	<p>商品ごとのページです。SNS・ブログ・LINE・メールに貼ると、商品名と画像のカードで表示されます。一覧（<code>[ktp_dt_products]</code>）の商品名と画像からも開けます。</p>
+	<table class="widefat striped" style="max-width:960px;">
+		<thead><tr><th>商品</th><th>URL</th><th></th></tr></thead>
+		<tbody>
+		<?php foreach ( $ktp_cat['services'] as $ktp_s ) : ?>
+			<?php $ktp_u = ktp_dt_bridge_item_url( $ktp_s['id'] ); ?>
+			<tr>
+				<td><?php echo esc_html( $ktp_s['name'] ); ?><?php echo $ktp_s['open'] ? '' : '（' . esc_html( $ktp_s['status_label'] ?: '受付停止中' ) . '）'; ?></td>
+				<td><input type="text" readonly class="large-text code" value="<?php echo esc_attr( $ktp_u ); ?>" onclick="this.select()"></td>
+				<td><a href="<?php echo esc_url( $ktp_u ); ?>" target="_blank" rel="noopener">開く</a></td>
+			</tr>
+		<?php endforeach; ?>
+		</tbody>
+	</table>
+
+	<h2>Google ショッピング用フィード</h2>
+	<table class="form-table" role="presentation">
+		<tr>
+			<th scope="row">フィードの URL</th>
+			<td>
+				<input type="text" readonly class="large-text code" value="<?php echo esc_attr( ktp_dt_bridge_feed_url() ); ?>" onclick="this.select()">
+				<p class="description">Google Merchant Center の「商品 → フィードを追加 → スケジュールされた取得」にこの URL を登録すると、商品が Google ショッピング（無料掲載）に載ります。値段・受付状況はこの URL から毎回読み直されます。<br>
+				載るのは、画像があり、値段が 0 円でなく、定期契約（毎月など）でない商品です。送料・返品のルールは Merchant Center 側で設定します。サービス（作業・役務）は Google ショッピングに載せられない場合があります。</p>
+			</td>
+		</tr>
+	</table>
+	<p class="description">商品ページは WordPress のサイトマップ（<code>wp-sitemap.xml</code>）にも入ります（SEO プラグインでサイトマップを切り替えている場合は入りません）。</p>
+	<?php endif; ?>
 
 	<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('接続キーを作り直すと、今のキーでは接続できなくなります。続けますか？');">
 		<input type="hidden" name="action" value="ktp_dt_bridge_save">
