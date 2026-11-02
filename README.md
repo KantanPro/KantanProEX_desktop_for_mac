@@ -88,7 +88,7 @@ KantanBiz のオーナーが「デスクトップ版へ移行」から書き出�
 
 ## 組み立て方（開発者向け）
 
-必要なもの: macOS、Node.js、KantanProEX プラグインのソース。Mac 版はユニバーサル（Intel と Apple シリコンの両方で動く1本）で、簡易署名（ad-hoc）を付けて作る（scripts/after-pack.js）。
+必要なもの: macOS、Node.js、KantanProEX プラグインのソース。Mac 版はユニバーサル（Intel と Apple シリコンの両方で動く1本）で、自前の証明書（自己署名「KantanPro Desktop」）で署名して作る（scripts/after-pack.js。証明書はリポジトリの外のキーチェーンファイルに置く）。
 
 ```bash
 npm install
