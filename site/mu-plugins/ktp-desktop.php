@@ -853,3 +853,4 @@ require_once __DIR__ . '/ktp-desktop/intake.php';
 require_once __DIR__ . '/ktp-desktop/stripe-purchase.php';
 require_once __DIR__ . '/ktp-desktop/category-suggest.php';
 require_once __DIR__ . '/ktp-desktop/design.php';
+require_once __DIR__ . '/ktp-desktop/update-notice.php';

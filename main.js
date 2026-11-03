@@ -26,7 +26,7 @@ const { getPaths } = require('./lib/paths');
 const { findPort, startServer, wpCli } = require('./lib/php');
 const { syncSite, writeWpConfig, setupIfNeeded } = require('./lib/site');
 const { createBackup, autoBackupIfDue, restoreBackup } = require('./lib/backup');
-const { checkForUpdates, isAutoCheckEnabled, setAutoCheckEnabled } = require('./lib/update');
+const { checkForUpdates, refreshLatest, isAutoCheckEnabled, setAutoCheckEnabled } = require('./lib/update');
 const lan = require('./lib/lan');
 const voice = require('./lib/voice');
 const license = require('./lib/license');
@@ -275,6 +275,15 @@ function guardNavigation(contents) {
       relogin(contents, url);
       return;
     }
+    // ヘッダーの回転矢印（更新の確認）。メニューの「アップデートを確認…」と同じものを出す。
+    // 「この版は知らせない」を選んだときに赤い丸を消すため、終わってから画面を読み直す
+    if (isAppUrl(url) && url.includes('ktp_desktop_update=')) {
+      e.preventDefault();
+      checkForUpdates(paths, mainWindow, { manual: true, log })
+        .catch((err) => log(`アップデート確認失敗 ${err.message}`))
+        .finally(() => contents.reload());
+      return;
+    }
     // LAN 共有のオン/オフ（設定画面のボタン。PHP からは窓口を操作しないので、ここで受ける）
     if (isAppUrl(url) && /[?&]ktp_desktop_lan=(on|off)\b/.test(url)) {
       e.preventDefault();
@@ -470,6 +479,11 @@ function openApp() {
       .catch(() => {});
     // 新しい版のお知らせ（1日1回まで。オフにできる）
     setTimeout(() => checkForUpdates(paths, mainWindow, { log }).catch((e) => log(`アップデート確認失敗 ${e.message}`)), 3000);
+    // 開けっぱなしでも気づけるよう、6時間ごとに最新版の情報だけ取り直す（お知らせは出さない。
+    // ヘッダーの矢印の赤い丸が、この控えを見て自分で付く）
+    setInterval(() => {
+      if (isAutoCheckEnabled(paths)) refreshLatest(paths, { log }).catch(() => {});
+    }, 6 * 3600 * 1000);
   };
   wc.once('did-finish-load', () => setTimeout(show, 400));
   setTimeout(show, 15000); // 読み込みが終わらなくても出す
