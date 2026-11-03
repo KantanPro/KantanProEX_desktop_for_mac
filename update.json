@@ -3,6 +3,6 @@
   "released": "2026-11-03",
   "notes": "1.0.61 になりました。FileMaker 版（簡単プロファイルメーカーなど）からのデータ取り込みを良くしました。書き出した Zip をそのまま読み取り、顧客・受注にくわえて請求項目（明細）も取り込めるようにしました。案件名と顧客名が受注とぴったり合うときは、コスト項目も取り込みます。OpenAI の API キーが無くても取り込めます。",
   "url": "https://www.kantanpro.com/dl/kantanproex-dt-mac",
-  "version_win": "1.0.59",
+  "version_win": "1.0.61",
   "url_win": "https://www.kantanpro.com/dl/kantanproex-dt-windows"
 }
