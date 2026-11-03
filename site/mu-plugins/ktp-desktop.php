@@ -300,6 +300,45 @@ add_filter( 'pre_schedule_event', function ( $pre, $event ) {
 add_filter( 'automatic_updater_disabled', '__return_true' );
 
 /**
+ * KantanProEX（WP 版）の「新しいバージョンが利用可能です」を出さない。
+ *
+ * デスクトップ版は同梱した WP 版ごとアプリを入れ替えて更新するので、
+ * WP 版の新しい版が出ても画面で知らせる意味がない（管理画面から更新もできない）。
+ * ヘッダーの赤丸・吹き出し・画面上部のバナー・管理画面の通知は、どれもこの設定を見ている。
+ * キーと並びは KTPWP_Update_Checker::get_update_notification_settings() の既定と合わせる
+ * （合わないと、あちらが「設定が変わった」と見なして DB に書き戻す）。
+ */
+add_filter(
+	'pre_option_ktp_update_notification_settings',
+	function () {
+		return array(
+			'enable_notifications'          => false,
+			'enable_admin_notifications'    => false,
+			'enable_frontend_notifications' => false,
+			'check_interval'                => 24,
+			'notification_roles'            => array( 'administrator' ),
+			'github_token'                  => '',
+		);
+	},
+	PHP_INT_MAX
+);
+
+/**
+ * 1 日 1 回の強制更新チェック（GitHub／kantanpro.com への問い合わせ）も外す。
+ * 表示は上の設定で止まるが、通信そのものが要らない。
+ */
+add_action(
+	'admin_init',
+	function () {
+		global $ktpwp_update_checker;
+		if ( is_object( $ktpwp_update_checker ) ) {
+			remove_action( 'admin_init', array( $ktpwp_update_checker, 'force_update_check_on_init' ), 5 );
+		}
+	},
+	1
+);
+
+/**
  * 自動ログイン。
  *
  * Electron が起動ごとに作る使い捨てトークン（KTP_DESKTOP_TOKEN_FILE）付きで来たときだけ、
