@@ -1,9 +1,9 @@
 {
-  "version": "1.0.64",
+  "version": "1.0.65",
   "released": "2026-11-06",
-  "notes": "1.0.64 になりました。インストールのときの案内を英語にも対応しました。Mac は dmg を開いたときの案内に英語を併記し、Windows はインストーラーが Windows の言語（日本語・英語）で表示されます。アプリの中身は 1.0.63 と同じです。",
-  "notes_en": "KantanProEX 1.0.64 adds English to the installation steps. On Mac, the window that opens from the dmg now shows English instructions too. On Windows, the installer appears in English or Japanese to match your Windows language. The app itself is the same as 1.0.63.",
+  "notes": "1.0.65 になりました。「サイトからの受注」で公開しているサービスの画像が、ホームページに表示されなくなることがある不具合を直しました。15 分ごとの自動の取得で画像を送れていなかったのが原因です。更新すると、次の取得で画像がホームページに戻ります。",
+  "notes_en": "KantanProEX 1.0.65 fixes a bug where images of services published with \"Orders from Your Website\" could disappear from your website. The automatic sync every 15 minutes was failing to send the images. After updating, the images return to your website at the next sync.",
   "url": "https://www.kantanpro.com/dl/kantanproex-dt-mac",
-  "version_win": "1.0.64",
+  "version_win": "1.0.65",
   "url_win": "https://www.kantanpro.com/dl/kantanproex-dt-windows"
 }
