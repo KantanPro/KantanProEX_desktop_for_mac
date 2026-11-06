@@ -1,38 +1,48 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
-<!-- dmg を開いたときの背景（660×460）。Chrome で background.png / background@2x.png に書き出す（scripts/make-dmg-background.sh）。
+<!-- dmg を開いたときの背景（660×570、日本語＋英語の併記）。Chrome で background.png / background@2x.png に書き出す（scripts/make-dmg-background.sh）。
      アイコンの位置は package.json の build.dmg.contents（アプリ x=165・アプリケーション x=495、y=170）に合わせる。
-     窓の高さ（build.dmg.window.height）はタイトルバーと下の帯の分だけ背景より約 76 大きくする（536）（同じにすると下が隠れる） -->
+     窓の高さ（build.dmg.window.height）はタイトルバーと下の帯の分だけ背景より約 76 大きくする（646）（同じにすると下が隠れる） -->
 <style>
-  html,body{margin:0;padding:0;width:660px;height:460px;overflow:hidden;background:#fff;}
+  html,body{margin:0;padding:0;width:660px;height:570px;overflow:hidden;background:#fff;}
   svg{display:block}
   text{font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif;}
+  /* 英語の行は日本語の直下に小さく・薄い色で置く */
+  text.en{font-family:-apple-system,"Helvetica Neue","Hiragino Sans",sans-serif;font-size:12px;font-weight:400;fill:#4b5563;}
+  text.en.s{font-size:11px;fill:#6b7280;}
 </style></head><body>
-<svg width="660" height="460" viewBox="0 0 660 460" xmlns="http://www.w3.org/2000/svg">
+<svg width="660" height="570" viewBox="0 0 660 570" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#fff7ed"/><stop offset="1" stop-color="#eff6ff"/>
     </linearGradient>
   </defs>
-  <rect width="660" height="460" fill="url(#bg)"/>
+  <rect width="660" height="570" fill="url(#bg)"/>
   <text x="330" y="44" text-anchor="middle" font-size="20" font-weight="700" fill="#1e3a8a">KantanProEX（DT）のインストール</text>
+  <text class="en" x="330" y="64" text-anchor="middle" style="font-size:14px;fill:#3b5bb5">Install KantanProEX (DT)</text>
 
   <!-- アイコンの間の矢印 -->
   <path d="M250,170 C300,140 360,140 404,166" fill="none" stroke="#f97316" stroke-width="6" stroke-linecap="round"/>
   <path d="M420,176 L401.7,175.5 L410.9,160.1 z" fill="#f97316" stroke="#f97316" stroke-width="3" stroke-linejoin="round"/>
-  <text x="330" y="128" text-anchor="middle" font-size="13" font-weight="700" fill="#c2410c">ドラッグ</text>
+  <text x="330" y="128" text-anchor="middle" font-size="13" font-weight="700" fill="#c2410c">ドラッグ / Drag</text>
 
   <!-- 案内 -->
-  <rect x="28" y="262" width="604" height="178" rx="12" fill="#ffffff" stroke="#fdba74" stroke-width="2"/>
+  <rect x="28" y="262" width="604" height="286" rx="12" fill="#ffffff" stroke="#fdba74" stroke-width="2"/>
   <circle cx="54" cy="291" r="13" fill="#f97316"/><text x="54" y="296" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">1</text>
   <text x="76" y="296" font-size="15" font-weight="700" fill="#111827">左の KantanProEX を、右の「アプリケーション」へドラッグ</text>
+  <text class="en" x="76" y="315">Drag KantanProEX on the left to the Applications folder on the right</text>
 
-  <circle cx="54" cy="331" r="13" fill="#f97316"/><text x="54" y="336" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">2</text>
-  <text x="76" y="336" font-size="15" font-weight="700" fill="#111827">初めて開くときは警告が出ます。「完了」（または「キャンセル」）</text>
-  <text x="76" y="358" font-size="15" font-weight="700" fill="#111827">を押し、システム設定 →「プライバシーとセキュリティ」</text>
-  <text x="76" y="380" font-size="15" font-weight="700" fill="#111827">→ 下の方の「このまま開く」を押す</text>
+  <circle cx="54" cy="350" r="13" fill="#f97316"/><text x="54" y="355" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">2</text>
+  <text x="76" y="355" font-size="15" font-weight="700" fill="#111827">初めて開くときは警告が出ます。「完了」（または「キャンセル」）</text>
+  <text x="76" y="377" font-size="15" font-weight="700" fill="#111827">を押し、システム設定 →「プライバシーとセキュリティ」</text>
+  <text x="76" y="399" font-size="15" font-weight="700" fill="#111827">→ 下の方の「このまま開く」を押す</text>
+  <text class="en" x="76" y="420">The first time you open it, a warning appears. Click “Done” (or “Cancel”),</text>
+  <text class="en" x="76" y="436">then go to System Settings → Privacy &amp; Security and click “Open Anyway” near the bottom.</text>
 
-  <text x="76" y="407" font-size="12" fill="#374151">「ゴミ箱に入れる」は押さないでください。macOS 14 以前は右クリック →「開く」でも可。</text>
-  <text x="76" y="430" font-size="11.5" fill="#6b7280">Apple の署名をしていないための手順です。2回目からはダブルクリックで開けます。</text>
+  <text x="76" y="466" font-size="12" fill="#374151">「ゴミ箱に入れる」は押さないでください。macOS 14 以前は右クリック →「開く」でも可。</text>
+  <text class="en s" x="76" y="482">Do not click “Move to Trash”. On macOS 14 or earlier, you can also right-click → Open.</text>
+  <text x="76" y="506" font-size="11.5" fill="#6b7280">Apple の署名をしていないための手順です。2回目からはダブルクリックで開けます。</text>
+  <text class="en s" x="76" y="522">This is needed because the app is not signed by Apple.</text>
+  <text class="en s" x="76" y="537">From the second time, just double-click to open.</text>
 </svg>
 </body></html>

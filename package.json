@@ -1,7 +1,7 @@
 {
   "name": "kantanproex-desktop",
   "productName": "KantanProEX",
-  "version": "1.0.63",
+  "version": "1.0.64",
   "description": "KantanProEX のデスクトップ版（ブラウザもネットも不要）",
   "main": "main.js",
   "private": true,
@@ -74,7 +74,7 @@
       "background": "build/background.png",
       "window": {
         "width": 660,
-        "height": 536
+        "height": 646
       },
       "iconSize": 96,
       "contents": [
@@ -113,7 +113,12 @@
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
-      "language": "1041",
+      "multiLanguageInstaller": true,
+      "installerLanguages": [
+        "en_US",
+        "ja_JP"
+      ],
+      "displayLanguageSelector": false,
       "artifactName": "KantanProEX-Setup-${version}.exe",
       "shortcutName": "KantanProEX",
       "include": "build/installer.nsh"
