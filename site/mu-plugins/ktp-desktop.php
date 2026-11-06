@@ -467,7 +467,13 @@ add_action(
 				remove_menu_page( $slug );
 			}
 		}
-		add_menu_page( 'アプリに戻る', 'アプリに戻る', 'read', 'ktp-desktop-back', '__return_null', 'dashicons-arrow-left-alt', 0 );
+		// LAN（iPad など）からは admin.php を窓口が止めるので、admin.php?page=ktp-desktop-back を経由せずアプリの URL へ直接つなぐ
+		// （URL をスラッグにすると、WordPress はそのまま href にする）
+		if ( function_exists( 'ktp_dt_is_lan' ) && ktp_dt_is_lan() ) {
+			add_menu_page( 'アプリに戻る', 'アプリに戻る', 'read', home_url( '/' ), '', 'dashicons-arrow-left-alt', 0 );
+		} else {
+			add_menu_page( 'アプリに戻る', 'アプリに戻る', 'read', 'ktp-desktop-back', '__return_null', 'dashicons-arrow-left-alt', 0 );
+		}
 		// 自分のプロフィール（名前・アイコン画像）。WordPress の「ユーザー」メニューを外したので入口を作る
 		add_menu_page( 'プロフィール', 'プロフィール', 'read', 'profile.php', '', 'dashicons-admin-users', 1 );
 		remove_submenu_page( 'ktp-settings', 'ktp-developer-settings' );

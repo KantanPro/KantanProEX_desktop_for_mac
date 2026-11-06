@@ -131,6 +131,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	.ktp-desktop-main input[type=button],
 	.ktp-desktop-main input[type=submit],
 	.ktp-desktop-main a.button { min-height: 44px; }
+	/* ヘッダーは本体の設定で height: 100px ＋ min-height: fit-content。Chrome は中身に合わせて伸ばすが、Safari は fit-content を
+	   min-height に使えず 100px のまま（overflow: hidden）。LAN ではボタンを大きくしているので、アバターがヘッダーの下端に貼り付く */
+	div.ktp_header { height: auto !important; min-height: 100px !important; }
 	/* LAN（iPad・iPhone など）からは使えないヘッダーのボタンは出さない（窓口が拒否する: 設定の画面・アプリの終了・更新の確認） */
 	.ktp_header a[href*="ktp_desktop_quit"],
 	.ktp_header .ktp-header-settings-menu,
