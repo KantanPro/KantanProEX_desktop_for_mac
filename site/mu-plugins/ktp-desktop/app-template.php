@@ -35,7 +35,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 </script>
 <link rel="icon" href="data:,"><?php // アプリのウィンドウなのでファビコンは不要（/favicon.ico の 404 を防ぐ） ?>
 <?php if ( function_exists( 'ktp_dt_is_lan' ) && ktp_dt_is_lan() ) : // iPad などのホーム画面に追加したとき用 ?>
-<link rel="apple-touch-icon" href="<?php echo esc_url( WPMU_PLUGIN_URL . '/ktp-desktop/apple-touch-icon.png' ); ?>">
+<link rel="apple-touch-icon" href="<?php echo esc_attr( ktp_dt_touch_icon_href() ); ?>"><?php // 画像は埋め込み（lan.php。自前の証明書だと iOS がアイコンを取りに来られない） ?>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="KantanProEX">

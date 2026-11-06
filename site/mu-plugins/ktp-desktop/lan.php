@@ -32,6 +32,37 @@ function ktp_dt_is_lan() {
 	return defined( 'KTP_DESKTOP_LAN_REQUEST' ) && KTP_DESKTOP_LAN_REQUEST;
 }
 
+/**
+ * ホーム画面に追加したときのアイコン（apple-touch-icon）の href。
+ * 画像の URL を書くと、iPad・iPhone は Safari とは別の経路で取りに来るため、親機の証明書（自前の CA）を信頼していないと
+ * 取れずに「K」の文字だけのアイコンになる（窓口のログにも要求が来ない）。画像をそのまま埋め込んで、取りに行かせない。
+ */
+function ktp_dt_touch_icon_href() {
+	static $href = null;
+	if ( null === $href ) {
+		$file = __DIR__ . '/apple-touch-icon.png';
+		$data = is_readable( $file ) ? file_get_contents( $file ) : false;
+		$href = $data ? 'data:image/png;base64,' . base64_encode( $data ) : WPMU_PLUGIN_URL . '/ktp-desktop/apple-touch-icon.png';
+	}
+	return $href;
+}
+
+/**
+ * LAN からは WordPress の管理画面（他のスタッフのユーザー編集 user-edit.php など）を開けない（lib/lan.js が止める）。
+ * 本体は edit_users を持つ人には、ヘッダーの他のスタッフのアバターを user-edit.php へのリンクにするため、
+ * iPad などで押すと止められて戻れなくなる。LAN では edit_users を持たない扱いにして、閲覧専用のプロフィール表示にする。
+ * （本体で edit_users を見ているのはこのアバターだけ。自分のプロフィールは edit_users なしで開ける）
+ */
+add_filter(
+	'user_has_cap',
+	function ( $allcaps ) {
+		if ( ktp_dt_is_lan() ) {
+			unset( $allcaps['edit_users'] );
+		}
+		return $allcaps;
+	}
+);
+
 /** 窓口の状態（Electron が userData/lan-status.json に書く） */
 function ktp_dt_lan_status() {
 	$file = defined( 'KTP_DESKTOP_TOKEN_FILE' ) ? dirname( KTP_DESKTOP_TOKEN_FILE ) . '/lan-status.json' : '';
@@ -223,7 +254,7 @@ add_action(
 		if ( ! ktp_dt_is_lan() ) {
 			return;
 		}
-		echo '<link rel="apple-touch-icon" href="' . esc_url( WPMU_PLUGIN_URL . '/ktp-desktop/apple-touch-icon.png' ) . '"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="KantanProEX">';
+		echo '<link rel="apple-touch-icon" href="' . esc_attr( ktp_dt_touch_icon_href() ) . '"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="KantanProEX">';
 			echo '<style id="ktp-lan-login">#login h1,#nav,#backtoblog,.language-switcher,.privacy-policy-page-link{display:none!important}'
 			. 'body.login{background:#fff}#login{padding-top:8vh}#loginform{box-shadow:0 1px 6px rgba(0,0,0,.12)}'
 			. '.ktp-lan-title{font-size:22px;font-weight:700;text-align:center;margin:0 0 18px;color:#1f2937;font-family:-apple-system,"Hiragino Sans","Yu Gothic",sans-serif}</style>';
