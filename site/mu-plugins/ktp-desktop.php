@@ -725,8 +725,38 @@ function ktp_desktop_profile_css() {
 		. 'var drop=' . ( defined( 'KTP_DESKTOP_LAN_REQUEST' ) ? '["アプリケーションパスワード"]' : '["アカウント管理","アプリケーションパスワード"]' ) . ';'
 		. 'document.querySelectorAll("#your-profile h2").forEach(function(h){if(drop.indexOf(h.textContent.trim())===-1){return;}'
 		. 'var e=h;do{e.style.display="none";e=e.nextElementSibling;}while(e&&e.tagName!=="H2"&&!e.matches(".submit, [type=submit]")&&!e.querySelector("[type=submit]"));});'
+		// アプリへ戻る入口。左メニューの「アプリに戻る」は狭い画面（iPhone・縦の iPad）では WordPress が隠し、
+		// 開くためのボタン（上部バー）も DT では出さないので、画面の上と「更新」ボタンの横に置く
+		. 'var home=' . wp_json_encode( home_url( '/' ) ) . ';'
+		. 'var wrap=document.querySelector("#profile-page, .wrap");'
+		. 'if(wrap){var top=document.createElement("p");top.className="ktp-dt-profile-back";'
+		. 'var a=document.createElement("a");a.className="button";a.href=home;a.textContent="アプリに戻る";'
+		. 'top.appendChild(a);wrap.insertBefore(top,wrap.firstChild);}'
+		. 'var sub=document.querySelector("#your-profile #submit");'
+		. 'if(sub){var c=document.createElement("a");c.className="button";c.href=home;c.textContent="キャンセル";'
+		. 'c.style.marginLeft="8px";sub.parentNode.insertBefore(c,sub.nextSibling);}'
 		. '});</script>';
+	echo '<style id="ktp-desktop-profile-back">.ktp-dt-profile-back{margin:12px 0 4px}.ktp-dt-profile-back .button{font-size:15px;padding:4px 16px}'
+		. '.ktp-dt-profile-back .button::before{content:"\2190";margin-right:6px}'
+		. '#your-profile p.submit .button{font-size:15px;min-height:40px;line-height:2.4;padding:0 18px}</style>';
 }
+
+/**
+ * 自分のプロフィールを「更新」したら、アプリの画面に戻す（WordPress はプロフィール画面に戻すので、
+ * iPad・iPhone では更新しても同じ画面のままに見えて、戻り方が分からない）。入力に誤りがあったときは戻さない（画面に誤りが出る）
+ */
+add_filter(
+	'wp_redirect',
+	function ( $location ) {
+		global $pagenow;
+		if ( 'profile.php' === $pagenow && isset( $_SERVER['REQUEST_METHOD'] ) && 'POST' === $_SERVER['REQUEST_METHOD']
+			&& is_string( $location ) && false !== strpos( $location, 'profile.php' ) && false !== strpos( $location, 'updated=' ) ) {
+			return home_url( '/' );
+		}
+		return $location;
+	},
+	99
+);
 
 /**
  * WP 版のプラグイン運用（インストール・更新・無料版からの引き継ぎ）向けの通知は出さない。
