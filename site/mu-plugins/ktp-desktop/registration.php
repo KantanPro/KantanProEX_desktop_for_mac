@@ -77,7 +77,8 @@ add_filter(
 		if ( ! ktp_dt_show_ad() ) {
 			return $signature;
 		}
-		return $signature . "\n\n――\nこのメールは「" . KANTANPRO_PLUGIN_NAME . "」で作成しています。\nhttps://www.kantanpro.com/";
+		/* translators: %s: アプリ名 */
+		return $signature . "\n\n――\n" . sprintf( ktp_dt__( 'このメールは「%s」で作成しています。' ), KANTANPRO_PLUGIN_NAME ) . "\nhttps://www.kantanpro.com/";
 	}
 );
 

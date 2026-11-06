@@ -195,9 +195,10 @@ echo $ktp_desktop_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNo
 // また、チェックを外すと値が送られず前の値のまま残る（本体の保存処理）ので、外したときの 0 を先に置く
 (function(){
 	var on = <?php echo wp_json_encode( function_exists( 'ktp_dt_stripe_enabled' ) && ktp_dt_stripe_enabled() ); ?>;
+	// 文は今の表示言語にしてから入れる（英語のとき日本語を入れると、画面の訳（i18n.js）と入れ直し合いになって固まる）
 	var note = on
-		? 'チェックすると、ホームページのボタンが「購入する」になり、Stripe の決済ページでそのままカード払いできます。入金されると受注（入金済み）で入ります。'
-		: 'ホームページの商品は「申し込む」ボタンで受け付けます（受注が受付中で入り、あとから請求します）。その場でカード払いにするには、KantanProEX 設定 →「サイトからの受注」で Stripe の秘密鍵を入れてください。';
+		? <?php echo wp_json_encode( ktp_dt__( 'チェックすると、ホームページのボタンが「購入する」になり、Stripe の決済ページでそのままカード払いできます。入金されると受注（入金済み）で入ります。' ), JSON_UNESCAPED_UNICODE ); ?>
+		: <?php echo wp_json_encode( ktp_dt__( 'ホームページの商品は「申し込む」ボタンで受け付けます（受注が受付中で入り、あとから請求します）。その場でカード払いにするには、KantanProEX 設定 →「サイトからの受注」で Stripe の秘密鍵を入れてください。' ), JSON_UNESCAPED_UNICODE ); ?>;
 	function go(){
 		document.querySelectorAll('.ktpwp-service-field-block--instant-purchase').forEach(function(block){
 			var h = block.querySelector('.ktpwp-service-field-block__hint');

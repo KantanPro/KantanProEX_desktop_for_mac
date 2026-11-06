@@ -12,7 +12,7 @@
    - dmg は WordPress が許可しない種類なので **ZIP に入れて**、**公開の uploads** に上げる（`type=downloadable_product` は付けない）
    - **Cloudflare は 100MB 超のアップロードを 413 で断る。** サーバー本体（オリジン）へ `curl --resolve` で直接送る（約4分、途中で切れたら再試行）
    - 変わらない URL **`/dl/kantanproex-dt-mac`**・**`/dl/kantanproex-dt-windows`**（Redirection の 302）の転送先を新しい ZIP に差し替える。商品ページのボタンも `update.json` の `url` / `url_win` もこの URL を指す
-5. `update.json` の `version`・`released`・`notes` を書き換えて main に push する
+5. `update.json` の `version`・`released`・`notes`（英語のお知らせは `notes_en`。無ければ英語の人にも `notes` が出る）を書き換えて main に push する
 
 ## 注意
 

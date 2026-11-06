@@ -18,9 +18,13 @@ if (process.env.KTP_DEBUG_PORT && (!app.isPackaged || process.env.KTP_TEST_USER_
   app.commandLine.appendSwitch('remote-debugging-port', process.env.KTP_DEBUG_PORT);
 }
 app.setName('KantanProEX');
-// 画面の言語は常に日本語にする（OS が英語などでも同じ表示にする）。
-// Windows で OS の言語に合わせると、数値・日付の入力欄の書式づくりで画面が落ちることがあった（言語ファイルが ja しか無かったため）
-app.commandLine.appendSwitch('lang', 'ja');
+// 画面の言語は、アプリの設定（日本語 / English。lib/i18n.js）で決める。OS の言語には合わせない
+// （Windows で OS の言語に合わせると、数値・日付の入力欄の書式づくりで画面が落ちることがあった。言語ファイルが ja しか無かったため。
+// いまは ja / en / en-US を同梱している）
+const i18n = require('./lib/i18n');
+const { t } = i18n;
+i18n.init(app.getPath('userData'), (() => { try { return app.getPreferredSystemLanguages(); } catch { return []; } })());
+app.commandLine.appendSwitch('lang', i18n.chromiumLang());
 
 const { getPaths } = require('./lib/paths');
 const { findPort, startServer, wpCli } = require('./lib/php');
@@ -74,7 +78,7 @@ const ICON_DATA_URL = (() => {
     return '';
   }
 })();
-const LOADING_HTML = `<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>KantanProEX</title>
+const LOADING_HTML = `<!doctype html><html lang="${i18n.lang()}"><head><meta charset="utf-8"><title>KantanProEX</title>
 <style>
 :root{--bg:#ffffff;--fg:#1f2937;--sub:#6b7280;color-scheme:light}
 html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,"Hiragino Sans",sans-serif}
@@ -83,7 +87,7 @@ h1{font-size:22px;margin:0} #m{color:var(--sub);font-size:14px}
 .s{width:20px;height:20px;border:2px solid #c7d2fe;border-top-color:#4f46e5;border-radius:50%;animation:r 1s linear infinite}
 @keyframes r{to{transform:rotate(360deg)}}
 img{width:88px;height:88px}
-</style></head><body><div class="w"><img src="${ICON_DATA_URL}" alt=""><h1>KantanProEX</h1><div class="s"></div><div id="m">起動しています…</div></div></body></html>`;
+</style></head><body><div class="w"><img src="${ICON_DATA_URL}" alt=""><h1>KantanProEX</h1><div class="s"></div><div id="m">${t('起動しています…')}</div></div></body></html>`;
 
 function setLoadingMessage(msg) {
   log(msg);
@@ -247,9 +251,9 @@ async function confirmQuit() {
   log('ヘッダーの「アプリを終了」が押された');
   const r = await dialog.showMessageBox(mainWindow, {
     type: 'question',
-    message: 'KantanProEX を終了しますか？',
-    detail: '入力した内容はその都度保存されています。',
-    buttons: ['終了', 'キャンセル'],
+    message: t('KantanProEX を終了しますか？'),
+    detail: t('入力した内容はその都度保存されています。'),
+    buttons: [t('終了'), t('キャンセル')],
     defaultId: 0,
     cancelId: 1,
   });
@@ -322,22 +326,22 @@ function guardNavigation(contents) {
     const can = params.editFlags || {};
     if (params.isEditable) {
       items.push(
-        { role: 'undo', label: '元に戻す', enabled: !!can.canUndo },
-        { role: 'redo', label: 'やり直す', enabled: !!can.canRedo },
+        { role: 'undo', label: t('元に戻す'), enabled: !!can.canUndo },
+        { role: 'redo', label: t('やり直す'), enabled: !!can.canRedo },
         { type: 'separator' },
-        { role: 'cut', label: '切り取り', enabled: !!can.canCut },
-        { role: 'copy', label: 'コピー', enabled: !!can.canCopy },
-        { role: 'paste', label: '貼り付け', enabled: !!can.canPaste },
-        { role: 'selectAll', label: 'すべて選択', enabled: !!can.canSelectAll },
+        { role: 'cut', label: t('切り取り'), enabled: !!can.canCut },
+        { role: 'copy', label: t('コピー'), enabled: !!can.canCopy },
+        { role: 'paste', label: t('貼り付け'), enabled: !!can.canPaste },
+        { role: 'selectAll', label: t('すべて選択'), enabled: !!can.canSelectAll },
       );
     } else {
-      if (params.selectionText) items.push({ role: 'copy', label: 'コピー' });
+      if (params.selectionText) items.push({ role: 'copy', label: t('コピー') });
       if (params.linkURL && /^(https?|mailto|tel):/.test(params.linkURL)) {
-        items.push({ label: 'リンクのアドレスをコピー', click: () => clipboard.writeText(params.linkURL.replace(/^mailto:/, '')) });
+        items.push({ label: t('リンクのアドレスをコピー'), click: () => clipboard.writeText(params.linkURL.replace(/^mailto:/, '')) });
       }
-      if (params.mediaType === 'image' && params.srcURL) items.push({ role: 'copyImage', label: '画像をコピー' });
+      if (params.mediaType === 'image' && params.srcURL) items.push({ role: 'copyImage', label: t('画像をコピー') });
       if (items.length) items.push({ type: 'separator' });
-      items.push({ role: 'selectAll', label: 'すべて選択' });
+      items.push({ role: 'selectAll', label: t('すべて選択') });
     }
     Menu.buildFromTemplate(items).popup({ window: BrowserWindow.fromWebContents(contents) || undefined });
   });
@@ -430,6 +434,10 @@ function createWindow() {
     }
   });
   mainWindow.webContents.on('unresponsive', () => log('画面が応答しません'));
+  // 調査用（テスト起動で KTP_TEST_CONSOLE を付けたときだけ）: 画面のコンソール出力を app.log に残す
+  if (process.env.KTP_TEST_CONSOLE && (!app.isPackaged || process.env.KTP_TEST_USER_DATA)) {
+    mainWindow.webContents.on('console-message', (_e, level, message) => log(`console[${level}] ${String(message).slice(0, 500)}`));
+  }
   mainWindow.webContents.on('did-fail-load', (_e, code, desc, url, isMain) => isMain && log(`画面の読み込み失敗 ${code} ${desc} ${String(url).slice(0, 120)}`));
 }
 
@@ -498,17 +506,17 @@ app.on('web-contents-created', (_e, contents) => {
 async function doBackup() {
   try {
     const dir = await createBackup(paths);
-    const r = await dialog.showMessageBox(mainWindow, { type: 'info', message: 'バックアップを作成しました', detail: dir, buttons: ['OK', 'フォルダを開く'] });
+    const r = await dialog.showMessageBox(mainWindow, { type: 'info', message: t('バックアップを作成しました'), detail: dir, buttons: ['OK', t('フォルダを開く')] });
     if (r.response === 1) shell.showItemInFolder(dir);
   } catch (e) {
-    dialog.showErrorBox('バックアップできませんでした', String(e.message || e));
+    dialog.showErrorBox(t('バックアップできませんでした'), String(e.message || e));
   }
 }
 
 async function doRestore() {
   fs.mkdirSync(paths.backups, { recursive: true });
   const pick = await dialog.showOpenDialog(mainWindow, {
-    title: '復元するバックアップのフォルダを選んでください',
+    title: t('復元するバックアップのフォルダを選んでください'),
     defaultPath: paths.backups,
     properties: ['openDirectory'],
   });
@@ -516,9 +524,9 @@ async function doRestore() {
   const dir = pick.filePaths[0];
   const ok = await dialog.showMessageBox(mainWindow, {
     type: 'warning',
-    message: 'このバックアップの内容に戻しますか？',
-    detail: `${path.basename(dir)}\n\n今のデータは、戻す前に自動でバックアップします。`,
-    buttons: ['戻す', 'やめる'],
+    message: t('このバックアップの内容に戻しますか？'),
+    detail: t('{name}\n\n今のデータは、戻す前に自動でバックアップします。', { name: path.basename(dir) }),
+    buttons: [t('戻す'), t('やめる')],
     defaultId: 1,
     cancelId: 1,
   });
@@ -529,9 +537,9 @@ async function doRestore() {
     restoreBackup(paths, dir);
     await startPhp();
     mainWindow.loadURL(loginUrl());
-    dialog.showMessageBox(mainWindow, { type: 'info', message: 'バックアップから戻しました' });
+    dialog.showMessageBox(mainWindow, { type: 'info', message: t('バックアップから戻しました') });
   } catch (e) {
-    dialog.showErrorBox('復元できませんでした', String(e.message || e));
+    dialog.showErrorBox(t('復元できませんでした'), String(e.message || e));
     if (!server) await startPhp().catch(() => {});
   }
 }
@@ -561,11 +569,11 @@ function importSummary(kind, out) {
   const n = Object.fromEntries(body.split(/\s+/).map((kv) => kv.split('=')).filter((a) => a.length === 2));
   const parts = [['client', '顧客', '件'], ['order', '受注', '件'], ['service', 'サービス', '件'], ['supplier', '協力会社', '件'], ['contract', '定期契約', '件'], ['staff', 'スタッフ', '人'], ['files', 'ファイル', '件']]
     .filter(([k]) => n[k] !== undefined)
-    .map(([k, label, unit]) => `${label} ${n[k]}${unit}`);
+    .map(([k, label, unit]) => (i18n.isEn() ? `${t(label)}: ${n[k]}` : `${label} ${n[k]}${unit}`));
   const notes = [];
-  if (n.staff && Number(n.staff) > 0) notes.push('スタッフは「KantanProEX 設定」→「LAN 共有」でパスワードを決めると使えるようになります。');
-  if (n.japanpost_key_needed) notes.push('日本郵便 API のシークレットキーは移行されません。設定画面で入れ直してから有効にしてください。');
-  return parts.join('・') + (notes.length ? `\n\n${notes.join('\n')}` : '');
+  if (n.staff && Number(n.staff) > 0) notes.push(t('スタッフは「KantanProEX 設定」→「LAN 共有」でパスワードを決めると使えるようになります。'));
+  if (n.japanpost_key_needed) notes.push(t('日本郵便 API のシークレットキーは移行されません。設定画面で入れ直してから有効にしてください。'));
+  return parts.join(i18n.isEn() ? ', ' : '・') + (notes.length ? `\n\n${notes.join('\n')}` : '');
 }
 
 // 移行用 ZIP（KantanBiz・WordPress 版）を取り込む（DT の業務データは入れ替わる）。
@@ -575,18 +583,18 @@ async function doImport(kind, filePath) {
   let file = filePath;
   if (!file) {
     const pick = await dialog.showOpenDialog(mainWindow, {
-      title: src.pickTitle,
+      title: t(src.pickTitle),
       defaultPath: app.getPath('downloads'),
       properties: ['openFile'],
-      filters: [{ name: src.filterName, extensions: ['zip'] }],
+      filters: [{ name: t(src.filterName), extensions: ['zip'] }],
     });
     if (pick.canceled || !pick.filePaths[0]) return;
     file = pick.filePaths[0];
     const ok = await dialog.showMessageBox(mainWindow, {
       type: 'warning',
-      message: `${src.name}のデータを取り込みますか？`,
-      detail: `${path.basename(file)}\n\nいまの顧客・案件・契約などのデータは、取り込んだ内容に入れ替わります。\n入れ替える前に、いまのデータを自動でバックアップします。`,
-      buttons: ['取り込む', 'やめる'],
+      message: t('{name}のデータを取り込みますか？', { name: t(src.name) }),
+      detail: t('{file}\n\nいまの顧客・案件・契約などのデータは、取り込んだ内容に入れ替わります。\n入れ替える前に、いまのデータを自動でバックアップします。', { file: path.basename(file) }),
+      buttons: [t('取り込む'), t('やめる')],
       defaultId: 1,
       cancelId: 1,
     });
@@ -610,15 +618,15 @@ async function doImport(kind, filePath) {
       const needSmtp = /smtp_password_needed=1/.test(out);
       dialog.showMessageBox(mainWindow, {
         type: 'info',
-        message: `${src.name}のデータを取り込みました`,
-        detail: `${importSummary(kind, out)}${needSmtp ? '\n\nメール送信（SMTP）のパスワードは移行されません。設定画面で入れ直してください。' : ''}`,
+        message: t('{name}のデータを取り込みました', { name: t(src.name) }),
+        detail: `${importSummary(kind, out)}${needSmtp ? `\n\n${t('メール送信（SMTP）のパスワードは移行されません。設定画面で入れ直してください。')}` : ''}`,
       });
     }
   } catch (e) {
     log(`${src.name} 取り込み失敗 ${e.message}`);
     // wp-cli のエラー（Error: ...）があればそれを、なければ 1 行目を見せる
     const msg = (String(e.message || e).match(/Error: (.+)/) || [])[1] || String(e.message || e).split('\n')[0];
-    if (!filePath) dialog.showErrorBox('取り込めませんでした', `${msg}\n\nデータは取り込み前のままです。記録: ${path.join(paths.logs, 'app.log')}`);
+    if (!filePath) dialog.showErrorBox(t('取り込めませんでした'), t('{msg}\n\nデータは取り込み前のままです。記録: {file}', { msg, file: path.join(paths.logs, 'app.log') }));
     if (!server) await startPhp().catch(() => {});
   }
 }
@@ -636,7 +644,7 @@ async function runTestVisits(urls) {
   const wc = () => mainWindow.webContents;
   const js = (code) => wc().executeJavaScript(code, true);
   const agree = async () => {
-    const had = await js(`(function(){var c=document.querySelector('#ktpwp-terms-dialog input[type=checkbox]');if(!c)return false;c.checked=true;c.dispatchEvent(new Event('change',{bubbles:true}));var b=[].slice.call(document.querySelectorAll('#ktpwp-terms-dialog button')).find(function(x){return x.textContent.indexOf('利用開始する')>=0});if(b)b.click();return true;})()`).catch(() => false);
+    const had = await js(`(function(){var c=document.querySelector('#ktpwp-terms-dialog input[type=checkbox]');if(!c)return false;c.checked=true;c.dispatchEvent(new Event('change',{bubbles:true}));var b=[].slice.call(document.querySelectorAll('#ktpwp-terms-dialog button')).find(function(x){return /利用開始する|Start using/i.test(x.textContent)});if(b)b.click();return true;})()`).catch(() => false);
     if (had) { log('テスト表示 利用規約に同意'); await sleepMs(3000); }
   };
   await agree();
@@ -656,12 +664,46 @@ async function runTestVisits(urls) {
       const phpErr = await js('/Fatal error|Parse error|WordPress database error|Warning:/.test(document.body ? document.body.innerText : "")');
       const img = await wc().capturePage();
       fs.writeFileSync(path.join(dir, `${name}.png`), img.toPNG());
+      // 英語表示の確認用: 訳されずに残った日本語（文字のかたまり・placeholder など）を書き出す
+      if (i18n.isEn()) {
+        const left = await js(`(function(){var JA=/[\\u3040-\\u30ff\\u3400-\\u9fff]/,o={},tw=document.createTreeWalker(document.body,5,null),n;
+          while((n=tw.nextNode())){if(n.nodeType===3){var p=n.parentNode;if(!p||/^(SCRIPT|STYLE|TEXTAREA|NOSCRIPT)$/.test(p.tagName))continue;var v=n.nodeValue.trim();if(v&&JA.test(v))o[v]=1;}
+          else{['placeholder','title','aria-label','alt'].forEach(function(a){var v=n.getAttribute(a);if(v&&JA.test(v))o[v.trim()]=1;});}}
+          if(JA.test(document.title))o[document.title]=1;return Object.keys(o);})()`).catch(() => []);
+        fs.writeFileSync(path.join(dir, `${name}.ja.json`), JSON.stringify({ url: u, left }, null, 1));
+      }
       log(`テスト表示 ${phpErr ? 'NG(PHPエラー)' : 'OK'} ${u} ${text}`);
+      // 調査用: KTP_TEST_EVAL の JS を各画面で実行し、結果を残す（Promise なら待つ）
+      if (process.env.KTP_TEST_EVAL) {
+        const r = await js(`Promise.resolve((function(){${process.env.KTP_TEST_EVAL}})()).then(function(x){return typeof x==='string'?x:JSON.stringify(x);})`).catch((e) => `ERR ${e.message}`);
+        log(`テスト実行 ${u} ${String(r).slice(0, 2000)}`);
+      }
     } catch (e) {
       log(`テスト表示 NG ${u} ${String(e.message || e).slice(0, 200)}`);
     }
   }
   log('テスト表示 完了');
+}
+
+/** 表示する言語を切り替える（確かめてから、アプリを再起動する。PHP と Chromium の言語は起動時にしか変えられない） */
+async function switchLanguage(next) {
+  if (next === i18n.lang()) return;
+  const r = await dialog.showMessageBox(mainWindow, {
+    type: 'question',
+    message: t('表示する言語を切り替えますか？'),
+    detail: t('KantanProEX を再起動して切り替えます。入力した内容はその都度保存されています。'),
+    buttons: [t('再起動する'), t('キャンセル')],
+    defaultId: 0,
+    cancelId: 1,
+  });
+  if (r.response !== 0) {
+    buildMenu(); // ラジオの印を元に戻す
+    return;
+  }
+  log(`表示言語を ${next} にして再起動`);
+  i18n.save(paths.userData, next);
+  app.relaunch();
+  app.quit();
 }
 
 function buildMenu() {
@@ -670,10 +712,10 @@ function buildMenu() {
     {
       label: 'KantanProEX',
       submenu: [
-        { role: 'about', label: 'KantanProEX について' },
-        { label: 'アップデートを確認…', click: () => checkForUpdates(paths, mainWindow, { manual: true, log }) },
+        { role: 'about', label: t('KantanProEX について') },
+        { label: t('アップデートを確認…'), click: () => checkForUpdates(paths, mainWindow, { manual: true, log }) },
         {
-          label: '起動時にアップデートを確認する',
+          label: t('起動時にアップデートを確認する'),
           type: 'checkbox',
           checked: isAutoCheckEnabled(paths),
           click: (item) => setAutoCheckEnabled(paths, item.checked),
@@ -681,66 +723,75 @@ function buildMenu() {
         { type: 'separator' },
         ...(process.platform === 'darwin'
           ? [
-              { role: 'hide', label: 'KantanProEX を隠す' },
-              { role: 'hideOthers', label: 'ほかを隠す' },
-              { role: 'unhide', label: 'すべてを表示' },
+              { role: 'hide', label: t('KantanProEX を隠す') },
+              { role: 'hideOthers', label: t('ほかを隠す') },
+              { role: 'unhide', label: t('すべてを表示') },
               { type: 'separator' },
             ]
           : []),
-        { role: 'quit', label: 'KantanProEX を終了' },
+        { role: 'quit', label: t('KantanProEX を終了') },
       ],
     },
     {
-      label: 'ファイル',
+      label: t('ファイル'),
       submenu: [
-        { label: 'バックアップを作成', accelerator: 'CmdOrCtrl+Shift+B', click: doBackup },
-        { label: 'バックアップから復元…', click: doRestore },
+        { label: t('バックアップを作成'), accelerator: 'CmdOrCtrl+Shift+B', click: doBackup },
+        { label: t('バックアップから復元…'), click: doRestore },
         {
-          label: '各種取り込み',
+          label: t('各種取り込み'),
           submenu: [
-            { label: 'WordPress 版から取り込む…', click: () => doImport('wordpress') },
-            { label: 'KantanBiz から取り込む…', click: () => doImport('kantanbiz') },
-            { label: 'FileMaker 版データ取り込み…', click: () => server && mainWindow && mainWindow.loadURL(`${server.baseUrl}/wp-admin/admin.php?page=ktp-fm-import`) },
+            { label: t('WordPress 版から取り込む…'), click: () => doImport('wordpress') },
+            { label: t('KantanBiz から取り込む…'), click: () => doImport('kantanbiz') },
+            { label: t('FileMaker 版データ取り込み…'), click: () => server && mainWindow && mainWindow.loadURL(`${server.baseUrl}/wp-admin/admin.php?page=ktp-fm-import`) },
           ],
         },
-        { label: 'LAN 共有（事務所の他の PC から使う）…', click: () => server && mainWindow && mainWindow.loadURL(`${server.baseUrl}/wp-admin/admin.php?page=ktp-dt-lan`) },
-        { label: '音声操作…', click: () => server && mainWindow && mainWindow.loadURL(`${server.baseUrl}/wp-admin/admin.php?page=ktp-dt-voice`) },
-        { label: 'サイトからの受注（ホームページの問い合わせ・注文）…', click: () => server && mainWindow && mainWindow.loadURL(`${server.baseUrl}/wp-admin/admin.php?page=ktp-dt-intake`) },
-        { label: 'ライセンス（無料版・有料版）…', click: () => server && mainWindow && mainWindow.loadURL(`${server.baseUrl}/wp-admin/admin.php?page=ktp-dt-license`) },
+        { label: t('LAN 共有（事務所の他の PC から使う）…'), click: () => server && mainWindow && mainWindow.loadURL(`${server.baseUrl}/wp-admin/admin.php?page=ktp-dt-lan`) },
+        { label: t('音声操作…'), click: () => server && mainWindow && mainWindow.loadURL(`${server.baseUrl}/wp-admin/admin.php?page=ktp-dt-voice`) },
+        { label: t('サイトからの受注（ホームページの問い合わせ・注文）…'), click: () => server && mainWindow && mainWindow.loadURL(`${server.baseUrl}/wp-admin/admin.php?page=ktp-dt-intake`) },
+        { label: t('ライセンス（無料版・有料版）…'), click: () => server && mainWindow && mainWindow.loadURL(`${server.baseUrl}/wp-admin/admin.php?page=ktp-dt-license`) },
         { type: 'separator' },
-        { label: 'バックアップのフォルダを開く', click: () => { fs.mkdirSync(paths.backups, { recursive: true }); shell.openPath(paths.backups); } },
-        { label: 'データのフォルダを開く', click: () => shell.openPath(paths.userData) },
+        { label: t('バックアップのフォルダを開く'), click: () => { fs.mkdirSync(paths.backups, { recursive: true }); shell.openPath(paths.backups); } },
+        { label: t('データのフォルダを開く'), click: () => shell.openPath(paths.userData) },
         { type: 'separator' },
-        { role: 'close', label: 'ウィンドウを閉じる' },
+        { role: 'close', label: t('ウィンドウを閉じる') },
       ],
     },
     {
-      label: '編集',
+      label: t('編集'),
       submenu: [
-        { role: 'undo', label: '取り消す' },
-        { role: 'redo', label: 'やり直す' },
+        { role: 'undo', label: t('取り消す') },
+        { role: 'redo', label: t('やり直す') },
         { type: 'separator' },
-        { role: 'cut', label: 'カット' },
-        { role: 'copy', label: 'コピー' },
-        { role: 'paste', label: 'ペースト' },
-        { role: 'selectAll', label: 'すべてを選択' },
+        { role: 'cut', label: t('カット') },
+        { role: 'copy', label: t('コピー') },
+        { role: 'paste', label: t('ペースト') },
+        { role: 'selectAll', label: t('すべてを選択') },
       ],
     },
     {
-      label: '表示',
+      label: t('表示'),
       submenu: [
-        { label: '再読み込み', accelerator: 'CmdOrCtrl+R', click: () => mainWindow && mainWindow.webContents.reload() },
-        { label: '最初の画面に戻る', accelerator: 'CmdOrCtrl+Shift+H', click: () => server && mainWindow && mainWindow.loadURL(`${server.baseUrl}/`) },
+        { label: t('再読み込み'), accelerator: 'CmdOrCtrl+R', click: () => mainWindow && mainWindow.webContents.reload() },
+        { label: t('最初の画面に戻る'), accelerator: 'CmdOrCtrl+Shift+H', click: () => server && mainWindow && mainWindow.loadURL(`${server.baseUrl}/`) },
         { type: 'separator' },
-        { role: 'resetZoom', label: '実際のサイズ' },
-        { role: 'zoomIn', label: '拡大' },
-        { role: 'zoomOut', label: '縮小' },
+        { role: 'resetZoom', label: t('実際のサイズ') },
+        { role: 'zoomIn', label: t('拡大') },
+        { role: 'zoomOut', label: t('縮小') },
         { type: 'separator' },
-        { role: 'togglefullscreen', label: 'フルスクリーン' },
-        ...(isDev ? [{ type: 'separator' }, { role: 'toggleDevTools', label: '開発者ツール' }] : []),
+        { role: 'togglefullscreen', label: t('フルスクリーン') },
+        { type: 'separator' },
+        {
+          // どちらの言語のときでも見つけられるよう、両方の言葉で書く
+          label: 'Language / 言語',
+          submenu: [
+            { label: '日本語', type: 'radio', checked: !i18n.isEn(), click: () => switchLanguage('ja') },
+            { label: 'English', type: 'radio', checked: i18n.isEn(), click: () => switchLanguage('en') },
+          ],
+        },
+        ...(isDev ? [{ type: 'separator' }, { role: 'toggleDevTools', label: t('開発者ツール') }] : []),
       ],
     },
-    { role: 'windowMenu', label: 'ウインドウ' },
+    { role: 'windowMenu', label: t('ウインドウ') },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
@@ -752,13 +803,13 @@ async function boot() {
   createSplash();
   createWindow();
   try {
-    setLoadingMessage('ファイルを準備しています');
+    setLoadingMessage(t('ファイルを準備しています'));
     const replaced = syncSite(paths);
     if (replaced) log('site/ を同梱の版に入れ替えました');
     writeWpConfig(paths);
-    if (await setupIfNeeded(paths, setLoadingMessage)) log('初回セットアップ完了');
+    if (await setupIfNeeded(paths, (m) => setLoadingMessage(t(m)))) log('初回セットアップ完了');
 
-    setLoadingMessage('起動しています');
+    setLoadingMessage(t('起動しています'));
     await startPhp();
     autoBackupIfDue(paths).then((d) => d && log(`自動バックアップ ${d}`)).catch((e) => log(`自動バックアップ失敗 ${e.message}`));
     openApp();
@@ -774,7 +825,7 @@ async function boot() {
   } catch (e) {
     log(`起動失敗 ${e.stack || e}`);
     closeSplash();
-    dialog.showErrorBox('KantanProEX を起動できませんでした', `${e.message || e}\n\n記録: ${path.join(paths.logs, 'app.log')}`);
+    dialog.showErrorBox(t('KantanProEX を起動できませんでした'), `${e.message || e}\n\n${t('記録: {file}', { file: path.join(paths.logs, 'app.log') })}`);
     app.quit();
   }
 }

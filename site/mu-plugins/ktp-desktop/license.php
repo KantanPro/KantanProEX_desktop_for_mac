@@ -717,7 +717,7 @@ add_filter(
 
 /** 受注書・見積書・納品書・請求書の HTML（ajax ktp_get_order_preview の応答）の下端に宣伝の 1 行を足す */
 function ktp_dt_ad_html() {
-	return '<div class="ktp-dt-ad" style="text-align:center;font-size:10px;color:#888;margin-top:10px;">' . esc_html( KTP_DT_AD_TEXT ) . '</div>';
+	return '<div class="ktp-dt-ad" style="text-align:center;font-size:10px;color:#888;margin-top:10px;">' . esc_html( ktp_dt__( KTP_DT_AD_TEXT ) ) . '</div>';
 }
 
 function ktp_dt_ad_insert_into_document( $html ) {

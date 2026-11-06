@@ -16,6 +16,23 @@ KantanProEX（WordPress プラグイン）を、ブラウザも WordPress サイ
 - データは `~/Library/Application Support/KantanProEX/` に置き、起動時に1日1回「書類」フォルダへ自動でバックアップします。
 - WordPress 版との違い（デスクトップ版で調整している内容）は `site/mu-plugins/ktp-desktop.php` にまとめています。プラグイン本体は改変しません。
 
+## 表示言語（日本語 / English）
+
+メニュー「表示」→「Language / 言語」で切り替える（アプリが再起動する）。設定はデータ置き場の `language.json`。
+未設定のときは、すでにデータがあるインストールは日本語のまま、新しく入れたときは OS の言語で決める（日本語の OS なら日本語、それ以外は英語）。
+
+- Electron 側（メニュー・ダイアログ・起動画面・LAN/音声の窓口の応答）: `lib/i18n.js` の `t('日本語の原文')`。訳はそのファイルの表
+- 画面（WordPress + KantanProEX + mu-plugin）: 英語のときだけ `site/mu-plugins/ktp-desktop/i18n.php` が動く。言語は環境変数 `KTP_DESKTOP_LANG`（`lib/php.js`）で届く
+  1. WordPress のロケールを `en_US` にする（本体の `ktpwp-en_US.mo` も読まれる）
+  2. gettext（`__()` など）は、原文が辞書にあれば辞書の訳にする（.mo より優先）。数字や名前が入る文も `%s`・`%d` の書式のまま訳せる
+  3. 翻訳関数を通っていない日本語・JS があとから出す文言・alert/confirm・印刷/PDF 用の HTML（iframe やポップアップへの `document.write`）は、画面側の `i18n.js` が文字のかたまりごとに**完全一致**で訳す（部分一致はしない。顧客名など入力したデータは書き換えない）。入力欄の値・textarea は触らない
+  - 本体（KTPWP_I18n）の「英語ならページ全体を部分一致で置き換える」出力バッファは止めている（半端に訳されて完全一致で引けなくなるため）
+- 訳はすべて `site/mu-plugins/ktp-desktop/lang/en.js`（日本語の原文 → 英語。中身は JSON）の 1 か所。足すときは `{"日本語": "English"}` の JSON を作って `python3 scripts/i18n-dict.py merge <ファイル>`。数字が入る文は `"全 %d 件": "%d total"` のように書く（名前など `%s` が入る文は、日本語の手がかりが 2 文字以上あるものだけ画面側でも使う）
+- 画面のスクリプトで「文が違えば入れ直す」ものは、入れる文を `ktp_dt__()` で今の言語にしておく（日本語を入れると i18n.js と入れ直し合いになって画面が固まる。app-template.php の即時購入の案内文で実際に起きた）
+- 訳されずに残った日本語の洗い出し: 英語の設定のテスト用データで `KTP_TEST_VISIT=<URL,…>` を付けて起動すると、画面ごとに `logs/shots/NN.ja.json` に残った文言が出る
+- 日本語のままのもの: 利用規約の本文、音声操作の聞き取りと読み上げ（話し言葉の解釈が日本語前提）、FileMaker 版取り込みの解析メッセージの一部、顧客名・単位など入力したデータ
+- `update.json` に `notes_en` を書くと、英語のときのアップデートのお知らせはそちらを出す（無ければ `notes`）
+
 ## 無料版と有料版（ライセンス）
 
 アプリは 1 本のまま（無料版と有料版でビルドは分けない）。有料版かどうかはライセンスキーで決める（`site/mu-plugins/ktp-desktop/license.php`）。
@@ -112,6 +129,7 @@ scripts/test-dist.sh     # 作った配布版を、普段のデータとは別�
 | `lib/backup.js` | バックアップと復元 |
 | `lib/lan.js` | LAN 共有の窓口（https・私設アドレスだけ許可・PHP へ中継） |
 | `lib/update.js` | アップデートのお知らせ |
+| `lib/i18n.js` | 表示言語（Electron 側の文言） |
 | `php/router.php` | PHP 内蔵サーバー用のルーター |
 | `site/mu-plugins/` | デスクトップ版用の調整（自動ログイン・画面テンプレート・不要な設定の非表示など） |
 | `bridge/ktp-dt-bridge/` | ホームページに入れる受付プラグイン（サイトからの受注） |
