@@ -262,6 +262,10 @@ function ktp_dt_intake_image_payload( $path ) {
 	}
 	$editor->resize( 900, 900, false );
 	$editor->set_quality( 82 );
+	// 15 分ごとの取得（wp-cron）では管理画面用の file.php が読まれておらず、wp_tempnam() が無い
+	if ( ! function_exists( 'wp_tempnam' ) ) {
+		require_once ABSPATH . 'wp-admin/includes/file.php';
+	}
 	$tmp   = wp_tempnam( 'ktp-dt-img' );
 	$saved = $editor->save( $tmp, 'image/jpeg' );
 	$data  = ( ! is_wp_error( $saved ) && ! empty( $saved['path'] ) ) ? (string) file_get_contents( $saved['path'] ) : '';
