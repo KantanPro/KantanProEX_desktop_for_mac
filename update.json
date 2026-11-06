@@ -1,9 +1,9 @@
 {
-  "version": "1.0.65",
-  "released": "2026-11-06",
-  "notes": "1.0.65 になりました。「サイトからの受注」で公開しているサービスの画像が、ホームページに表示されなくなることがある不具合を直しました。15 分ごとの自動の取得で画像を送れていなかったのが原因です。更新すると、次の取得で画像がホームページに戻ります。",
-  "notes_en": "KantanProEX 1.0.65 fixes a bug where images of services published with \"Orders from Your Website\" could disappear from your website. The automatic sync every 15 minutes was failing to send the images. After updating, the images return to your website at the next sync.",
+  "version": "1.0.66",
+  "released": "2026-11-07",
+  "notes": "1.0.66 になりました。LAN 共有で iPad・iPhone から使っているときに、他のスタッフのアイコンを押すと「この画面は、親機でだけ開けます。」の表示から戻れなくなる不具合を直しました。押すとスタッフのプロフィールが表示されるようになります。自分のプロフィール画面から戻れなかった不具合も直し、「アプリに戻る」「キャンセル」ボタンを付けました。更新するとアプリの画面に戻ります。また、iPad・iPhone のホーム画面に追加したときのアイコンが「K」の文字だけになっていたのを、アプリのアイコンで表示するようにしました（追加済みの場合は、一度削除して追加し直してください）。",
+  "notes_en": "KantanProEX 1.0.66 fixes a bug with LAN sharing on iPad and iPhone: tapping another staff member's icon showed \"This screen can only be opened on the host computer.\" with no way back. It now shows that staff member's profile. Your own profile screen now has \"Back to the app\" and \"Cancel\" buttons, and saving returns you to the app. The Home Screen icon on iPad and iPhone also now shows the app icon instead of just the letter \"K\" (if you already added it, remove it and add it again).",
   "url": "https://www.kantanpro.com/dl/kantanproex-dt-mac",
-  "version_win": "1.0.65",
+  "version_win": "1.0.66",
   "url_win": "https://www.kantanpro.com/dl/kantanproex-dt-windows"
 }
