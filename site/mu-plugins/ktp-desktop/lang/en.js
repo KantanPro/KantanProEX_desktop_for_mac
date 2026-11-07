@@ -2455,6 +2455,8 @@ window.ktpDtI18nDict={
 "小計":"Subtotal",
 "届かないとき":"If delivery fails",
 "属性":"Attribute",
+"州":"State",
+"州・県":"State / Province",
 "工程表":"Schedule",
 "工程表に表示できる受注案件がありません（受注日が未設定の案件は除外されます）。":"No accepted orders to show on the schedule (orders without an ordered date are excluded).",
 "工程表を読み込めませんでした。":"Could not load the schedule.",
