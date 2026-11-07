@@ -542,7 +542,20 @@ add_filter(
  */
 function ktp_desktop_hidden_settings() {
 	return array(
-		'sections' => array( 'ショートコード', '問い合わせフォーム（Contact Form 7）設定', 'Stripe 請求連携', 'プラグイン削除時のデータ保持設定' ),
+		// 英語表示では見出しが訳されるので、訳した見出しも足す（日本語だけだと英語のとき隠れなかった）
+		'sections' => (function () {
+			$ja = array( 'ショートコード', '問い合わせフォーム（Contact Form 7）設定', 'Stripe 請求連携', 'プラグイン削除時のデータ保持設定' );
+			// 日本郵便の郵便番号 API は日本の住所だけ。日本以外の商取引では出さない
+			if ( function_exists( 'ktp_dt_business_country' ) && 'JP' !== ktp_dt_business_country() ) {
+				$ja[] = '日本郵便 郵便番号・デジタルアドレスAPI';
+			}
+			$out = $ja;
+			foreach ( $ja as $t ) {
+				$out[] = function_exists( 'ktp_dt__' ) ? ktp_dt__( $t ) : $t;
+				$out[] = __( $t, 'ktpwp' ); // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralText
+			}
+			return array_values( array_unique( $out ) );
+		})(),
 	);
 }
 
