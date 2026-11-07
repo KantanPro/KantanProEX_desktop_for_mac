@@ -353,7 +353,12 @@ function ktp_dt_license_features() {
 /** 有料版でできること（ライセンス画面の一覧に使う。上の機能 + 宣伝を消す） */
 function ktp_dt_license_benefits() {
 	$list = array();
-	foreach ( ktp_dt_license_features() as $f ) {
+	// 日本以外の商取引では、日本向けの機能（ホームページ受付・日本語の音声操作・日本の Web-FAX）は一覧に出さない
+	$japan_only = function_exists( 'ktp_dt_business_country' ) && 'JP' !== ktp_dt_business_country() ? array( 'intake', 'voice', 'webfax' ) : array();
+	foreach ( ktp_dt_license_features() as $key => $f ) {
+		if ( in_array( $key, $japan_only, true ) ) {
+			continue;
+		}
 		$list[] = $f[0];
 	}
 	$list[] = '書類（印刷・PDF）の下端と、メール署名の宣伝の 1 行を消す';
