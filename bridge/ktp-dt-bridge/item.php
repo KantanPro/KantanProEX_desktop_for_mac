@@ -84,7 +84,8 @@ function ktp_dt_bridge_item_description( array $s, $max ) {
  */
 function ktp_dt_bridge_price_with_tax( array $s ) {
 	$price = (float) $s['price'];
-	if ( ! ktp_dt_bridge_settings()['tax_excluded'] ) {
+	// 税込を足すのは日本円のときだけ（円以外の国は、税の扱いが違うので値段をそのまま使う）
+	if ( 'JPY' !== ktp_dt_bridge_currency() || ! ktp_dt_bridge_settings()['tax_excluded'] ) {
 		return $price;
 	}
 	$rate = null !== $s['tax_rate'] ? (float) $s['tax_rate'] : 10.0;
@@ -241,8 +242,8 @@ function ktp_dt_bridge_item_head() {
 	if ( $s['price'] > 0 ) {
 		$ld['offers'] = array(
 			'@type'         => 'Offer',
-			'price'         => ktp_dt_bridge_price_with_tax( $s ),
-			'priceCurrency' => 'JPY',
+			'price'         => 'JPY' === ktp_dt_bridge_currency() ? ktp_dt_bridge_price_with_tax( $s ) : round( (float) ktp_dt_bridge_price_with_tax( $s ), 2 ),
+			'priceCurrency' => ktp_dt_bridge_currency(),
 			'availability'  => $s['open'] ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
 			'url'           => $url,
 		);
@@ -261,21 +262,21 @@ function ktp_dt_bridge_render_item( array $s ) {
 	$list = ktp_dt_bridge_list_url();
 	$html = '<div class="ktp-dtp ktp-dtp--item" data-ajax="' . esc_url( admin_url( 'admin-ajax.php' ) ) . '" data-ts="' . esc_attr( $ts . '-' . ktp_dt_bridge_sign_ts( $ts ) ) . '">';
 	if ( $list ) {
-		$html .= '<p class="ktp-dtp__back"><a href="' . esc_url( $list ) . '">← 商品一覧へ</a></p>';
+		$html .= '<p class="ktp-dtp__back"><a href="' . esc_url( $list ) . '">' . esc_html( ktp_dt_bridge_t( '← 商品一覧へ' ) ) . '</a></p>';
 	}
 	$html .= '<article class="ktp-dtp__pg' . ( $img ? '' : ' ktp-dtp__pg--noimg' ) . ( $s['open'] ? '' : ' is-closed' ) . '">';
 	if ( $img ) {
 		$html .= '<div class="ktp-dtp__pg-image"><img src="' . esc_url( $img ) . '" alt="' . esc_attr( $s['name'] ) . '">'
-			. ( $s['open'] ? '' : '<span class="ktp-dtp__badge">' . esc_html( $s['status_label'] ?: '受付停止中' ) . '</span>' ) . '</div>';
+			. ( $s['open'] ? '' : '<span class="ktp-dtp__badge">' . esc_html( ktp_dt_bridge_t( $s['status_label'] ?: '受付停止中' ) ) . '</span>' ) . '</div>';
 	}
 	$html .= '<div class="ktp-dtp__pg-body"><h1 class="ktp-dtp__pg-title">' . esc_html( $s['name'] ) . '</h1>';
 	if ( '' !== $s['category'] ) {
 		$html .= '<p class="ktp-dtp__cat">' . esc_html( $s['category'] ) . '</p>';
 	}
 	$price = ktp_dt_bridge_price_html( $s, array( 'unit' => true, 'tax' => false ) );
-	if ( $s['price'] > 0 && ktp_dt_bridge_settings()['tax_excluded'] ) {
+	if ( $s['price'] > 0 && 'JPY' === ktp_dt_bridge_currency() && ktp_dt_bridge_settings()['tax_excluded'] ) {
 		// 値段が税抜のサイトは税込も添える（フィード・構造化データの税込の値段と、ページの表示を合わせる）
-		$price = str_replace( '</p>', ' <span class="ktp-dtp__unit">（税込 ' . esc_html( ktp_dt_bridge_money( ktp_dt_bridge_price_with_tax( $s ) ) ) . '）</span></p>', $price );
+		$price = str_replace( '</p>', ' <span class="ktp-dtp__unit">' . esc_html( ktp_dt_bridge_tf( '（税込 %s）', ktp_dt_bridge_money( ktp_dt_bridge_price_with_tax( $s ) ) ) ) . '</span></p>', $price );
 	}
 	$html .= $price . ktp_dt_bridge_action_html( $s, false );
 	if ( '' !== $s['memo'] ) {
@@ -312,7 +313,7 @@ add_action(
 				'g:description'       => ktp_dt_bridge_item_description( $s, 5000 ),
 				'g:link'              => ktp_dt_bridge_item_url( $s['id'] ),
 				'g:image_link'        => $img,
-				'g:price'             => ktp_dt_bridge_price_with_tax( $s ) . ' JPY',
+				'g:price'             => 'JPY' === ktp_dt_bridge_currency() ? ktp_dt_bridge_price_with_tax( $s ) . ' JPY' : number_format( (float) $s['price'], 2, '.', '' ) . ' ' . ktp_dt_bridge_currency(),
 				'g:availability'      => $s['open'] ? 'in_stock' : 'out_of_stock',
 				'g:condition'         => 'new',
 				'g:brand'             => $site,

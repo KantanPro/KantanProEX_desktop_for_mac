@@ -247,10 +247,14 @@ function ktp_dt_intake_catalog_build() {
 			$out[ $last ]['initial_fee'] = (float) $rec['initial'];
 		}
 	}
+	// 通貨（KantanProEX の設定）。受付プラグイン 1.6.0〜 が金額の記号・小数・構造化データに使う（古いものは無視して円で出す）
+	$currency = class_exists( 'KTPWP_Settings' ) ? KTPWP_Settings::get_currency_code() : 'JPY';
 	return array(
-		'hash'     => md5( (string) wp_json_encode( $out ) ),
+		// 円のときは従来どおりの hash（通貨が変わったときだけ、サイトに送り直す）
+		'hash'     => md5( (string) wp_json_encode( 'JPY' === $currency ? $out : array( 'services' => $out, 'currency' => $currency ) ) ),
 		'services' => $out,
 		'images'   => $imgs,
+		'currency' => $currency,
 	);
 }
 
@@ -298,7 +302,7 @@ function ktp_dt_intake_catalog_sync( array $site ) {
 	$need   = isset( $site['catalog_need_images'] ) && is_array( $site['catalog_need_images'] ) ? array_map( 'intval', $site['catalog_need_images'] ) : array();
 	$pushed = false;
 	if ( (string) $site['catalog_hash'] !== $cat['hash'] ) {
-		$res = ktp_dt_intake_request( 'POST', 'catalog', array(), array( 'hash' => $cat['hash'], 'services' => $cat['services'] ) );
+		$res = ktp_dt_intake_request( 'POST', 'catalog', array(), array( 'hash' => $cat['hash'], 'services' => $cat['services'], 'currency' => $cat['currency'] ) );
 		if ( is_wp_error( $res ) ) {
 			return array( 'count' => count( $cat['services'] ), 'pushed' => false, 'error' => '公開商品をサイトに送れませんでした: ' . $res->get_error_message() );
 		}

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: KantanProEX（DT）サイト受付
  * Description: Contact Form 7 のお問い合わせ・WooCommerce の注文・商品の申し込みをこのサイトで預かり、パソコンの KantanProEX（DT）が取りに来たら渡します。KantanProEX（DT）の公開商品を、ショートコードと商品ごとのページでこのサイトに表示します。
- * Version: 1.5.1
+ * Version: 1.6.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: KantanPro
@@ -25,7 +25,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-const KTP_DT_BRIDGE_VERSION   = '1.5.1';
+const KTP_DT_BRIDGE_VERSION   = '1.6.0';
 const KTP_DT_BRIDGE_DB_OPT    = 'ktp_dt_bridge_db_version';
 const KTP_DT_BRIDGE_KEY_OPT   = 'ktp_dt_bridge_key';
 const KTP_DT_BRIDGE_SET_OPT   = 'ktp_dt_bridge_settings';
@@ -36,6 +36,31 @@ const KTP_DT_BRIDGE_MAX_BATCH = 50;
 // 渡し終えた分は 7 日で消す（個人情報を長く置かない）。取りに来ないままの分は 180 日で消す
 const KTP_DT_BRIDGE_KEEP_ACKED_DAYS   = 7;
 const KTP_DT_BRIDGE_KEEP_PENDING_DAYS = 180;
+
+/**
+ * 表示する文言を、サイトの言語に合わせる（表側はサイトの言語、管理画面はログインしている人の言語）。
+ * 日本語（ja で始まる言語）なら原文のまま。それ以外は lang-en.php の対応表（完全一致）で英語にし、訳が無ければ原文のまま返す。
+ */
+function ktp_dt_bridge_is_ja() {
+	return 0 === strpos( (string) determine_locale(), 'ja' );
+}
+
+function ktp_dt_bridge_t( $ja ) {
+	static $map = null;
+	if ( ktp_dt_bridge_is_ja() ) {
+		return $ja;
+	}
+	if ( null === $map ) {
+		$map = require __DIR__ . '/lang-en.php';
+		$map = is_array( $map ) ? $map : array();
+	}
+	return isset( $map[ $ja ] ) ? $map[ $ja ] : $ja;
+}
+
+/** 訳したうえで sprintf の値を差し込む（動的な文言用。原文の %s・%d を型にする） */
+function ktp_dt_bridge_tf( $ja_format, ...$args ) {
+	return vsprintf( ktp_dt_bridge_t( $ja_format ), $args );
+}
 
 require_once __DIR__ . '/catalog.php';
 require_once __DIR__ . '/item.php';
@@ -53,7 +78,7 @@ function ktp_dt_bridge_settings() {
 		'woo'     => ! isset( $s['woo'] ) || ! empty( $s['woo'] ),
 		'shop'    => ! isset( $s['shop'] ) || ! empty( $s['shop'] ),
 		// KantanProEX 本体の既定（受け入れる言語は日本語だけ）に合わせる
-		'ja_only' => ! isset( $s['ja_only'] ) || ! empty( $s['ja_only'] ),
+		'ja_only' => isset( $s['ja_only'] ) ? ! empty( $s['ja_only'] ) : ktp_dt_bridge_is_ja(), // 保存前の既定は日本語のサイトだけオン（英語のサイトで英語の申し込みを弾かないため）
 		// 1.5.0〜: KantanProEX の値段が税抜か（Google ショッピング用フィードと商品ページの構造化データを税込にする）
 		'tax_excluded' => ! empty( $s['tax_excluded'] ),
 	);
@@ -244,7 +269,7 @@ add_filter(
 				break;
 			}
 		}
-		$spam = __( '送信内容を確認できませんでした。時間をおいて再度お試しください。', 'ktp-dt-bridge' );
+		$spam = ktp_dt_bridge_t( '送信内容を確認できませんでした。時間をおいて再度お試しください。' );
 
 		// 1) 見えない欄に値が入っていたらボット
 		if ( ! empty( $_POST['ktp_dt_hp'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
@@ -264,19 +289,19 @@ add_filter(
 			$text = ktp_dt_bridge_flatten( $value );
 			// 3) HTML タグの混入
 			if ( preg_match( '/<\/?[a-zA-Z][a-zA-Z0-9]*(\s[^<>]*)?>/', $text ) === 1 ) {
-				$result->invalidate( (string) $name, __( 'HTMLタグを含む内容は送信できません。', 'ktp-dt-bridge' ) );
+				$result->invalidate( (string) $name, ktp_dt_bridge_t( 'HTMLタグを含む内容は送信できません。' ) );
 				return $result;
 			}
 			// 4) URL が 3 つ以上
 			$count = preg_match_all( '#(https?://|www\.)[^\s]+#i', $text );
 			if ( $count !== false && $count > 2 ) {
-				$result->invalidate( (string) $name, __( 'URLの記載が多いため送信できません。', 'ktp-dt-bridge' ) );
+				$result->invalidate( (string) $name, ktp_dt_bridge_t( 'URLの記載が多いため送信できません。' ) );
 				return $result;
 			}
 		}
 		// 5) 日本語以外のお問い合わせ（設定でオフにできる）
 		if ( ktp_dt_bridge_settings()['ja_only'] && ktp_dt_bridge_detect_language( ktp_dt_bridge_message_text( $posted ) ) === 'other' ) {
-			$result->invalidate( $first_tag, __( '現在、設定されている言語以外でのお問い合わせは受け付けておりません。', 'ktp-dt-bridge' ) );
+			$result->invalidate( $first_tag, ktp_dt_bridge_t( '現在、設定されている言語以外でのお問い合わせは受け付けておりません。' ) );
 		}
 		return $result;
 	},
@@ -519,13 +544,13 @@ function ktp_dt_bridge_rest_auth( WP_REST_Request $request ) {
 	$lock_key = 'ktp_dt_bridge_fail_' . md5( ktp_dt_bridge_client_ip() );
 	$fails    = (int) get_transient( $lock_key );
 	if ( $fails >= 10 ) {
-		return new WP_Error( 'ktp_dt_bridge_locked', '接続キーの間違いが続いたため、しばらく受け付けません。', array( 'status' => 429 ) );
+		return new WP_Error( 'ktp_dt_bridge_locked', ktp_dt_bridge_t( '接続キーの間違いが続いたため、しばらく受け付けません。' ), array( 'status' => 429 ) );
 	}
 	$given = (string) $request->get_header( 'x_ktp_bridge_key' );
 	$key   = ktp_dt_bridge_key();
 	if ( $key === '' || $given === '' || ! hash_equals( $key, $given ) ) {
 		set_transient( $lock_key, $fails + 1, 15 * MINUTE_IN_SECONDS );
-		return new WP_Error( 'ktp_dt_bridge_key', '接続キーが違います。', array( 'status' => 401 ) );
+		return new WP_Error( 'ktp_dt_bridge_key', ktp_dt_bridge_t( '接続キーが違います。' ), array( 'status' => 401 ) );
 	}
 	return true;
 }
@@ -648,14 +673,14 @@ add_action(
 add_action(
 	'admin_menu',
 	function () {
-		add_options_page( 'KantanProEX（DT）サイト受付', 'KantanProEX 受付', 'manage_options', KTP_DT_BRIDGE_PAGE, 'ktp_dt_bridge_page' );
+		add_options_page( ktp_dt_bridge_t( 'KantanProEX（DT）サイト受付' ), ktp_dt_bridge_t( 'KantanProEX 受付' ), 'manage_options', KTP_DT_BRIDGE_PAGE, 'ktp_dt_bridge_page' );
 	}
 );
 
 add_filter(
 	'plugin_action_links_' . plugin_basename( __FILE__ ),
 	function ( $links ) {
-		array_unshift( $links, '<a href="' . esc_url( admin_url( 'options-general.php?page=' . KTP_DT_BRIDGE_PAGE ) ) . '">設定</a>' );
+		array_unshift( $links, '<a href="' . esc_url( admin_url( 'options-general.php?page=' . KTP_DT_BRIDGE_PAGE ) ) . '">' . esc_html( ktp_dt_bridge_t( '設定' ) ) . '</a>' );
 		return $links;
 	}
 );
@@ -664,7 +689,7 @@ add_action(
 	'admin_post_ktp_dt_bridge_save',
 	function () {
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( '権限がありません。' );
+			wp_die( esc_html( ktp_dt_bridge_t( '権限がありません。' ) ) );
 		}
 		check_admin_referer( 'ktp_dt_bridge_save' );
 		if ( ! empty( $_POST['new_key'] ) ) {
@@ -704,35 +729,35 @@ function ktp_dt_bridge_page() {
 	$has_woo = class_exists( 'WooCommerce' );
 	?>
 <div class="wrap">
-	<h1>KantanProEX（DT）サイト受付</h1>
+	<h1><?php echo esc_html( ktp_dt_bridge_t( 'KantanProEX（DT）サイト受付' ) ); ?></h1>
 	<?php if ( 'saved' === $msg ) : ?>
-		<div class="notice notice-success is-dismissible"><p>保存しました。</p></div>
+		<div class="notice notice-success is-dismissible"><p><?php echo esc_html( ktp_dt_bridge_t( '保存しました。' ) ); ?></p></div>
 	<?php elseif ( 'key' === $msg ) : ?>
-		<div class="notice notice-warning is-dismissible"><p>接続キーを作り直しました。KantanProEX（DT）の「サイトからの受注」に、新しいキーを入れ直してください。</p></div>
+		<div class="notice notice-warning is-dismissible"><p><?php echo esc_html( ktp_dt_bridge_t( '接続キーを作り直しました。KantanProEX（DT）の「サイトからの受注」に、新しいキーを入れ直してください。' ) ); ?></p></div>
 	<?php endif; ?>
 	<?php if ( ! $https ) : ?>
-		<div class="notice notice-error"><p>このサイトは https ではありません。接続キーやお客様の情報が暗号化されずに流れるため、KantanProEX（DT）からは接続できません（https にしてください）。</p></div>
+		<div class="notice notice-error"><p><?php echo esc_html( ktp_dt_bridge_t( 'このサイトは https ではありません。接続キーやお客様の情報が暗号化されずに流れるため、KantanProEX（DT）からは接続できません（https にしてください）。' ) ); ?></p></div>
 	<?php endif; ?>
 
-	<p>このサイトの Contact Form 7 のお問い合わせ・WooCommerce の注文・商品の申し込みを、ここで預かっておきます。パソコンの KantanProEX（DT）が 15 分ごと（と起動したとき）に取りに来て、受注として取り込みます。パソコンを閉じている間の分も、次に開いたときに届きます。</p>
+	<p><?php echo esc_html( ktp_dt_bridge_t( 'このサイトの Contact Form 7 のお問い合わせ・WooCommerce の注文・商品の申し込みを、ここで預かっておきます。パソコンの KantanProEX（DT）が 15 分ごと（と起動したとき）に取りに来て、受注として取り込みます。パソコンを閉じている間の分も、次に開いたときに届きます。' ) ); ?></p>
 
-	<h2>KantanProEX（DT）に入れる内容</h2>
-	<p>KantanProEX（DT）の「KantanProEX 設定」→「サイトからの受注」に、次の 2 つを入れます。</p>
+	<h2><?php echo esc_html( ktp_dt_bridge_t( 'KantanProEX（DT）に入れる内容' ) ); ?></h2>
+	<p><?php echo esc_html( ktp_dt_bridge_t( 'KantanProEX（DT）の「KantanProEX 設定」→「サイトからの受注」に、次の 2 つを入れます。' ) ); ?></p>
 	<table class="form-table" role="presentation">
 		<tr>
-			<th scope="row">サイトのアドレス</th>
+			<th scope="row"><?php echo esc_html( ktp_dt_bridge_t( 'サイトのアドレス' ) ); ?></th>
 			<td><input type="text" readonly class="regular-text code" value="<?php echo esc_attr( home_url( '/' ) ); ?>" onclick="this.select()"></td>
 		</tr>
 		<tr>
-			<th scope="row">接続キー</th>
+			<th scope="row"><?php echo esc_html( ktp_dt_bridge_t( '接続キー' ) ); ?></th>
 			<td>
 				<input type="text" readonly class="large-text code" id="ktp-dt-key" value="<?php echo esc_attr( ktp_dt_bridge_key() ); ?>" onclick="this.select()">
-				<p class="description">このキーを知っている人は、預かっているお問い合わせ・注文を読めます。人に教えないでください。漏れたときは下の「接続キーを作り直す」を押します。</p>
+				<p class="description"><?php echo esc_html( ktp_dt_bridge_t( 'このキーを知っている人は、預かっているお問い合わせ・注文を読めます。人に教えないでください。漏れたときは下の「接続キーを作り直す」を押します。' ) ); ?></p>
 			</td>
 		</tr>
 	</table>
 
-	<h2>受け付けるもの</h2>
+	<h2><?php echo esc_html( ktp_dt_bridge_t( '受け付けるもの' ) ); ?></h2>
 	<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 		<input type="hidden" name="action" value="ktp_dt_bridge_save">
 		<?php wp_nonce_field( 'ktp_dt_bridge_save' ); ?>
@@ -740,74 +765,73 @@ function ktp_dt_bridge_page() {
 			<tr>
 				<th scope="row">Contact Form 7</th>
 				<td>
-					<label><input type="checkbox" name="cf7" value="1" <?php checked( $s['cf7'] ); ?>> お問い合わせを預かる</label>
-					<?php if ( ! $has_cf7 ) : ?><p class="description">Contact Form 7 は有効になっていません。</p><?php endif; ?>
-					<p><label><input type="checkbox" name="ja_only" value="1" <?php checked( $s['ja_only'] ); ?>> 日本語以外のお問い合わせは受け付けない（スパム対策）</label></p>
+					<label><input type="checkbox" name="cf7" value="1" <?php checked( $s['cf7'] ); ?>> <?php echo esc_html( ktp_dt_bridge_t( 'お問い合わせを預かる' ) ); ?></label>
+					<?php if ( ! $has_cf7 ) : ?><p class="description"><?php echo esc_html( ktp_dt_bridge_t( 'Contact Form 7 は有効になっていません。' ) ); ?></p><?php endif; ?>
+					<p><label><input type="checkbox" name="ja_only" value="1" <?php checked( $s['ja_only'] ); ?>> <?php echo esc_html( ktp_dt_bridge_t( '日本語以外のお問い合わせは受け付けない（スパム対策）' ) ); ?></label></p>
 				</td>
 			</tr>
 			<tr>
-				<th scope="row">公開商品</th>
+				<th scope="row"><?php echo esc_html( ktp_dt_bridge_t( '公開商品' ) ); ?></th>
 				<td>
-					<label><input type="checkbox" name="shop" value="1" <?php checked( $s['shop'] ); ?>> 商品の申し込みを預かる</label>
-					<p class="description">KantanProEX（DT）で「サイト公開」にした商品を、固定ページなどに <code>[ktp_dt_products]</code> と書いて表示します。申し込みは KantanProEX（DT）が取りに来て受注にします。</p>
-					<p><label><input type="checkbox" name="tax_excluded" value="1" <?php checked( $s['tax_excluded'] ); ?>> KantanProEX の値段は税抜（商品ページに税込を添え、Google ショッピング用フィードは税込で出す）</label></p>
+					<label><input type="checkbox" name="shop" value="1" <?php checked( $s['shop'] ); ?>> <?php echo esc_html( ktp_dt_bridge_t( '商品の申し込みを預かる' ) ); ?></label>
+					<p class="description"><?php echo ktp_dt_bridge_t( 'KantanProEX（DT）で「サイト公開」にした商品を、固定ページなどに <code>[ktp_dt_products]</code> と書いて表示します。申し込みは KantanProEX（DT）が取りに来て受注にします。' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></p>
+					<p><label><input type="checkbox" name="tax_excluded" value="1" <?php checked( $s['tax_excluded'] ); ?>> <?php echo esc_html( ktp_dt_bridge_t( 'KantanProEX の値段は税抜（商品ページに税込を添え、Google ショッピング用フィードは税込で出す）' ) ); ?></label></p>
 				</td>
 			</tr>
 			<tr>
 				<th scope="row">WooCommerce</th>
 				<td>
-					<label><input type="checkbox" name="woo" value="1" <?php checked( $s['woo'] ); ?>> 注文を預かる</label>
-					<?php if ( ! $has_woo ) : ?><p class="description">WooCommerce は有効になっていません。</p><?php endif; ?>
+					<label><input type="checkbox" name="woo" value="1" <?php checked( $s['woo'] ); ?>> <?php echo esc_html( ktp_dt_bridge_t( '注文を預かる' ) ); ?></label>
+					<?php if ( ! $has_woo ) : ?><p class="description"><?php echo esc_html( ktp_dt_bridge_t( 'WooCommerce は有効になっていません。' ) ); ?></p><?php endif; ?>
 				</td>
 			</tr>
 		</table>
-		<?php submit_button( '保存' ); ?>
+		<?php submit_button( ktp_dt_bridge_t( '保存' ) ); ?>
 	</form>
 
-	<h2>状態</h2>
+	<h2><?php echo esc_html( ktp_dt_bridge_t( '状態' ) ); ?></h2>
 	<?php $ktp_cat = ktp_dt_bridge_catalog(); ?>
-	<p>KantanProEX（DT）から届いている公開商品: <strong><?php echo esc_html( number_format_i18n( count( $ktp_cat['services'] ) ) ); ?> 件</strong>
-	<?php if ( ! empty( $ktp_cat['updated'] ) ) : ?>（最後に更新された時刻: <?php echo esc_html( wp_date( 'Y-m-d H:i', (int) $ktp_cat['updated'] ) ); ?>）<?php endif; ?></p>
-	<p>まだ渡していないもの: <strong><?php echo esc_html( number_format_i18n( ktp_dt_bridge_pending_count() ) ); ?> 件</strong><br>
-	KantanProEX（DT）が最後に取りに来た時刻: <strong><?php echo $last ? esc_html( wp_date( 'Y-m-d H:i', $last ) ) : 'まだありません'; ?></strong></p>
-	<p class="description">渡し終えたものは <?php echo (int) KTP_DT_BRIDGE_KEEP_ACKED_DAYS; ?> 日後に、このサイトから消します。</p>
+	<p><?php echo esc_html( ktp_dt_bridge_t( 'KantanProEX（DT）から届いている公開商品:' ) ); ?> <strong><?php echo esc_html( ktp_dt_bridge_tf( '%s 件', number_format_i18n( count( $ktp_cat['services'] ) ) ) ); ?></strong>
+	<?php if ( ! empty( $ktp_cat['updated'] ) ) : ?><?php echo esc_html( ktp_dt_bridge_tf( '（最後に更新された時刻: %s）', wp_date( 'Y-m-d H:i', (int) $ktp_cat['updated'] ) ) ); ?><?php endif; ?></p>
+	<p><?php echo esc_html( ktp_dt_bridge_t( 'まだ渡していないもの:' ) ); ?> <strong><?php echo esc_html( ktp_dt_bridge_tf( '%s 件', number_format_i18n( ktp_dt_bridge_pending_count() ) ) ); ?></strong><br>
+	<?php echo esc_html( ktp_dt_bridge_t( 'KantanProEX（DT）が最後に取りに来た時刻:' ) ); ?> <strong><?php echo $last ? esc_html( wp_date( 'Y-m-d H:i', $last ) ) : esc_html( ktp_dt_bridge_t( 'まだありません' ) ); ?></strong></p>
+	<p class="description"><?php echo esc_html( ktp_dt_bridge_tf( '渡し終えたものは %d 日後に、このサイトから消します。', (int) KTP_DT_BRIDGE_KEEP_ACKED_DAYS ) ); ?></p>
 
 	<?php if ( $ktp_cat['services'] ) : ?>
-	<h2>商品ページの URL</h2>
-	<p>商品ごとのページです。SNS・ブログ・LINE・メールに貼ると、商品名と画像のカードで表示されます。一覧（<code>[ktp_dt_products]</code>）の商品名と画像からも開けます。</p>
+	<h2><?php echo esc_html( ktp_dt_bridge_t( '商品ページの URL' ) ); ?></h2>
+	<p><?php echo ktp_dt_bridge_t( '商品ごとのページです。SNS・ブログ・LINE・メールに貼ると、商品名と画像のカードで表示されます。一覧（<code>[ktp_dt_products]</code>）の商品名と画像からも開けます。' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></p>
 	<table class="widefat striped" style="max-width:960px;">
-		<thead><tr><th>商品</th><th>URL</th><th></th></tr></thead>
+		<thead><tr><th><?php echo esc_html( ktp_dt_bridge_t( '商品' ) ); ?></th><th>URL</th><th></th></tr></thead>
 		<tbody>
 		<?php foreach ( $ktp_cat['services'] as $ktp_s ) : ?>
 			<?php $ktp_u = ktp_dt_bridge_item_url( $ktp_s['id'] ); ?>
 			<tr>
-				<td><?php echo esc_html( $ktp_s['name'] ); ?><?php echo $ktp_s['open'] ? '' : '（' . esc_html( $ktp_s['status_label'] ?: '受付停止中' ) . '）'; ?></td>
+				<td><?php echo esc_html( $ktp_s['name'] ); ?><?php echo $ktp_s['open'] ? '' : '（' . esc_html( ktp_dt_bridge_t( $ktp_s['status_label'] ?: '受付停止中' ) ) . '）'; ?></td>
 				<td><input type="text" readonly class="large-text code" value="<?php echo esc_attr( $ktp_u ); ?>" onclick="this.select()"></td>
-				<td><a href="<?php echo esc_url( $ktp_u ); ?>" target="_blank" rel="noopener">開く</a></td>
+				<td><a href="<?php echo esc_url( $ktp_u ); ?>" target="_blank" rel="noopener"><?php echo esc_html( ktp_dt_bridge_t( '開く' ) ); ?></a></td>
 			</tr>
 		<?php endforeach; ?>
 		</tbody>
 	</table>
 
-	<h2>Google ショッピング用フィード</h2>
+	<h2><?php echo esc_html( ktp_dt_bridge_t( 'Google ショッピング用フィード' ) ); ?></h2>
 	<table class="form-table" role="presentation">
 		<tr>
-			<th scope="row">フィードの URL</th>
+			<th scope="row"><?php echo esc_html( ktp_dt_bridge_t( 'フィードの URL' ) ); ?></th>
 			<td>
 				<input type="text" readonly class="large-text code" value="<?php echo esc_attr( ktp_dt_bridge_feed_url() ); ?>" onclick="this.select()">
-				<p class="description">Google Merchant Center の「商品 → フィードを追加 → スケジュールされた取得」にこの URL を登録すると、商品が Google ショッピング（無料掲載）に載ります。値段・受付状況はこの URL から毎回読み直されます。<br>
-				載るのは、画像があり、値段が 0 円でなく、定期契約（毎月など）でない商品です。送料・返品のルールは Merchant Center 側で設定します。サービス（作業・役務）は Google ショッピングに載せられない場合があります。</p>
+				<p class="description"><?php echo ktp_dt_bridge_t( 'Google Merchant Center の「商品 → フィードを追加 → スケジュールされた取得」にこの URL を登録すると、商品が Google ショッピング（無料掲載）に載ります。値段・受付状況はこの URL から毎回読み直されます。<br>載るのは、画像があり、値段が 0 円でなく、定期契約（毎月など）でない商品です。送料・返品のルールは Merchant Center 側で設定します。サービス（作業・役務）は Google ショッピングに載せられない場合があります。' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></p>
 			</td>
 		</tr>
 	</table>
-	<p class="description">商品ページは WordPress のサイトマップ（<code>wp-sitemap.xml</code>）にも入ります（SEO プラグインでサイトマップを切り替えている場合は入りません）。</p>
+	<p class="description"><?php echo ktp_dt_bridge_t( '商品ページは WordPress のサイトマップ（<code>wp-sitemap.xml</code>）にも入ります（SEO プラグインでサイトマップを切り替えている場合は入りません）。' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></p>
 	<?php endif; ?>
 
-	<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('接続キーを作り直すと、今のキーでは接続できなくなります。続けますか？');">
+	<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('<?php echo esc_js( ktp_dt_bridge_t( '接続キーを作り直すと、今のキーでは接続できなくなります。続けますか？' ) ); ?>');">
 		<input type="hidden" name="action" value="ktp_dt_bridge_save">
 		<input type="hidden" name="new_key" value="1">
 		<?php wp_nonce_field( 'ktp_dt_bridge_save' ); ?>
-		<?php submit_button( '接続キーを作り直す', 'secondary' ); ?>
+		<?php submit_button( ktp_dt_bridge_t( '接続キーを作り直す' ), 'secondary' ); ?>
 	</form>
 </div>
 	<?php

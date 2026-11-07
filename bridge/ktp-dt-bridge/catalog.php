@@ -24,7 +24,7 @@ const KTP_DT_BRIDGE_MAX_IMAGE   = 3145728; // 3MB（縮小済みの画像が来�
 
 function ktp_dt_bridge_catalog() {
 	$c = get_option( KTP_DT_BRIDGE_CAT_OPT, array() );
-	return is_array( $c ) && isset( $c['services'] ) && is_array( $c['services'] ) ? $c : array( 'hash' => '', 'updated' => 0, 'services' => array() );
+	return is_array( $c ) && isset( $c['services'] ) && is_array( $c['services'] ) ? $c : array( 'hash' => '', 'updated' => 0, 'services' => array(), 'currency' => 'JPY' );
 }
 
 function ktp_dt_bridge_images() {
@@ -115,7 +115,7 @@ add_action(
 					$raw      = is_array( $in ) && isset( $in['services'] ) && is_array( $in['services'] ) ? $in['services'] : null;
 					$hash     = is_array( $in ) && isset( $in['hash'] ) ? preg_replace( '/[^a-f0-9]/', '', (string) $in['hash'] ) : '';
 					if ( null === $raw || '' === $hash || count( $raw ) > KTP_DT_BRIDGE_MAX_SERVICES ) {
-						return new WP_Error( 'ktp_dt_bridge_bad', '商品の形式が正しくありません。', array( 'status' => 400 ) );
+						return new WP_Error( 'ktp_dt_bridge_bad', ktp_dt_bridge_t( '商品の形式が正しくありません。' ), array( 'status' => 400 ) );
 					}
 					$services = array();
 					foreach ( $raw as $s ) {
@@ -138,12 +138,16 @@ add_action(
 						}
 					}
 					ktp_dt_bridge_remove_image_files( $keep );
+					// 1.6.0〜: DT が通貨を送ってくる（古い DT は送らない → 日本円）
+					$currency = is_array( $in ) && isset( $in['currency'] ) ? strtoupper( preg_replace( '/[^A-Za-z]/', '', (string) $in['currency'] ) ) : 'JPY';
+					$currency = isset( ktp_dt_bridge_currencies()[ $currency ] ) ? $currency : 'JPY';
 					update_option(
 						KTP_DT_BRIDGE_CAT_OPT,
 						array(
 							'hash'     => $hash,
 							'updated'  => time(),
 							'services' => $services,
+							'currency' => $currency,
 						),
 						false
 					);
@@ -169,16 +173,16 @@ add_action(
 					$hash = is_array( $in ) ? (string) ( $in['hash'] ?? '' ) : '';
 					$data = is_array( $in ) ? base64_decode( (string) ( $in['data'] ?? '' ), true ) : false;
 					if ( $id <= 0 || ! preg_match( '/^[a-f0-9]{32}$/', $hash ) || false === $data || '' === $data || strlen( $data ) > KTP_DT_BRIDGE_MAX_IMAGE ) {
-						return new WP_Error( 'ktp_dt_bridge_bad', '画像の形式が正しくありません。', array( 'status' => 400 ) );
+						return new WP_Error( 'ktp_dt_bridge_bad', ktp_dt_bridge_t( '画像の形式が正しくありません。' ), array( 'status' => 400 ) );
 					}
 					$info = @getimagesizefromstring( $data );
 					if ( ! $info || IMAGETYPE_JPEG !== $info[2] || $info[0] > 4000 || $info[1] > 4000 ) {
-						return new WP_Error( 'ktp_dt_bridge_bad', '画像は JPEG（4000px 以下）だけ受け付けます。', array( 'status' => 400 ) );
+						return new WP_Error( 'ktp_dt_bridge_bad', ktp_dt_bridge_t( '画像は JPEG（4000px 以下）だけ受け付けます。' ), array( 'status' => 400 ) );
 					}
 					$cat = ktp_dt_bridge_catalog();
 					$ids = wp_list_pluck( $cat['services'], 'id' );
 					if ( ! in_array( $id, array_map( 'intval', $ids ), true ) ) {
-						return new WP_Error( 'ktp_dt_bridge_bad', '商品が登録されていません。', array( 'status' => 400 ) );
+						return new WP_Error( 'ktp_dt_bridge_bad', ktp_dt_bridge_t( '商品が登録されていません。' ), array( 'status' => 400 ) );
 					}
 					list( $dir ) = ktp_dt_bridge_image_dir();
 					wp_mkdir_p( $dir );
@@ -187,7 +191,7 @@ add_action(
 					}
 					$file = 'p' . $id . '-' . substr( $hash, 0, 12 ) . '.jpg';
 					if ( false === file_put_contents( $dir . $file, $data ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions
-						return new WP_Error( 'ktp_dt_bridge_write', '画像を保存できませんでした。', array( 'status' => 500 ) );
+						return new WP_Error( 'ktp_dt_bridge_write', ktp_dt_bridge_t( '画像を保存できませんでした。' ), array( 'status' => 500 ) );
 					}
 					$map = ktp_dt_bridge_images();
 					if ( ! empty( $map[ $id ]['file'] ) && $map[ $id ]['file'] !== $file ) {
@@ -220,8 +224,32 @@ function ktp_dt_bridge_flag( $v ) {
 	return in_array( strtolower( trim( (string) $v ) ), array( '1', 'true', 'yes', 'on' ), true );
 }
 
+/** 使える通貨（記号と小数の桁）。KantanProEX 本体の通貨設定と同じもの */
+function ktp_dt_bridge_currencies() {
+	return array(
+		'JPY' => array( 'symbol' => '¥', 'decimals' => 0 ),
+		'USD' => array( 'symbol' => '$', 'decimals' => 2 ),
+		'EUR' => array( 'symbol' => '€', 'decimals' => 2 ),
+		'GBP' => array( 'symbol' => '£', 'decimals' => 2 ),
+		'CAD' => array( 'symbol' => 'C$', 'decimals' => 2 ),
+		'AUD' => array( 'symbol' => 'A$', 'decimals' => 2 ),
+	);
+}
+
+/** DT から届いた通貨コード（無ければ JPY） */
+function ktp_dt_bridge_currency() {
+	$c = ktp_dt_bridge_catalog();
+	$code = isset( $c['currency'] ) ? (string) $c['currency'] : 'JPY';
+	return isset( ktp_dt_bridge_currencies()[ $code ] ) ? $code : 'JPY';
+}
+
 function ktp_dt_bridge_money( $n ) {
-	$n = (float) $n;
+	$n    = (float) $n;
+	$code = ktp_dt_bridge_currency();
+	if ( 'JPY' !== $code ) {
+		// 円以外は常に小数 2 桁（$19.99・$20.00）
+		return ktp_dt_bridge_currencies()[ $code ]['symbol'] . number_format( $n, 2 );
+	}
 	return '¥' . ( floor( $n ) == $n ? number_format( $n ) : rtrim( rtrim( number_format( $n, 2 ), '0' ), '.' ) );
 }
 
@@ -261,7 +289,7 @@ function ktp_dt_bridge_render_products( $atts = array() ) {
 		$services = array_slice( $services, 0, $limit );
 	}
 	if ( ! $services ) {
-		return '<p class="ktp-dtp ktp-dtp--empty">公開中の商品がありません。</p>';
+		return '<p class="ktp-dtp ktp-dtp--empty">' . esc_html( ktp_dt_bridge_t( '公開中の商品がありません。' ) ) . '</p>';
 	}
 	$cols   = max( 1, min( 4, (int) $a['columns'] ) );
 	$layout = in_array( $a['layout'], array( 'cards', 'table' ), true ) ? 'list' : 'grid';
@@ -287,7 +315,7 @@ function ktp_dt_bridge_render_products( $atts = array() ) {
 	$GLOBALS['ktp_dt_bridge_products_used'] = true;
 	$html = '<div class="ktp-dtp ktp-dtp--' . esc_attr( $layout ) . '" id="' . esc_attr( $uid ) . '" data-ajax="' . esc_url( admin_url( 'admin-ajax.php' ) ) . '" data-ts="' . esc_attr( $ts . '-' . ktp_dt_bridge_sign_ts( $ts ) ) . '">';
 	if ( $show['filter'] && count( $categories ) > 1 ) {
-		$html .= '<div class="ktp-dtp__filter"><button type="button" class="ktp-dtp__chip is-active" data-cat="">すべて</button>';
+		$html .= '<div class="ktp-dtp__filter"><button type="button" class="ktp-dtp__chip is-active" data-cat="">' . esc_html( ktp_dt_bridge_t( 'すべて' ) ) . '</button>';
 		foreach ( $categories as $c ) {
 			$html .= '<button type="button" class="ktp-dtp__chip" data-cat="' . esc_attr( $c ) . '">' . esc_html( $c ) . '</button>';
 		}
@@ -297,7 +325,7 @@ function ktp_dt_bridge_render_products( $atts = array() ) {
 	foreach ( $services as $s ) {
 		$html .= ktp_dt_bridge_render_card( $s, $show, $link );
 	}
-	$html .= '<p class="ktp-dtp__none" hidden>該当する商品がありません。</p></div>';
+	$html .= '<p class="ktp-dtp__none" hidden>' . esc_html( ktp_dt_bridge_t( '該当する商品がありません。' ) ) . '</p></div>';
 	$html .= ktp_dt_bridge_products_form();
 	$html .= '</div>';
 	return $html;
@@ -306,9 +334,9 @@ function ktp_dt_bridge_render_products( $atts = array() ) {
 /** 値段の行（定期契約は「/ 毎月（初回 …）」、それ以外は単位。一覧と個別ページで同じ書き方） */
 function ktp_dt_bridge_price_html( array $s, array $show ) {
 	return '<p class="ktp-dtp__price">' . esc_html( ktp_dt_bridge_money( $s['price'] ) )
-		. ( '' !== ( $s['billing_cycle_label'] ?? '' ) ? ' <span class="ktp-dtp__unit">/ ' . esc_html( $s['billing_cycle_label'] ) . ( ( $s['initial_fee'] ?? 0 ) > 0 ? '（初回 ' . esc_html( ktp_dt_bridge_money( $s['initial_fee'] ) ) . '）' : '' ) . '</span>' : '' )
+		. ( '' !== ( $s['billing_cycle_label'] ?? '' ) ? ' <span class="ktp-dtp__unit">/ ' . esc_html( ktp_dt_bridge_t( $s['billing_cycle_label'] ) ) . ( ( $s['initial_fee'] ?? 0 ) > 0 ? esc_html( ktp_dt_bridge_tf( '（初回 %s）', ktp_dt_bridge_money( $s['initial_fee'] ) ) ) : '' ) . '</span>' : '' )
 		. ( '' === ( $s['billing_cycle_label'] ?? '' ) && $show['unit'] && '' !== $s['unit'] ? ' <span class="ktp-dtp__unit">/ ' . esc_html( $s['unit'] ) . '</span>' : '' )
-		. ( $show['tax'] && null !== $s['tax_rate'] ? ' <span class="ktp-dtp__unit">（税' . esc_html( rtrim( rtrim( number_format( $s['tax_rate'], 2 ), '0' ), '.' ) ) . '%）</span>' : '' )
+		. ( $show['tax'] && null !== $s['tax_rate'] ? ' <span class="ktp-dtp__unit">' . esc_html( ktp_dt_bridge_tf( '（税%s%%）', rtrim( rtrim( number_format( $s['tax_rate'], 2 ), '0' ), '.' ) ) ) . '</span>' : '' )
 		. '</p>';
 }
 
@@ -316,12 +344,12 @@ function ktp_dt_bridge_price_html( array $s, array $show ) {
 function ktp_dt_bridge_action_html( array $s, $has_img ) {
 	if ( $s['open'] && '' !== ( $s['buy_url'] ?? '' ) && ktp_dt_bridge_settings()['shop'] ) {
 		// 即時購入: Stripe の決済ページへそのまま進む（WP 版の「購入する」と同じ文言）
-		return '<a class="ktp-dtp__apply ktp-dtp__buy" href="' . esc_url( $s['buy_url'] ) . '" rel="noopener">購入する</a>';
+		return '<a class="ktp-dtp__apply ktp-dtp__buy" href="' . esc_url( $s['buy_url'] ) . '" rel="noopener">' . esc_html( ktp_dt_bridge_t( '購入する' ) ) . '</a>';
 	}
 	if ( $s['open'] ) {
-		return '<button type="button" class="ktp-dtp__apply" data-id="' . (int) $s['id'] . '" data-name="' . esc_attr( $s['name'] ) . '" data-fixed="' . ( $s['quantity_fixed'] ? '1' : '0' ) . '">申し込む・問い合わせる</button>';
+		return '<button type="button" class="ktp-dtp__apply" data-id="' . (int) $s['id'] . '" data-name="' . esc_attr( $s['name'] ) . '" data-fixed="' . ( $s['quantity_fixed'] ? '1' : '0' ) . '">' . esc_html( ktp_dt_bridge_t( '申し込む・問い合わせる' ) ) . '</button>';
 	}
-	return $has_img ? '' : '<p class="ktp-dtp__closed">' . esc_html( $s['status_label'] ?: '受付停止中' ) . '</p>';
+	return $has_img ? '' : '<p class="ktp-dtp__closed">' . esc_html( ktp_dt_bridge_t( $s['status_label'] ?: '受付停止中' ) ) . '</p>';
 }
 
 /** 一覧のカード 1 枚。$link が true なら、商品名と画像を個別ページ（item.php）へのリンクにする */
@@ -332,7 +360,7 @@ function ktp_dt_bridge_render_card( array $s, array $show, $link ) {
 	if ( $img ) {
 		$tag   = '<img src="' . esc_url( $img ) . '" alt="' . esc_attr( $s['name'] ) . '" loading="lazy">';
 		$html .= '<div class="ktp-dtp__image">' . ( $url ? '<a href="' . esc_url( $url ) . '" tabindex="-1">' . $tag . '</a>' : $tag )
-			. ( $s['open'] ? '' : '<span class="ktp-dtp__badge">' . esc_html( $s['status_label'] ?: '受付停止中' ) . '</span>' ) . '</div>';
+			. ( $s['open'] ? '' : '<span class="ktp-dtp__badge">' . esc_html( ktp_dt_bridge_t( $s['status_label'] ?: '受付停止中' ) ) . '</span>' ) . '</div>';
 	}
 	// リンクは見出しの外に置く（Cocoon などの目次機能が見出しの中身を書き換え、中のリンクを消すため）
 	$name  = '<h3 class="ktp-dtp__name">' . esc_html( $s['name'] ) . '</h3>';
@@ -369,17 +397,20 @@ add_action(
 );
 
 function ktp_dt_bridge_products_form() {
+	$t = function ( $ja ) {
+		return esc_html( ktp_dt_bridge_t( $ja ) );
+	};
 	return '<dialog class="ktp-dtp__dialog"><form class="ktp-dtp__form" method="dialog" novalidate>'
-		. '<h3 class="ktp-dtp__dtitle">お申し込み・お問い合わせ</h3><p class="ktp-dtp__dname"></p>'
-		. '<p class="ktp-dtp__hp" aria-hidden="true"><label>確認用（空のままにしてください）<input type="text" name="ktp_dt_hp" tabindex="-1" autocomplete="off"></label></p>'
-		. '<label>会社名（任意）<input type="text" name="company_name" autocomplete="organization"></label>'
-		. '<label>お名前<span class="ktp-dtp__req">必須</span><input type="text" name="contact_name" autocomplete="name" required></label>'
-		. '<label>メールアドレス<span class="ktp-dtp__req">必須</span><input type="email" name="email" autocomplete="email" required></label>'
-		. '<label>電話番号（任意）<input type="tel" name="phone" autocomplete="tel"></label>'
-		. '<label class="ktp-dtp__qty">数量<input type="number" name="quantity" min="1" step="1" value="1"></label>'
-		. '<label>ご要望・メッセージ（任意）<textarea name="message" rows="4"></textarea></label>'
+		. '<h3 class="ktp-dtp__dtitle">' . $t( 'お申し込み・お問い合わせ' ) . '</h3><p class="ktp-dtp__dname"></p>'
+		. '<p class="ktp-dtp__hp" aria-hidden="true"><label>' . $t( '確認用（空のままにしてください）' ) . '<input type="text" name="ktp_dt_hp" tabindex="-1" autocomplete="off"></label></p>'
+		. '<label>' . $t( '会社名（任意）' ) . '<input type="text" name="company_name" autocomplete="organization"></label>'
+		. '<label>' . $t( 'お名前' ) . '<span class="ktp-dtp__req">' . $t( '必須' ) . '</span><input type="text" name="contact_name" autocomplete="name" required></label>'
+		. '<label>' . $t( 'メールアドレス' ) . '<span class="ktp-dtp__req">' . $t( '必須' ) . '</span><input type="email" name="email" autocomplete="email" required></label>'
+		. '<label>' . $t( '電話番号（任意）' ) . '<input type="tel" name="phone" autocomplete="tel"></label>'
+		. '<label class="ktp-dtp__qty">' . $t( '数量' ) . '<input type="number" name="quantity" min="1" step="1" value="1"></label>'
+		. '<label>' . $t( 'ご要望・メッセージ（任意）' ) . '<textarea name="message" rows="4"></textarea></label>'
 		. '<p class="ktp-dtp__msg" role="status"></p>'
-		. '<div class="ktp-dtp__actions"><button type="button" class="ktp-dtp__cancel">閉じる</button><button type="submit" class="ktp-dtp__send">送信する</button></div>'
+		. '<div class="ktp-dtp__actions"><button type="button" class="ktp-dtp__cancel">' . $t( '閉じる' ) . '</button><button type="submit" class="ktp-dtp__send">' . $t( '送信する' ) . '</button></div>'
 		. '</form></dialog>';
 }
 
@@ -458,7 +489,19 @@ function ktp_dt_bridge_products_js() {
 		return '';
 	}
 	$done = true;
+	// JS の中の文言は、PHP で訳した値を渡す
+	$tr = wp_json_encode(
+		array(
+			'need' => ktp_dt_bridge_t( 'お名前とメールアドレスを入力してください。' ),
+			'busy' => ktp_dt_bridge_t( '送信しています…' ),
+			'ok'   => ktp_dt_bridge_t( '受け付けました。' ),
+			'ng'   => ktp_dt_bridge_t( '送信できませんでした。' ),
+			'retry' => ktp_dt_bridge_t( '送信できませんでした。時間をおいてもう一度お試しください。' ),
+		),
+		JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP
+	);
 	return '<script id="ktp-dtp-js">(function(){
+var T=' . $tr . ';
 function init(root){
 var dlg=root.querySelector(".ktp-dtp__dialog"),form=root.querySelector(".ktp-dtp__form"),msg=root.querySelector(".ktp-dtp__msg");
 if(!dlg||!form){return;}
@@ -473,14 +516,14 @@ if(dlg.showModal){dlg.showModal();}else{dlg.setAttribute("open","");}
 root.querySelector(".ktp-dtp__cancel").addEventListener("click",function(){dlg.close?dlg.close():dlg.removeAttribute("open");});
 form.addEventListener("submit",function(e){
 e.preventDefault();if(sending){return;}
-if(!form.contact_name.value.trim()||!form.email.value.trim()){msg.className="ktp-dtp__msg is-ng";msg.textContent="お名前とメールアドレスを入力してください。";return;}
-sending=true;var send=form.querySelector(".ktp-dtp__send");send.disabled=true;msg.className="ktp-dtp__msg";msg.textContent="送信しています…";
+if(!form.contact_name.value.trim()||!form.email.value.trim()){msg.className="ktp-dtp__msg is-ng";msg.textContent=T.need;return;}
+sending=true;var send=form.querySelector(".ktp-dtp__send");send.disabled=true;msg.className="ktp-dtp__msg";msg.textContent=T.busy;
 var fd=new FormData(form);fd.append("action","ktp_dt_order");fd.append("service_id",cur);fd.append("ktp_dt_ts",root.dataset.ts);
 fetch(root.dataset.ajax,{method:"POST",body:fd,credentials:"same-origin"}).then(function(r){return r.json();}).then(function(j){
 sending=false;
-if(j&&j.success){msg.className="ktp-dtp__msg is-ok";msg.textContent=(j.data&&j.data.message)||"受け付けました。";}
-else{msg.className="ktp-dtp__msg is-ng";msg.textContent=(j&&j.data&&j.data.message)||"送信できませんでした。";send.disabled=false;}
-}).catch(function(){sending=false;send.disabled=false;msg.className="ktp-dtp__msg is-ng";msg.textContent="送信できませんでした。時間をおいてもう一度お試しください。";});
+if(j&&j.success){msg.className="ktp-dtp__msg is-ok";msg.textContent=(j.data&&j.data.message)||T.ok;}
+else{msg.className="ktp-dtp__msg is-ng";msg.textContent=(j&&j.data&&j.data.message)||T.ng;send.disabled=false;}
+}).catch(function(){sending=false;send.disabled=false;msg.className="ktp-dtp__msg is-ng";msg.textContent=T.retry;});
 });
 var chips=root.querySelectorAll(".ktp-dtp__chip");
 chips.forEach(function(c){c.addEventListener("click",function(){
@@ -502,15 +545,15 @@ function ktp_dt_bridge_order_fail( $message, $status = 400 ) {
 
 function ktp_dt_bridge_handle_order() {
 	if ( ! ktp_dt_bridge_settings()['shop'] ) {
-		ktp_dt_bridge_order_fail( '現在、お申し込みを受け付けておりません。', 403 );
+		ktp_dt_bridge_order_fail( ktp_dt_bridge_t( '現在、お申し込みを受け付けておりません。' ), 403 );
 	}
 	// 同じ人からの連続送信を止める（10 分に 5 回まで）
 	$limit_key = 'ktp_dt_bridge_ord_' . md5( ktp_dt_bridge_client_ip() );
 	$count     = (int) get_transient( $limit_key );
 	if ( $count >= 5 ) {
-		ktp_dt_bridge_order_fail( '送信が続いたため、しばらくしてからもう一度お試しください。', 429 );
+		ktp_dt_bridge_order_fail( ktp_dt_bridge_t( '送信が続いたため、しばらくしてからもう一度お試しください。' ), 429 );
 	}
-	$spam = '送信内容を確認できませんでした。時間をおいて再度お試しください。';
+	$spam = ktp_dt_bridge_t( '送信内容を確認できませんでした。時間をおいて再度お試しください。' );
 	// phpcs:disable WordPress.Security.NonceVerification.Missing
 	if ( ! empty( $_POST['ktp_dt_hp'] ) ) {
 		ktp_dt_bridge_order_fail( $spam );
@@ -536,27 +579,27 @@ function ktp_dt_bridge_handle_order() {
 		}
 	}
 	if ( ! $found ) {
-		ktp_dt_bridge_order_fail( '指定された商品は公開されていないか、存在しません。' );
+		ktp_dt_bridge_order_fail( ktp_dt_bridge_t( '指定された商品は公開されていないか、存在しません。' ) );
 	}
 	if ( ! $found['open'] ) {
-		ktp_dt_bridge_order_fail( '現在この商品はお申し込みを受け付けておりません。' );
+		ktp_dt_bridge_order_fail( ktp_dt_bridge_t( '現在この商品はお申し込みを受け付けておりません。' ) );
 	}
 	if ( '' === $name ) {
-		ktp_dt_bridge_order_fail( 'お名前を入力してください。' );
+		ktp_dt_bridge_order_fail( ktp_dt_bridge_t( 'お名前を入力してください。' ) );
 	}
 	if ( '' === $email || ! is_email( $email ) ) {
-		ktp_dt_bridge_order_fail( '有効なメールアドレスを入力してください。' );
+		ktp_dt_bridge_order_fail( ktp_dt_bridge_t( '有効なメールアドレスを入力してください。' ) );
 	}
 	foreach ( array( $company, $name, $phone, $message ) as $text ) {
 		if ( preg_match( '/<\/?[a-zA-Z][a-zA-Z0-9]*(\s[^<>]*)?>/', $text ) === 1 ) {
-			ktp_dt_bridge_order_fail( 'HTMLタグを含む内容は送信できません。' );
+			ktp_dt_bridge_order_fail( ktp_dt_bridge_t( 'HTMLタグを含む内容は送信できません。' ) );
 		}
 		if ( preg_match_all( '#(https?://|www\.)[^\s]+#i', $text ) > 2 ) {
-			ktp_dt_bridge_order_fail( 'URLの記載が多いため送信できません。' );
+			ktp_dt_bridge_order_fail( ktp_dt_bridge_t( 'URLの記載が多いため送信できません。' ) );
 		}
 	}
 	if ( ktp_dt_bridge_settings()['ja_only'] && ktp_dt_bridge_detect_language( $message ) === 'other' ) {
-		ktp_dt_bridge_order_fail( '現在、設定されている言語以外でのお問い合わせは受け付けておりません。' );
+		ktp_dt_bridge_order_fail( ktp_dt_bridge_t( '現在、設定されている言語以外でのお問い合わせは受け付けておりません。' ) );
 	}
 	if ( function_exists( 'mb_substr' ) ) {
 		$message = mb_substr( $message, 0, 3000 );
@@ -579,9 +622,9 @@ function ktp_dt_bridge_handle_order() {
 		)
 	);
 	if ( ! $ok ) {
-		ktp_dt_bridge_order_fail( '受け付けに失敗しました。時間をおいてもう一度お試しください。', 500 );
+		ktp_dt_bridge_order_fail( ktp_dt_bridge_t( '受け付けに失敗しました。時間をおいてもう一度お試しください。' ), 500 );
 	}
-	wp_send_json_success( array( 'message' => 'お申し込みを受け付けました。担当者よりご連絡いたします。' ) );
+	wp_send_json_success( array( 'message' => ktp_dt_bridge_t( 'お申し込みを受け付けました。担当者よりご連絡いたします。' ) ) );
 }
 add_action( 'wp_ajax_nopriv_ktp_dt_order', 'ktp_dt_bridge_handle_order' );
 add_action( 'wp_ajax_ktp_dt_order', 'ktp_dt_bridge_handle_order' );

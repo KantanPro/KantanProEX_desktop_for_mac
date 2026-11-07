@@ -29,9 +29,41 @@ const KTP_DT_STRIPE_LINKS      = 'ktp_dt_stripe_links';
 const KTP_DT_STRIPE_OLD_LINKS  = 'ktp_dt_stripe_old_links';
 const KTP_DT_STRIPE_DONE       = 'ktp_dt_stripe_done';
 const KTP_DT_STRIPE_NONCE      = 'ktp_dt_stripe';
-const KTP_DT_STRIPE_MIN_AMOUNT = 50;   // Stripe の日本円の最低金額
+const KTP_DT_STRIPE_MIN_AMOUNT = 50;   // Stripe の日本円の最低金額（円以外は ktp_dt_stripe_min_amount() を使う）
 const KTP_DT_STRIPE_OLD_DAYS   = 3;    // 止めたリンクの決済も、この日数は取りに行く（止める直前に払われた分）
 const KTP_DT_STRIPE_KEEP       = 2000; // 取り込んだ決済の印を覚えておく件数
+
+/** Stripe に渡す通貨コード（小文字）。設定の通貨に従う。取れなければ円。 */
+function ktp_dt_stripe_currency() {
+	return class_exists( 'KTPWP_Settings' ) ? KTPWP_Settings::stripe_currency() : 'jpy';
+}
+
+/** 金額を Stripe の最小単位（円は円、ドルなどはセント）にする。 */
+function ktp_dt_stripe_to_minor( $amount ) {
+	return class_exists( 'KTPWP_Settings' ) ? KTPWP_Settings::to_stripe_amount( $amount ) : (int) round( (float) $amount );
+}
+
+/**
+ * Stripe の最低金額（最小単位）。JPY 50、USD/EUR/CAD/AUD 0.50（50 セント）、GBP 0.30（30 ペンス）。
+ */
+function ktp_dt_stripe_min_amount( $currency = null ) {
+	$currency = strtolower( (string) ( $currency ?? ktp_dt_stripe_currency() ) );
+	return 'gbp' === $currency ? 30 : KTP_DT_STRIPE_MIN_AMOUNT;
+}
+
+/**
+ * Stripe の最小単位の金額を、通知・記録用の文字にする。円は今までどおり ¥12,345、
+ * ドルなどは通貨記号つきで小数 2 桁（$19.99）。
+ */
+function ktp_dt_stripe_money_text( $minor, $currency = null ) {
+	$currency = strtolower( (string) ( $currency ?? ktp_dt_stripe_currency() ) );
+	if ( 'jpy' === $currency ) {
+		return '¥' . number_format( (int) $minor );
+	}
+	$conf   = class_exists( 'KTPWP_Settings' ) ? KTPWP_Settings::get_supported_currencies() : array();
+	$symbol = isset( $conf[ strtoupper( $currency ) ]['symbol'] ) ? (string) $conf[ strtoupper( $currency ) ]['symbol'] : strtoupper( $currency ) . ' ';
+	return $symbol . number_format( round( (int) $minor ) / 100, 2, '.', ',' );
+}
 
 /**
  * Stripe API の入口。自動テストのときだけ、このパソコン内の模擬サーバー（127.0.0.1）へ向けられる
@@ -145,26 +177,32 @@ function ktp_dt_stripe_ineligible_reason( $row, array $avail ) {
 	if ( ! class_exists( 'KTPWP_Service_DB' ) || ! KTPWP_Service_DB::is_public_instant_purchase( $row ) ) {
 		return 'off';
 	}
-	// 即時購入は日本円だけ（金額・最低金額・取り込みの表示が円の前提。ホームページ側の受付プラグインも日本語だけ）
-	if ( class_exists( 'KTPWP_Settings' ) && 'JPY' !== KTPWP_Settings::get_currency_code() ) {
-		return ktp_dt__( '即時購入（Stripe）は日本円のときだけ使えます' );
-	}
+	$cur     = ktp_dt_stripe_currency();
+	$min     = ktp_dt_stripe_min_amount( $cur );
+	$min_txt = ktp_dt_stripe_money_text( $min, $cur );
 	$rec = ktp_dt_stripe_recurring_amounts( $row );
 	if ( $rec ) {
 		if ( ! empty( $rec['provisional'] ) ) {
 			return '初回に請求しない定期請求項目があるため、即時購入できません';
 		}
-		if ( $rec['recurring'] < KTP_DT_STRIPE_MIN_AMOUNT ) {
-			return 'Stripe で決済できるのは毎回 50 円からです（定期請求項目の合計）';
+		if ( $rec['recurring'] < $min ) {
+			return 'jpy' === $cur
+				? 'Stripe で決済できるのは毎回 50 円からです（定期請求項目の合計）'
+				: 'Stripe で決済できるのは毎回 ' . $min_txt . ' からです（定期請求項目の合計）';
 		}
 		return empty( $avail['acceptance_open'] ) ? '受付停止中（完売・保留）' : '';
 	}
 	$price = (float) $row->price;
-	if ( floor( $price ) != $price ) {
-		return '値段が 1 円単位でないため、即時購入できません';
+	if ( 'jpy' === $cur ) {
+		if ( floor( $price ) != $price ) {
+			return '値段が 1 円単位でないため、即時購入できません';
+		}
+	} elseif ( abs( $price * 100 - round( $price * 100 ) ) > 0.000001 ) {
+		return '値段が小数 2 桁（1 セント単位）でないため、即時購入できません';
 	}
-	if ( $price < KTP_DT_STRIPE_MIN_AMOUNT ) {
-		return 'Stripe で決済できるのは 50 円からです';
+	$price_minor = ktp_dt_stripe_to_minor( $price );
+	if ( $price_minor < $min ) {
+		return 'jpy' === $cur ? 'Stripe で決済できるのは 50 円からです' : 'Stripe で決済できるのは ' . $min_txt . ' からです';
 	}
 	if ( empty( $avail['acceptance_open'] ) ) {
 		return '受付停止中（完売・保留）';
@@ -178,6 +216,8 @@ function ktp_dt_stripe_ineligible_reason( $row, array $avail ) {
  * （取り込み後の金額チェックと一致させるため）。
  *
  * @param object $row サービス行。
+ * 金額（recurring / initial）は Stripe の最小単位（円は円、ドルなどはセント）。
+ *
  * @return array{interval: string, interval_count: int, recurring: int, initial: int, provisional: bool, label: string}|null
  */
 function ktp_dt_stripe_recurring_amounts( $row ) {
@@ -196,19 +236,19 @@ function ktp_dt_stripe_recurring_amounts( $row ) {
 			if ( trim( (string) ( $item['item_name'] ?? '' ) ) === '' ) {
 				continue;
 			}
-			$recurring += (int) round( (float) ( $item['amount'] ?? 0 ) );
+			$recurring += ktp_dt_stripe_to_minor( $item['amount'] ?? 0 ); // Stripe の最小単位（円は円）
 			if ( empty( $item['bill_on_first_invoice'] ) ) {
 				$provisional = true; // 初回の請求に載らない項目がある（毎回の金額と初回の請求が合わなくなる）
 			}
 		}
 	} else {
-		$recurring = (int) round( (float) $row->price );
+		$recurring = ktp_dt_stripe_to_minor( $row->price );
 	}
 	$initial = 0;
 	if ( $resolver ) {
 		foreach ( $resolver->default_initial_fees_for_service( (int) $row->id ) as $fee ) {
 			if ( trim( (string) ( $fee['fee_name'] ?? '' ) ) !== '' ) {
-				$initial += (int) round( (float) ( $fee['amount'] ?? 0 ) );
+				$initial += ktp_dt_stripe_to_minor( $fee['amount'] ?? 0 );
 			}
 		}
 	}
@@ -277,7 +317,10 @@ function ktp_dt_stripe_sync_links() {
 		$fixed = KTPWP_Service_DB::is_public_quantity_fixed( $row );
 		$name  = trim( (string) $row->service_name );
 		$rec   = ktp_dt_stripe_recurring_amounts( $row );
-		$sig   = md5( $name . '|' . (int) $row->price . '|' . ( $fixed ? 1 : 0 ) . '|' . (string) $row->unit . ( $rec ? '|rec:' . $rec['interval'] . ':' . $rec['interval_count'] . ':' . $rec['recurring'] . ':' . $rec['initial'] : '' ) );
+		$cur_c = ktp_dt_stripe_currency();
+		// 円のときは従来どおりの署名（既存の決済ページを作り直さない）。円以外は通貨と最小単位の金額を入れる
+		$en    = function_exists( 'ktp_dt_business_country' ) && 'JP' !== ktp_dt_business_country(); // JP 以外は購入ページの文言を英語にする
+		$sig   = md5( $name . '|' . ( 'jpy' === $cur_c ? (int) $row->price : $cur_c . ':' . ktp_dt_stripe_to_minor( $row->price ) ) . '|' . ( $fixed ? 1 : 0 ) . '|' . (string) $row->unit . ( $rec ? '|rec:' . $rec['interval'] . ':' . $rec['interval_count'] . ':' . $rec['recurring'] . ':' . $rec['initial'] : '' ) . ( $en ? '|en' : '' ) ); // JP は従来どおりの署名（既存の決済ページを作り直さない）。英語にした分だけ署名が変わる
 		$cur   = $links[ $id ] ?? null;
 		if ( is_array( $cur ) && $cur['sig'] === $sig && ( $cur['mode'] ?? '' ) === $mode ) {
 			if ( empty( $cur['active'] ) ) {
@@ -340,11 +383,12 @@ function ktp_dt_stripe_retire( array $l, $service_id ) {
  */
 function ktp_dt_stripe_create_link( $row, $name, $fixed ) {
 	$rec   = ktp_dt_stripe_recurring_amounts( $row );
+	$en    = function_exists( 'ktp_dt_business_country' ) && 'JP' !== ktp_dt_business_country(); // JP 以外は購入ページの文言を英語に
 	$short = function_exists( 'mb_substr' ) ? mb_substr( $name, 0, 200 ) : substr( $name, 0, 200 );
 	$meta  = array( 'ktp_service_id' => (string) (int) $row->id );
 	$pp    = array(
-		'currency'     => 'jpy',
-		'unit_amount'  => $rec ? $rec['recurring'] : (int) $row->price,
+		'currency'     => ktp_dt_stripe_currency(),
+		'unit_amount'  => $rec ? $rec['recurring'] : ktp_dt_stripe_to_minor( $row->price ),
 		'product_data' => array( 'name' => $short, 'metadata' => $meta ),
 		'metadata'     => $meta,
 	);
@@ -366,9 +410,9 @@ function ktp_dt_stripe_create_link( $row, $name, $fixed ) {
 			'POST',
 			'prices',
 			array(
-				'currency'     => 'jpy',
+				'currency'     => ktp_dt_stripe_currency(),
 				'unit_amount'  => $rec['initial'],
-				'product_data' => array( 'name' => mb_substr( $short, 0, 190 ) . '（初回費用）', 'metadata' => $meta ),
+				'product_data' => array( 'name' => mb_substr( $short, 0, 190 ) . ( $en ? ' (initial fee)' : '（初回費用）' ), 'metadata' => $meta ),
 				'metadata'     => $meta,
 			)
 		);
@@ -391,20 +435,20 @@ function ktp_dt_stripe_create_link( $row, $name, $fixed ) {
 			'custom_fields'           => array(
 				array(
 					'key'   => 'contactname',
-					'label' => array( 'type' => 'custom', 'custom' => 'お名前' ),
+					'label' => array( 'type' => 'custom', 'custom' => $en ? 'Name' : 'お名前' ),
 					'type'  => 'text',
 					'text'  => array( 'maximum_length' => 100 ),
 				),
 				array(
 					'key'      => 'companyname',
-					'label'    => array( 'type' => 'custom', 'custom' => '会社名（任意）' ),
+					'label'    => array( 'type' => 'custom', 'custom' => $en ? 'Company (optional)' : '会社名（任意）' ),
 					'type'     => 'text',
 					'optional' => 'true',
 					'text'     => array( 'maximum_length' => 100 ),
 				),
 				array(
 					'key'      => 'message',
-					'label'    => array( 'type' => 'custom', 'custom' => 'ご要望（任意）' ),
+					'label'    => array( 'type' => 'custom', 'custom' => $en ? 'Message (optional)' : 'ご要望（任意）' ),
 					'type'     => 'text',
 					'optional' => 'true',
 					'text'     => array( 'maximum_length' => 255 ),
@@ -414,9 +458,13 @@ function ktp_dt_stripe_create_link( $row, $name, $fixed ) {
 				'type'                => 'hosted_confirmation',
 				'hosted_confirmation' => array(
 					// サイト名はこのアプリの名前（KantanProEX）なので入れない
-					'custom_message' => $rec
+					'custom_message' => $en
+						? ( $rec
+							? 'Thank you for subscribing. You will be billed automatically each period. We will contact you shortly to confirm.'
+							: 'Thank you for your purchase. We will contact you shortly to confirm.' )
+						: ( $rec
 						? 'お申し込みありがとうございます。毎回のご請求は自動で行われます。担当者より確認のご連絡をいたします。'
-						: 'ご購入ありがとうございます。担当者より確認のご連絡をいたします。',
+						: 'ご購入ありがとうございます。担当者より確認のご連絡をいたします。' ),
 				),
 			),
 			'metadata'                => array(
@@ -573,7 +621,8 @@ function ktp_dt_stripe_import_session( $session, $service_id ) {
 		'quantity'     => $quantity,
 	);
 	$amount = (int) ( $session->amount_total ?? 0 );
-	$paid   = '¥' . number_format( $amount );
+	$sess_cur = strtolower( (string) ( $session->currency ?? 'jpy' ) );
+	$paid     = ktp_dt_stripe_money_text( $amount, $sess_cur );
 	$who    = sprintf( '購入した人: %s %s / %s / %s（Stripe %s）', $form['company_name'], $form['contact_name'], $email, $form['phone'], $sid );
 	$api    = class_exists( 'KTPWP_Public_Product_Order' ) ? KTPWP_Public_Product_Order::get_instance() : null;
 	$svc    = $api ? $api->get_public_service( $service_id ) : null;
@@ -627,8 +676,10 @@ function ktp_dt_stripe_import_session( $session, $service_id ) {
 
 	$note     = '';
 	$expected = (int) $billing->compute_expected_invoice_total_cents( $order_id );
-	if ( $expected !== $amount ) {
-		$note = '決済額 ' . $paid . ' と受注の金額 ¥' . number_format( $expected ) . ' が違います（購入のあとで値段を変えた、など）。受注の明細を確かめてください。';
+	if ( $sess_cur !== ktp_dt_stripe_currency() ) {
+		$note = '決済の通貨（' . strtoupper( $sess_cur ) . '）と、いまの設定の通貨（' . strtoupper( ktp_dt_stripe_currency() ) . '）が違います（購入のあとで通貨を変えた、など）。受注の金額を確かめてください。';
+	} elseif ( $expected !== $amount ) {
+		$note = '決済額 ' . $paid . ' と受注の金額 ' . ktp_dt_stripe_money_text( $expected ) . ' が違います（購入のあとで値段を変えた、など）。受注の明細を確かめてください。';
 	}
 	ktp_dt_intake_log(
 		array(
@@ -808,7 +859,7 @@ function ktp_dt_stripe_sync_subscriptions() {
 		KTPWP_Stripe_Subscription::get_instance()->handle_subscription_invoice_paid( $inv );
 		$oid = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$wpdb->prefix}ktp_order WHERE stripe_invoice_id = %s LIMIT 1", $iid ) );
 		ktp_dt_stripe_mark_done( $iid, $oid ); // 取り込めなかった請求も印を付ける（15 分ごとに同じ失敗を繰り返さない。記録に残す）
-		$label = '定期契約の引き落とし（' . sanitize_text_field( (string) $contract->contract_name ) . '・¥' . number_format( (int) ( $inv->amount_paid ?? 0 ) ) . '）';
+		$label = '定期契約の引き落とし（' . sanitize_text_field( (string) $contract->contract_name ) . '・' . ktp_dt_stripe_money_text( (int) ( $inv->amount_paid ?? 0 ), (string) ( $inv->currency ?? 'jpy' ) ) . '）';
 		if ( $oid ) {
 			$out['imported']++;
 			ktp_dt_intake_log( array( 'label' => $label, 'order_id' => $oid, 'received_at' => (int) ( $inv->created ?? 0 ), 'message' => 'Stripe で入金済み。今回分の受注を作りました。' ) );
