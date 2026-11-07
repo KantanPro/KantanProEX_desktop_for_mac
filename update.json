@@ -1,9 +1,9 @@
 {
-  "version": "1.0.68",
-  "released": "2026-11-07",
-  "notes": "1.0.68 になりました。英語表示で使っているときに、サービスの一覧をエクスポートして Excel などで直し、インポートすると、1件も取り込まれない不具合を直しました。英語の見出しのままのファイルを、そのまま取り込めるようになります。",
-  "notes_en": "KantanProEX 1.0.68 fixes a bug in English mode: when you exported your service list, edited it in Excel or another spreadsheet app, and imported it back, nothing was imported. Files with the English column headings can now be imported as they are.",
+  "version": "1.0.69",
+  "released": "2026-11-08",
+  "notes": "1.0.69 になりました。通貨をドル・ユーロ・ポンドなどにしたとき、金額の小数（セント）が切り上げられていた不具合を直しました。また、設定に「国・地域（商取引）」を加え、日本以外を選ぶと税の名前・登録番号・支払条件（Net 30 など）・住所の並びがその国に合わせて変わるようにしました。日本でお使いの方の表示や計算は変わりません。英語表示の訳漏れもいくつか直しました。ホームページの受付プラグイン（1.6.0）は、サイトの言語が英語のとき英語で表示し、金額も設定した通貨に合わせて表示するようになりました。日本語のサイトの表示は変わりません。Stripe の即時購入（ホームページの「今すぐ購入」）が、円のほか米ドル・ユーロ・英ポンド・カナダドル・豪ドルでも使えるようになりました（円の動作は変わりません）。",
+  "notes_en": "KantanProEX 1.0.69 fixes a bug where amounts in dollars, euros, pounds and other currencies were rounded up to whole units (for example, $19.99 x 3 became $60). It also adds a \"Country / region (business rules)\" setting: outside Japan, the tax name (Sales tax, VAT, GST), the tax registration number, payment terms (Net 30 and so on) and the address format follow your country, and Japan-only items such as qualified-invoice costs, the company seal and Japanese envelope printing are hidden. New installs pick the country and currency from your computer's region. Several missing English translations were also fixed. The website intake plugin (1.6.0) now displays in English on English-language sites and shows prices in your chosen currency; Japanese sites look exactly the same as before. Stripe instant purchase (\"Buy now\" on your website) now also works in USD, EUR, GBP, CAD and AUD; JPY behaves exactly as before.",
   "url": "https://www.kantanpro.com/dl/kantanproex-dt-mac",
-  "version_win": "1.0.68",
+  "version_win": "1.0.69",
   "url_win": "https://www.kantanpro.com/dl/kantanproex-dt-windows"
 }
