@@ -1,9 +1,9 @@
 {
-  "version": "1.0.67",
+  "version": "1.0.68",
   "released": "2026-11-07",
-  "notes": "1.0.67 になりました。LAN 共有で iPad から使っているとき、画面右上のアイコンがヘッダーの下の端に貼り付いて表示されていたのを直しました。また、プロフィール画面の左のメニューの「アプリに戻る」を押すと「この画面は、親機でだけ開けます。」と表示されてアプリに戻れなかった不具合も直しました。",
-  "notes_en": "KantanProEX 1.0.67 fixes two issues with LAN sharing on iPad: the icons at the top right were stuck to the bottom edge of the header, and \"Back to the app\" in the left menu of the profile screen showed \"This screen can only be opened on the host computer.\" instead of returning to the app.",
+  "notes": "1.0.68 になりました。英語表示で使っているときに、サービスの一覧をエクスポートして Excel などで直し、インポートすると、1件も取り込まれない不具合を直しました。英語の見出しのままのファイルを、そのまま取り込めるようになります。",
+  "notes_en": "KantanProEX 1.0.68 fixes a bug in English mode: when you exported your service list, edited it in Excel or another spreadsheet app, and imported it back, nothing was imported. Files with the English column headings can now be imported as they are.",
   "url": "https://www.kantanpro.com/dl/kantanproex-dt-mac",
-  "version_win": "1.0.67",
+  "version_win": "1.0.68",
   "url_win": "https://www.kantanpro.com/dl/kantanproex-dt-windows"
 }
