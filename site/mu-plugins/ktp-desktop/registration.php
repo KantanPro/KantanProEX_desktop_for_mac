@@ -131,10 +131,10 @@ function ktp_desktop_render_register_page() {
 			<div class="notice <?php echo $is_error ? 'notice-error' : 'notice-success'; ?>"><p><?php echo esc_html( $message ); ?></p></div>
 		<?php endif; ?>
 		<p>ユーザー登録は任意です。登録しても機能の制限は変わりません（有料版の機能はライセンスキーで使えます）。</p>
-		<p>ユーザー登録をすると、次のメリットがあります。</p>
+		<p><?php echo esc_html( ktp_dt__( 'ユーザー登録をすると、次のメリットがあります。' ) ); ?></p>
 		<ul style="list-style:disc;margin-left:1.5em">
-			<li>無料版・試用期間中に、顧客・協力会社へのメールの署名の後ろに入る「このメールは <?php echo esc_html( KANTANPRO_PLUGIN_NAME ); ?> で作成しています」の宣伝文と、書類（印刷・PDF）の下端の宣伝の 1 行が、入らなくなります。</li>
-			<li>アップデート情報や、便利な活用方法などをメールでお届けします（配信の停止は、届いたメールのリンクからいつでもできます）。</li>
+			<li><?php echo esc_html( sprintf( ktp_dt__( '無料版・試用期間中に、顧客・協力会社へのメールの署名の後ろに入る「このメールは %s で作成しています」の宣伝文と、書類（印刷・PDF）の下端の宣伝の 1 行が、入らなくなります。' ), KANTANPRO_PLUGIN_NAME ) ); ?></li>
+			<li><?php echo esc_html( ktp_dt__( 'アップデート情報や、便利な活用方法などをメールでお届けします（配信の停止は、届いたメールのリンクからいつでもできます）。' ) ); ?></li>
 		</ul>
 		<form method="post">
 			<?php wp_nonce_field( 'ktp_desktop_reg', 'ktp_desktop_reg_nonce' ); ?>

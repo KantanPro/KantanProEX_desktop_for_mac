@@ -26,6 +26,10 @@ function ktp_dt_fax_providers() {
 
 function ktp_dt_fax_can() {
 	// 無料版（試用が切れた後）は FAX 送信のボタンを出さず、送信・設定の ajax も受け付けない
+	// Web-FAX のゲートウェイ（eFax・jFax・MOVFAX）は日本向け。日本以外の商取引ではボタンも設定も出さない
+	if ( class_exists( 'KTPWP_Settings' ) && ! KTPWP_Settings::is_japan_business() ) {
+		return false;
+	}
 	return is_user_logged_in() && ( current_user_can( 'edit_posts' ) || current_user_can( 'ktpwp_access' ) ) && ktp_dt_is_paid();
 }
 

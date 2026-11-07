@@ -870,7 +870,10 @@ function ktp_dt_voice_page_html() {
 <div id="ktp-dt-voice" data-ajax="<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>" data-nonce="<?php echo esc_attr( wp_create_nonce( KTP_DT_VOICE_NONCE ) ); ?>" style="max-width:760px;margin:0 auto;font-size:14px;line-height:1.7;">
 	<p><a href="<?php echo esc_url( home_url( '/' ) ); ?>">← アプリに戻る</a></p>
 	<h2 style="margin:6px 0 12px;">音声操作</h2>
-	<p style="color:#6b7280;font-size:13px;">KoeType などの音声入力アプリや、Mac の「ショートカット」から命令を送れます。「今日の予定」「未請求」「今月の売上」などを聞いたり、画面を開いたりできます。この Mac の中だけで動き、インターネットや LAN には出しません（待ち受けるのは 127.0.0.1 の <?php echo (int) KTP_DT_VOICE_PORT; ?> 番だけです）。アプリを起動している間だけ使えます。</p>
+	<?php if ( ktp_dt_is_en() ) : ?>
+	<p style="margin:0 0 10px;padding:10px 14px;border:1px solid #fcd34d;background:#fffbeb;color:#92400e;border-radius:6px;">Voice control currently understands Japanese only. The commands listed below are the Japanese phrases to speak.</p>
+	<?php endif; ?>
+	<p style="color:#6b7280;font-size:13px;"><?php echo esc_html( sprintf( ktp_dt__( 'KoeType などの音声入力アプリや、Mac の「ショートカット」から命令を送れます。「今日の予定」「未請求」「今月の売上」などを聞いたり、画面を開いたりできます。この Mac の中だけで動き、インターネットや LAN には出しません（待ち受けるのは 127.0.0.1 の %d 番だけです）。アプリを起動している間だけ使えます。' ), (int) KTP_DT_VOICE_PORT ) ); ?></p>
 
 	<div style="border:1px solid <?php echo $on ? '#86efac' : '#d1d5db'; ?>;background:<?php echo $on ? '#f0fdf4' : '#f9fafb'; ?>;padding:12px 16px;border-radius:6px;margin:12px 0;">
 		<p style="margin:0 0 6px;font-weight:700;">現在: <?php echo $on ? '待ち受け中（127.0.0.1:' . (int) $port . '）' : 'オフ'; ?></p>

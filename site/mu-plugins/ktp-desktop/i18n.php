@@ -33,6 +33,39 @@ function ktp_dt_is_en() {
 }
 
 /**
+ * 商取引の国（KantanProEX の設定。未設定なら通貨から推定。既存の利用者は日本）。辞書を作る時点では本体が読まれていないことがあるので option を直接見る
+ *
+ * @return string
+ */
+function ktp_dt_business_country() {
+	if ( class_exists( 'KTPWP_Settings' ) && method_exists( 'KTPWP_Settings', 'get_business_country' ) ) {
+		return KTPWP_Settings::get_business_country();
+	}
+	$o    = get_option( 'ktp_general_settings', array() );
+	$code = is_array( $o ) && ! empty( $o['business_country'] ) ? strtoupper( (string) $o['business_country'] ) : '';
+	if ( '' !== $code ) {
+		return $code;
+	}
+	$map = array( 'JPY' => 'JP', 'USD' => 'US', 'GBP' => 'GB', 'EUR' => 'EU', 'CAD' => 'CA', 'AUD' => 'AU' );
+	$cur = is_array( $o ) && ! empty( $o['currency_code'] ) ? strtoupper( (string) $o['currency_code'] ) : 'JPY';
+	return isset( $map[ $cur ] ) ? $map[ $cur ] : 'JP';
+}
+
+/**
+ * 英語の訳の「Consumption tax（消費税）」を国の税の名前に置き換える表。日本は空。
+ *
+ * @return array<string,string>
+ */
+function ktp_dt_country_tax_words() {
+	$labels = array( 'US' => array( 'Sales Tax', 'Sales tax', 'sales tax' ), 'GB' => array( 'VAT', 'VAT', 'VAT' ), 'EU' => array( 'VAT', 'VAT', 'VAT' ), 'CA' => array( 'GST/HST', 'GST/HST', 'GST/HST' ), 'AU' => array( 'GST', 'GST', 'GST' ), 'OTHER' => array( 'Tax', 'Tax', 'tax' ) );
+	$c      = ktp_dt_business_country();
+	if ( ! isset( $labels[ $c ] ) ) {
+		return array();
+	}
+	return array( 'Consumption Tax' => $labels[ $c ][0], 'Consumption tax' => $labels[ $c ][1], 'consumption tax' => $labels[ $c ][2] );
+}
+
+/**
  * 英語の辞書（日本語の原文 => 英語）。英語のときだけ読む。
  *
  * @return array<string,string>
@@ -50,6 +83,12 @@ function ktp_dt_i18n_dictionary() {
 			}
 			if ( is_array( $arr ) ) {
 				$dict = $arr;
+				$words = ktp_dt_country_tax_words();
+				if ( $words ) {
+					foreach ( $dict as $k => $v ) {
+						$dict[ $k ] = strtr( (string) $v, $words );
+					}
+				}
 			}
 		}
 	}
@@ -151,6 +190,11 @@ if ( ktp_dt_is_en() ) {
 		};
 		// 辞書（大きいので別ファイルにしてブラウザに覚えさせる）→ 訳す処理の順。どちらも同期で読む
 		echo '<script src="' . esc_url( $base . 'lang/en.js?v=' . $ver( 'lang/en.js' ) ) . '"></script>' . "\n"; // phpcs:ignore
+		// 国の税の名前（Sales tax・VAT など）に置き換えてから訳す
+		$words = ktp_dt_country_tax_words();
+		if ( $words ) {
+			echo '<script>(function(d,w){if(!d)return;var k,r;for(k in d){r=d[k];if(typeof r!=="string")continue;for(var f in w){r=r.split(f).join(w[f]);}d[k]=r;}})(window.ktpDtI18nDict,' . wp_json_encode( $words ) . ');</script>' . "\n"; // phpcs:ignore
+		}
 		echo '<script src="' . esc_url( $base . 'i18n.js?v=' . $ver( 'i18n.js' ) ) . '"></script>' . "\n"; // phpcs:ignore
 	};
 	add_action( 'wp_head', $ktp_dt_i18n_head, -1000 );

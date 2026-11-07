@@ -29,7 +29,7 @@ function ktp_dt_nl_issuer_name() {
 }
 
 function ktp_dt_nl_subject_prefix() {
-	return '【' . ktp_dt_nl_issuer_name() . '】';
+	return ktp_dt_is_en() ? '[' . ktp_dt_nl_issuer_name() . '] ' : '【' . ktp_dt_nl_issuer_name() . '】';
 }
 
 function ktp_dt_nl_subject( $subject ) {
@@ -125,6 +125,9 @@ function ktp_dt_nl_dept_addressee( $name ) {
 function ktp_dt_nl_personalize( $target, $text, array $rec ) {
 	$r       = $rec['row'];
 	$company = ktp_dt_nl_clean( $r->company_name );
+	// 英語表示の差し込み記号（{company} など）も受け付ける
+	$text = str_replace( array( '{company}', '{contact}', '{department}', '{department_list}' ), array( '{会社名}', '{担当者}', '{部署}', '{部署リスト宛先ブロック}' ), $text );
+	$en   = ktp_dt_is_en();
 	if ( 'supplier' === $target ) {
 		$out = str_replace( array( '{会社名}', '{担当者}', '{部署}' ), array( $company, ktp_dt_nl_clean( $r->name ), '' ), $text );
 	} else {
@@ -142,11 +145,11 @@ function ktp_dt_nl_personalize( $target, $text, array $rec ) {
 			$dn = ktp_dt_nl_dept_addressee( $d->department_name );
 			$cp = ktp_dt_nl_clean( $d->contact_person );
 			if ( '' !== $dn && '' !== $cp ) {
-				$lines[] = $dn . '　' . $cp . ' 様';
+				$lines[] = $en ? $dn . ' – ' . $cp : $dn . '　' . $cp . ' 様';
 			} elseif ( '' !== $dn ) {
-				$lines[] = $dn . '　ご担当者様';
+				$lines[] = $en ? $dn : $dn . '　ご担当者様';
 			} elseif ( '' !== $cp ) {
-				$lines[] = $cp . ' 様';
+				$lines[] = $en ? $cp : $cp . ' 様';
 			}
 		}
 		$listing = implode( "\n", $lines );
@@ -166,10 +169,10 @@ function ktp_dt_nl_compose( $body_personalized ) {
 /** 宛先の選択を検証して返す */
 function ktp_dt_nl_request() {
 	if ( ! ktp_dt_is_paid() ) {
-		wp_send_json_error( array( 'message' => '一斉メールは有料版の機能です（KantanProEX 設定 → ライセンス）。' ), 403 );
+		wp_send_json_error( array( 'message' => ktp_dt__( '一斉メールは有料版の機能です（KantanProEX 設定 → ライセンス）。' ) ), 403 );
 	}
 	if ( ! ktp_dt_nl_can() ) {
-		wp_send_json_error( array( 'message' => '権限がありません。' ), 403 );
+		wp_send_json_error( array( 'message' => ktp_dt__( '権限がありません。' ) ), 403 );
 	}
 	check_ajax_referer( KTP_DT_NEWSLETTER_NONCE, 'nonce' );
 	$target   = isset( $_POST['target'] ) && 'supplier' === $_POST['target'] ? 'supplier' : 'client';
@@ -178,14 +181,14 @@ function ktp_dt_nl_request() {
 	$subject  = isset( $_POST['subject'] ) ? sanitize_text_field( wp_unslash( $_POST['subject'] ) ) : '';
 	$body     = isset( $_POST['body'] ) ? sanitize_textarea_field( wp_unslash( $_POST['body'] ) ) : '';
 	if ( 'category' === $audience && '' === $category ) {
-		wp_send_json_error( array( 'message' => 'カテゴリーを選んでください。' ), 422 );
+		wp_send_json_error( array( 'message' => ktp_dt__( 'カテゴリーを選んでください。' ) ), 422 );
 	}
 	return array( $target, $audience, $category, $subject, $body );
 }
 
 function ktp_dt_nl_need_content( $subject, $body ) {
 	if ( '' === trim( $subject ) || '' === trim( $body ) ) {
-		wp_send_json_error( array( 'message' => '件名と本文を入力してください。' ), 422 );
+		wp_send_json_error( array( 'message' => ktp_dt__( '件名と本文を入力してください。' ) ), 422 );
 	}
 }
 
@@ -219,15 +222,15 @@ add_action(
 		ktp_dt_nl_need_content( $subject, $body );
 		$to = isset( $_POST['test_to'] ) ? sanitize_email( wp_unslash( $_POST['test_to'] ) ) : '';
 		if ( '' === $to || ! is_email( $to ) ) {
-			wp_send_json_error( array( 'message' => 'テスト送信先のメールアドレスを入力してください。' ), 422 );
+			wp_send_json_error( array( 'message' => ktp_dt__( 'テスト送信先のメールアドレスを入力してください。' ) ), 422 );
 		}
 		$recs = ktp_dt_nl_recipients( $target, $audience, $category );
 		$text = $recs ? ktp_dt_nl_personalize( $target, $body, $recs[0] ) : $body;
-		$ok   = wp_mail( $to, '[テスト] ' . ktp_dt_nl_subject( $subject ), ktp_dt_nl_compose( $text ), array( 'Content-Type: text/plain; charset=UTF-8' ) );
+		$ok   = wp_mail( $to, ktp_dt__( '[テスト] ' ) . ktp_dt_nl_subject( $subject ), ktp_dt_nl_compose( $text ), array( 'Content-Type: text/plain; charset=UTF-8' ) );
 		if ( ! $ok ) {
-			wp_send_json_error( array( 'message' => '送信できませんでした。設定画面のメール（SMTP）の設定を確認してください。' ), 500 );
+			wp_send_json_error( array( 'message' => ktp_dt__( '送信できませんでした。設定画面のメール（SMTP）の設定を確認してください。' ) ), 500 );
 		}
-		wp_send_json_success( array( 'message' => 'テストメールを ' . $to . ' 宛に送信しました。' ) );
+		wp_send_json_success( array( 'message' => sprintf( ktp_dt__( 'テストメールを %s 宛に送信しました。' ), $to ) ) );
 	}
 );
 
@@ -238,7 +241,7 @@ add_action(
 		ktp_dt_nl_need_content( $subject, $body );
 		$recs = ktp_dt_nl_recipients( $target, $audience, $category );
 		if ( ! $recs ) {
-			wp_send_json_error( array( 'message' => '送信できるメールアドレスがありません。「対象外」の相手は除かれ、メールアドレスが登録されている相手だけに送られます。' ), 422 );
+			wp_send_json_error( array( 'message' => ktp_dt__( '送信できるメールアドレスがありません。「対象外」の相手は除かれ、メールアドレスが登録されている相手だけに送られます。' ) ), 422 );
 		}
 		@set_time_limit( 0 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
 		$subject = ktp_dt_nl_subject( $subject );
@@ -256,7 +259,7 @@ add_action(
 			array(
 				'sent'    => $sent,
 				'failed'  => $failed,
-				'message' => $sent . ' 件に送信しました。' . ( $failed ? '送れなかった宛先が ' . count( $failed ) . ' 件あります: ' . implode( ', ', array_slice( $failed, 0, 5 ) ) : '' ),
+				'message' => sprintf( ktp_dt__( '%d 件に送信しました。' ), $sent ) . ( $failed ? sprintf( ktp_dt__( '送れなかった宛先が %d 件あります: ' ), count( $failed ) ) . implode( ', ', array_slice( $failed, 0, 5 ) ) : '' ),
 			)
 		);
 	}
@@ -266,12 +269,12 @@ add_action(
 	'wp_ajax_ktp_dt_nl_signature',
 	function () {
 		if ( ! ktp_dt_nl_can() ) {
-			wp_send_json_error( array( 'message' => '権限がありません。' ), 403 );
+			wp_send_json_error( array( 'message' => ktp_dt__( '権限がありません。' ) ), 403 );
 		}
 		check_ajax_referer( KTP_DT_NEWSLETTER_NONCE, 'nonce' );
 		$sig = isset( $_POST['signature'] ) ? sanitize_textarea_field( wp_unslash( $_POST['signature'] ) ) : '';
 		update_user_meta( get_current_user_id(), KTP_DT_NEWSLETTER_SIG, trim( $sig ) );
-		wp_send_json_success( array( 'message' => '署名を保存しました。' ) );
+		wp_send_json_success( array( 'message' => ktp_dt__( '署名を保存しました。' ) ) );
 	}
 );
 
@@ -294,13 +297,32 @@ add_filter(
 		$smtp   = get_option( 'ktp_smtp_settings', array() );
 		$test   = is_array( $smtp ) && ! empty( $smtp['email_address'] ) ? $smtp['email_address'] : '';
 		$back   = add_query_arg( 'tab_name', $target, home_url( '/' ) );
-		$default_body = 'supplier' === $target ? "{会社名}\n{担当者} 様\n" : "{会社名}\n{担当者} 様\n{部署リスト宛先ブロック}\n";
+		$en     = ktp_dt_is_en();
+		if ( $en ) {
+			$default_body = 'supplier' === $target ? "{company}\nDear {contact},\n" : "{company}\nDear {contact},\n{department_list}\n";
+			$tokens       = 'supplier' === $target ? '{company} {contact}' : '{company} {contact} {department} {department_list}';
+		} else {
+			$default_body = 'supplier' === $target ? "{会社名}\n{担当者} 様\n" : "{会社名}\n{担当者} 様\n{部署リスト宛先ブロック}\n";
+			$tokens       = 'supplier' === $target ? '{会社名} {担当者}' : '{会社名} {担当者} {部署} {部署リスト宛先ブロック}';
+		}
+		// 画面のスクリプトが出す文言（件数を差し込む文は %1$s などの形で渡す）
+		$js_l10n = array(
+			'busy'      => ktp_dt__( '処理しています…' ),
+			'failed'    => ktp_dt__( '失敗しました。' ),
+			'neterr'    => ktp_dt__( '通信に失敗しました。' ),
+			'previewTo' => ktp_dt__( '%1$s 件のメールアドレス（%2$s 社）に送ります。' ),
+			'subject'   => ktp_dt__( '件名: ' ),
+			'confirm'   => ktp_dt__( '%1$s 件のメールアドレスにニュースレターを送ります。よろしいですか？' ),
+			'cancelled' => ktp_dt__( '送信をやめました。' ),
+			'saving'    => ktp_dt__( '保存しています…' ),
+			'saveErr'   => ktp_dt__( '保存できませんでした。' ),
+		);
 		ob_start();
 		?>
 <div id="ktp-dt-nl" data-ajax="<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>" data-nonce="<?php echo esc_attr( wp_create_nonce( KTP_DT_NEWSLETTER_NONCE ) ); ?>" data-target="<?php echo esc_attr( $target ); ?>" style="max-width:860px;margin:0 auto;font-size:14px;line-height:1.7;">
-	<p><a href="<?php echo esc_url( $back ); ?>">← <?php echo esc_html( $label ); ?>に戻る</a></p>
-	<h2 style="margin:6px 0 12px;"><?php echo esc_html( $label ); ?>へのニュースレター</h2>
-	<p style="color:#6b7280;font-size:13px;">設定したメール（SMTP）から、<?php echo esc_html( $label ); ?>のメールアドレス宛てに送ります。「対象外」の相手には送りません。件名の先頭には <?php echo esc_html( ktp_dt_nl_subject_prefix() ); ?> が付きます。</p>
+	<p><a href="<?php echo esc_url( $back ); ?>"><?php echo esc_html( ktp_dt__( '← ' . $label . 'に戻る' ) ); ?></a></p>
+	<h2 style="margin:6px 0 12px;"><?php echo esc_html( ktp_dt__( $label . 'へのニュースレター' ) ); ?></h2>
+	<p style="color:#6b7280;font-size:13px;"><?php echo esc_html( sprintf( ktp_dt__( '設定したメール（SMTP）から、' . $label . 'のメールアドレス宛てに送ります。「対象外」の相手には送りません。件名の先頭には %s が付きます。' ), trim( ktp_dt_nl_subject_prefix() ) ) ); ?></p>
 	<div style="margin:12px 0;">宛先：
 		<label><input type="radio" name="audience" value="all" checked> すべて</label>
 		<label style="margin-left:12px;"><input type="radio" name="audience" value="category"> カテゴリーで絞る</label>
@@ -310,7 +332,7 @@ add_filter(
 		</select>
 	</div>
 	<div style="margin:12px 0;"><label>件名<br><input type="text" id="nl-subject" maxlength="255" style="width:100%;padding:6px;font-size:14px;"></label></div>
-	<div style="margin:12px 0;"><label>本文（<?php echo 'supplier' === $target ? '{会社名} {担当者}' : '{会社名} {担当者} {部署} {部署リスト宛先ブロック}'; ?> は宛先ごとに置き換わります）<br>
+	<div style="margin:12px 0;"><label><?php echo esc_html( sprintf( ktp_dt__( '本文（%s は宛先ごとに置き換わります）' ), $tokens ) ); ?><br>
 		<textarea id="nl-body" rows="12" maxlength="50000" style="width:100%;padding:6px;font-size:14px;"><?php echo esc_textarea( $default_body ); ?></textarea></label></div>
 	<div style="margin:12px 0;"><label>署名（メール末尾。あなた用に保存されます）<br>
 		<textarea id="nl-signature" rows="4" style="width:100%;padding:6px;font-size:14px;"><?php echo esc_textarea( ktp_dt_nl_signature() ); ?></textarea></label>
@@ -326,6 +348,8 @@ add_filter(
 </div>
 <script>
 (function(){
+	var L=<?php echo wp_json_encode( $js_l10n ); ?>;
+	function fmt(t,a,b){return t.replace('%1$s',a).replace('%2$s',b);}
 	var w=document.getElementById('ktp-dt-nl'),msg=document.getElementById('nl-msg'),box=document.getElementById('nl-preview-box');
 	function $(id){return document.getElementById(id);}
 	function data(action,extra){
@@ -335,24 +359,24 @@ add_filter(
 		return new URLSearchParams(d).toString();
 	}
 	function post(action,extra){
-		msg.style.color='';msg.textContent='処理しています…';
+		msg.style.color='';msg.textContent=L.busy;
 		return fetch(w.dataset.ajax,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},body:data(action,extra)}).then(function(r){return r.json();}).then(function(j){
 			if(j&&j.success){msg.style.color='#166534';return j.data;}
-			msg.style.color='#b91c1c';msg.textContent=(j&&j.data&&j.data.message)||'失敗しました。';return null;
-		}).catch(function(){msg.style.color='#b91c1c';msg.textContent='通信に失敗しました。';return null;});
+			msg.style.color='#b91c1c';msg.textContent=(j&&j.data&&j.data.message)||L.failed;return null;
+		}).catch(function(){msg.style.color='#b91c1c';msg.textContent=L.neterr;return null;});
 	}
-	$('nl-preview').onclick=function(){post('ktp_dt_nl_preview').then(function(d){if(!d)return;msg.textContent=d.mail_count+' 件のメールアドレス（'+d.company_count+' 社）に送ります。';box.style.display='block';box.textContent='件名: '+d.subject+'\n\n'+d.body;});};
+	$('nl-preview').onclick=function(){post('ktp_dt_nl_preview').then(function(d){if(!d)return;msg.textContent=fmt(L.previewTo,d.mail_count,d.company_count);box.style.display='block';box.textContent=L.subject+d.subject+'\n\n'+d.body;});};
 	$('nl-test').onclick=function(){post('ktp_dt_nl_test',{test_to:$('nl-test-to').value}).then(function(d){if(d)msg.textContent=d.message;});};
 	$('nl-send').onclick=function(){
 		post('ktp_dt_nl_preview').then(function(d){
 			if(!d)return;
-			if(!window.confirm(d.mail_count+' 件のメールアドレスにニュースレターを送ります。よろしいですか？\n件名: '+d.subject)){msg.textContent='送信をやめました。';return;}
+			if(!window.confirm(fmt(L.confirm,d.mail_count)+'\n'+L.subject+d.subject)){msg.textContent=L.cancelled;return;}
 			post('ktp_dt_nl_send').then(function(r){if(r)msg.textContent=r.message;});
 		});
 	};
 	$('nl-save-sig').onclick=function(){
-		msg.textContent='保存しています…';
-		fetch(w.dataset.ajax,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},body:new URLSearchParams({action:'ktp_dt_nl_signature',nonce:w.dataset.nonce,signature:$('nl-signature').value}).toString()}).then(function(r){return r.json();}).then(function(j){msg.style.color=j.success?'#166534':'#b91c1c';msg.textContent=j.success?j.data.message:'保存できませんでした。';});
+		msg.textContent=L.saving;
+		fetch(w.dataset.ajax,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},body:new URLSearchParams({action:'ktp_dt_nl_signature',nonce:w.dataset.nonce,signature:$('nl-signature').value}).toString()}).then(function(r){return r.json();}).then(function(j){msg.style.color=j.success?'#166534':'#b91c1c';msg.textContent=j.success?j.data.message:L.saveErr;});
 	};
 })();
 </script>

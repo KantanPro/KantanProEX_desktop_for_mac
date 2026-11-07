@@ -387,7 +387,7 @@ function ktp_dt_locked_screen_html( $feature, $back_url = '' ) {
 		<p style="margin:0;color:#4b5563;font-size:13px;"><?php echo esc_html( $f[1] ); ?></p>
 	</div>
 	<?php if ( '' !== $why ) : ?>
-		<p style="margin:0 0 10px;color:#4b5563;font-size:13px;"><?php echo esc_html( $why ); ?>顧客・サービス・協力会社・受注・書類の作成と印刷・PDF・バックアップなどは、これまでどおり無料でお使いいただけます。データも消えません。</p>
+		<p style="margin:0 0 10px;color:#4b5563;font-size:13px;"><?php echo esc_html( ktp_dt__( $why . '顧客・サービス・協力会社・受注・書類の作成と印刷・PDF・バックアップなどは、これまでどおり無料でお使いいただけます。データも消えません。' ) ); ?></p>
 	<?php endif; ?>
 	<p style="margin:14px 0 0;">
 		<?php if ( ktp_dt_license_can_manage() ) : ?>
@@ -466,15 +466,15 @@ function ktp_dt_license_render_page() {
 	<?php endif; ?>
 
 	<div style="border:1px solid <?php echo esc_attr( $l[3] ); ?>;background:<?php echo esc_attr( $l[2] ); ?>;color:<?php echo esc_attr( $l[1] ); ?>;padding:12px 16px;border-radius:6px;margin:12px 0;">
-		<p style="margin:0;font-weight:700;">現在: <?php echo esc_html( $l[0] ); ?></p>
+		<p style="margin:0;font-weight:700;"><?php echo esc_html( ktp_dt__( '現在: ' ) . ktp_dt__( $l[0] ) ); ?></p>
 		<?php if ( 'trial' === $state ) : ?>
-			<p style="margin:4px 0 0;">試用期間はあと <strong><?php echo (int) $days; ?> 日</strong>です。終わると無料版になります（データは消えません）。</p>
+			<p style="margin:4px 0 0;"><?php echo wp_kses( sprintf( ktp_dt__( '試用期間はあと %s です。終わると無料版になります（データは消えません）。' ), '<strong>' . esc_html( sprintf( ktp_dt__( '%d 日' ), (int) $days ) ) . '</strong>' ), array( 'strong' => array() ) ); ?></p>
 		<?php elseif ( 'free' === $state ) : ?>
-			<p style="margin:4px 0 0;">試用期間（<?php echo (int) KTP_DT_TRIAL_DAYS; ?> 日）は終わりました。一人で毎日使う機能はこれまでどおり無料です。有料版の機能を使うには、ライセンスキーを入れてください。</p>
+			<p style="margin:4px 0 0;"><?php echo esc_html( sprintf( ktp_dt__( '試用期間（%d 日）は終わりました。一人で毎日使う機能はこれまでどおり無料です。有料版の機能を使うには、ライセンスキーを入れてください。' ), (int) KTP_DT_TRIAL_DAYS ) ); ?></p>
 		<?php elseif ( 'legacy' === $state ) : ?>
-			<p style="margin:4px 0 0;">ご購入ありがとうございます。このアプリは有料版として使えます。別のパソコンに入れるときは、購入時のメールのライセンスキーが必要です。</p>
+			<p style="margin:4px 0 0;"><?php echo esc_html( ktp_dt__( 'ご購入ありがとうございます。このアプリは有料版として使えます。別のパソコンに入れるときは、購入時のメールのライセンスキーが必要です。' ) ); ?></p>
 		<?php elseif ( $info ) : ?>
-			<p style="margin:4px 0 0;">ご購入ありがとうございます。登録メール: <?php echo esc_html( $info['email'] ); ?><?php echo '' !== $info['id'] ? '（' . esc_html( $info['id'] ) . '）' : ''; ?></p>
+			<p style="margin:4px 0 0;"><?php echo esc_html( sprintf( ktp_dt__( 'ご購入ありがとうございます。登録メール: %s' ), $info['email'] ) ); ?><?php echo '' !== $info['id'] ? esc_html( ktp_dt_is_en() ? ' (' . $info['id'] . ')' : '（' . $info['id'] . '）' ) : ''; ?></p>
 		<?php endif; ?>
 	</div>
 

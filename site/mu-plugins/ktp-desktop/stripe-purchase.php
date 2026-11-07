@@ -145,6 +145,10 @@ function ktp_dt_stripe_ineligible_reason( $row, array $avail ) {
 	if ( ! class_exists( 'KTPWP_Service_DB' ) || ! KTPWP_Service_DB::is_public_instant_purchase( $row ) ) {
 		return 'off';
 	}
+	// 即時購入は日本円だけ（金額・最低金額・取り込みの表示が円の前提。ホームページ側の受付プラグインも日本語だけ）
+	if ( class_exists( 'KTPWP_Settings' ) && 'JPY' !== KTPWP_Settings::get_currency_code() ) {
+		return ktp_dt__( '即時購入（Stripe）は日本円のときだけ使えます' );
+	}
 	$rec = ktp_dt_stripe_recurring_amounts( $row );
 	if ( $rec ) {
 		if ( ! empty( $rec['provisional'] ) ) {
