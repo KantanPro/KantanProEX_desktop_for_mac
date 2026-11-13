@@ -1,9 +1,9 @@
 {
-  "version": "1.0.70",
-  "released": "2026-11-12",
-  "notes": "1.0.70 になりました。顧客の画面の「注文履歴」で、完了日が入っていない案件に「完了日：-0001/11/30」と表示されることがある不具合を直しました（「ダミーデータ作成」で作ったデータや、ほかの版から取り込んだデータで起きていました）。入力した内容や計算には影響ありません。",
-  "notes_en": "KantanProEX 1.0.70 fixes a display bug where orders without a completion date could show \"Completion date: -0001/11/30\" in a client's order history (seen with sample data and with data imported from other editions). Your data and calculations are not affected.",
+  "version": "1.0.71",
+  "released": "2026-11-13",
+  "notes": "1.0.71 になりました。顧客の画面の「請求書発行」で「請求済に変更する」を選んで印刷しても、前払い・後払いが未設定の案件が「完了」のまま残り、請求済にならないことがある不具合を直しました（「取り消す」で完了に戻すときも同じ案件が対象になります）。入力した内容や金額には影響ありません。",
+  "notes_en": "KantanProEX 1.0.71 fixes a bug where, when printing an invoice from a client with \"Mark as invoiced\" checked, orders without a prepay/postpay setting stayed \"Completed\" instead of becoming \"Invoiced\" (the same applies to \"Undo\"). Your data and amounts are not affected.",
   "url": "https://www.kantanpro.com/dl/kantanproex-dt-mac",
-  "version_win": "1.0.70",
+  "version_win": "1.0.71",
   "url_win": "https://www.kantanpro.com/dl/kantanproex-dt-windows"
 }
