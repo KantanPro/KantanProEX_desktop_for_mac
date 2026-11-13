@@ -33,7 +33,7 @@ add_action(
 			$wpdb->prepare(
 				"SELECT o.id FROM `{$o}` o LEFT JOIN `{$c}` c ON o.client_id = c.id
 				WHERE o.client_id = %d AND o.progress = 4
-				AND NOT ( o.payment_timing = 'prepay' OR ( ( o.payment_timing IS NULL OR o.payment_timing = '' ) AND c.payment_timing = 'prepay' ) )",
+				AND NOT ( COALESCE( o.payment_timing, '' ) = 'prepay' OR ( COALESCE( o.payment_timing, '' ) = '' AND COALESCE( c.payment_timing, '' ) = 'prepay' ) )",
 				$client_id
 			)
 		); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
