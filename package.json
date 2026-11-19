@@ -1,7 +1,7 @@
 {
   "name": "kantanproex-desktop",
   "productName": "KantanProEX",
-  "version": "1.0.72",
+  "version": "1.0.73",
   "description": "KantanProEX のデスクトップ版（ブラウザもネットも不要）",
   "main": "main.js",
   "private": true,
