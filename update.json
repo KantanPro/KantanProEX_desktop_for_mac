@@ -1,9 +1,9 @@
 {
-  "version": "1.0.72",
-  "released": "2026-11-15",
-  "notes": "1.0.72 になりました。定期契約で、毎日の自動処理が、請求日を迎えていない契約まで今月分の案件にしていた不具合を直しました。2回目以降の契約では、請求予定のお知らせ（請求日の3日前）より先に請求書メールが届くことがありました。今後は請求日を迎えた契約だけが自動で案件になります。請求日より前に作りたいときは、定期請求リストの「未紐付けを一括で紐付け」をお使いください。入力した内容や金額には影響ありません。",
-  "notes_en": "KantanProEX 1.0.72 fixes a bug where the daily automatic task for recurring contracts created this month's orders for contracts whose billing date had not arrived yet. For contracts after the first invoice, the invoice email could arrive before the billing reminder (sent 3 days before the billing date). Orders are now created automatically only once the billing date arrives. To create them earlier, use \"Link all unlinked\" in the recurring billing list. Your data and amounts are not affected.",
+  "version": "1.0.73",
+  "released": "2026-11-20",
+  "notes": "1.0.73 になりました。iPhone などスマホの幅で受注書のタスクリストを開いたとき、工程表の左側のタスク名の欄が幅を取りすぎて、横棒がほとんど見えなかったのを直しました。スマホの幅ではタスク名の欄を細くし、最初に見える範囲に横棒が入るようにしています。パソコンの画面の見た目は変わりません。入力した内容には影響ありません。",
+  "notes_en": "KantanProEX 1.0.73 improves the task list on orders when viewed at phone width (such as an iPhone). The task name column in the schedule took up too much space, so the bars were barely visible. On narrow screens the column is now narrower, so the bars fit in the first view. The desktop layout is unchanged, and your data is not affected.",
   "url": "https://www.kantanpro.com/dl/kantanproex-dt-mac",
-  "version_win": "1.0.72",
+  "version_win": "1.0.73",
   "url_win": "https://www.kantanpro.com/dl/kantanproex-dt-windows"
 }
