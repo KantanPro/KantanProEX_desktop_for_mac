@@ -1,9 +1,9 @@
 {
-  "version": "1.0.73",
+  "version": "1.0.74",
   "released": "2026-11-20",
-  "notes": "1.0.73 になりました。iPhone などスマホの幅で受注書のタスクリストを開いたとき、工程表の左側のタスク名の欄が幅を取りすぎて、横棒がほとんど見えなかったのを直しました。スマホの幅ではタスク名の欄を細くし、最初に見える範囲に横棒が入るようにしています。パソコンの画面の見た目は変わりません。入力した内容には影響ありません。",
-  "notes_en": "KantanProEX 1.0.73 improves the task list on orders when viewed at phone width (such as an iPhone). The task name column in the schedule took up too much space, so the bars were barely visible. On narrow screens the column is now narrower, so the bars fit in the first view. The desktop layout is unchanged, and your data is not affected.",
+  "notes": "1.0.74 になりました。アプリの起動が間に合わなかったとき、内部の処理が終了後も残り、次の起動に影響することがあったのを直しました。入力した内容には影響ありません。",
+  "notes_en": "KantanProEX 1.0.74 fixes an issue where, when the app failed to start in time, a background process could stay running after the app closed and affect the next launch. Your data is not affected.",
   "url": "https://www.kantanpro.com/dl/kantanproex-dt-mac",
-  "version_win": "1.0.73",
+  "version_win": "1.0.74",
   "url_win": "https://www.kantanpro.com/dl/kantanproex-dt-windows"
 }
