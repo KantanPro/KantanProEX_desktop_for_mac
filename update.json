@@ -5,5 +5,7 @@
   "notes_en": "KantanProEX 1.0.74 fixes an issue where, when the app failed to start in time, a background process could stay running after the app closed and affect the next launch. Your data is not affected.",
   "url": "https://www.kantanpro.com/dl/kantanproex-dt-mac",
   "version_win": "1.0.74",
-  "url_win": "https://www.kantanpro.com/dl/kantanproex-dt-windows"
+  "url_win": "https://www.kantanpro.com/dl/kantanproex-dt-windows",
+  "version_linux": "1.0.74",
+  "url_linux": "https://www.kantanpro.com/dl/kantanproex-dt-linux"
 }

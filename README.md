@@ -1,11 +1,11 @@
-# KantanProEX（DT）for Mac / Windows
+# KantanProEX（DT）for Mac / Windows / Linux
 
-KantanProEX（WordPress プラグイン）を、ブラウザも WordPress サイトもインターネットも使わずに動かすデスクトップアプリ（Mac 版・Windows 版）です。
-データはお使いのパソコン（Mac / Windows）の中だけに保存されます。
+KantanProEX（WordPress プラグイン）を、ブラウザも WordPress サイトもインターネットも使わずに動かすデスクトップアプリ（Mac 版・Windows 版・Linux 版）です。
+データはお使いのパソコン（Mac / Windows / Linux）の中だけに保存されます。
 
 - ダウンロード（無料）・有料版ライセンスの購入（買い切り）: [kantanpro.com](https://www.kantanpro.com/product/kantanproex-desktop/)
 - このリポジトリには、アプリを組み立てるためのコードと、アップデートのお知らせ用のファイル（`update.json`）を置いています。
-  アプリ本体（Mac は dmg、Windows はインストーラー .exe）はここでは配布していません。
+  アプリ本体（Mac は dmg、Windows はインストーラー .exe、Linux は AppImage）はここでは配布していません。
 
 ## 仕組み
 
@@ -13,7 +13,7 @@ KantanProEX（WordPress プラグイン）を、ブラウザも WordPress サイ
   既定はこのパソコンだけです。メニュー「ファイル」→「LAN 共有…」でオンにしたときだけ、事務所の LAN 向けの https の窓口（`lib/lan.js`）を開き、許可したスタッフが他のパソコンのブラウザからパスワードでログインして使えます（インターネットには公開しません）。iPad・iPhone からも使えます（1.0.0〜）。親機の画面の QR から事務所用の証明書を 1 回だけ入れると警告なしで開け、ホーム画面にも追加できます。オーナー（管理者）も、設定でオンにすれば LAN から使えます（設定・バックアップ・取り込みは親機だけ）。iPad・iPhone では印刷の代わりに PDF を作り、共有シートから AirPrint・保存ができます（`ios-print.js`）。
 - 外部への通信は行いません（画面からの読み込みは 127.0.0.1 以外を止めています）。
   例外は、起動時に1日1回 `update.json` を読むアップデートのお知らせ（設定で止められます。kantanpro.com の転送を通して読むため、サーバーに IP アドレスが記録され、起動台数の集計に使います）と、本人が設定した郵便番号 API・メール送信・サイトからの受注、任意のユーザー登録（登録したメールアドレスだけを kantanpro.com に送る）だけです。
-- データは `~/Library/Application Support/KantanProEX/` に置き、起動時に1日1回「書類」フォルダへ自動でバックアップします。
+- データは `~/Library/Application Support/KantanProEX/`（Windows は `%APPDATA%\KantanProEX\`、Linux は `~/.config/KantanProEX/`）に置き、起動時に1日1回「書類」フォルダ（Linux は XDG の書類フォルダ。日本語環境なら `~/ドキュメント`）へ自動でバックアップします。
 - WordPress 版との違い（デスクトップ版で調整している内容）は `site/mu-plugins/ktp-desktop.php` にまとめています。プラグイン本体は改変しません。
 
 ## 表示言語（日本語 / English）
@@ -114,7 +114,7 @@ npm run prepare:site     # WordPress 一式を site-template/ に組み立て（
 npm start                # 開発用に起動（データは KantanProEX-dev に分かれる）
 npm run build:mac        # dist/KantanProEX-<版>.dmg を作る
 npm run build:win        # dist/KantanProEX-Setup-<版>.exe を作る（Windows 版。Mac 上でも作れる）
-npm run build:linux      # dist/KantanProEX-<版>-x86_64.AppImage を作る（Linux 版・試作。Mac 上でも作れる）
+npm run build:linux      # dist/KantanProEX-<版>-x86_64.AppImage を作る（Linux 版・x86_64。Mac 上でも作れる）
 scripts/test-dist.sh     # 作った配布版を、普段のデータとは別の場所で自動テスト
 ```
 

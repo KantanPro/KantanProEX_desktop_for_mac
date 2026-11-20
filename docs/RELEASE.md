@@ -11,7 +11,7 @@
    - 手順は `~/.kantanpro/bin/dt-release.py`（オリジンの IP を含むのでリポジトリの外）が通す: `check` → `build` → テスト結果を読む → `publish --go` → `verify`
    - dmg は WordPress が許可しない種類なので **ZIP に入れて**、**公開の uploads** に上げる（`type=downloadable_product` は付けない）
    - **Cloudflare は 100MB 超のアップロードを 413 で断る。** サーバー本体（オリジン）へ `curl --resolve` で直接送る（約4分、途中で切れたら再試行）
-   - 変わらない URL **`/dl/kantanproex-dt-mac`**・**`/dl/kantanproex-dt-windows`**（Redirection の 302）の転送先を新しい ZIP に差し替える。商品ページのボタンも `update.json` の `url` / `url_win` もこの URL を指す
+   - 変わらない URL **`/dl/kantanproex-dt-mac`**・**`/dl/kantanproex-dt-windows`**・**`/dl/kantanproex-dt-linux`**（Redirection の 302）の転送先を新しい ZIP に差し替える。商品ページのボタンも `update.json` の `url` / `url_win` / `url_linux` もこの URL を指す
 5. `update.json` の `version`・`released`・`notes`（英語のお知らせは `notes_en`。無ければ英語の人にも `notes` が出る）を書き換えて main に push する
 
 ## 注意
@@ -38,3 +38,17 @@ Mac 版と同じリポジトリ・同じソース（`site/mu-plugins/`・`main.j
 - 同梱の PHP は VC++ 2015-2022 ランタイムを必要とする。インストーラーが、入っていない PC にだけ静かに入れる（管理者の確認が 1 回出る）
 - Windows の PHP 内蔵サーバーは同時処理（ワーカー）に未対応で、1 本で動く（`lib/php.js`）
 - データは `%APPDATA%\KantanProEX\`、バックアップは「ドキュメント」の `KantanProEX バックアップ` に置く
+
+## Linux 版（AppImage・x86_64）
+
+Mac 版と同じリポジトリ・同じソースから作る。違いは同梱する PHP（static-php-cli の Linux 用静的ビルド）とビルドだけ。ARM（aarch64）版は作らない（要望が出るまで）。
+
+1. `npm run build:linux`（`scripts/fetch-php-linux.sh` が PHP を `bin-linux/` に取り込み、`dist/KantanProEX-<版>-x86_64.AppImage` ができる。この Mac でも作れる）
+2. 動作確認: この Mac の Docker（Ubuntu 24.04・仮想ディスプレイ）で起動して自動テストできる（`work/linux-test/`。NOTES.md の 11/21 を参照）。できれば実機の Linux でも、起動 → 顧客・受注書を作る → 印刷 → 終了 を確かめる
+3. 配布: `zip -0 KantanProEX-DT-for-Linux-<版>.zip KantanProEX-<版>-x86_64.AppImage` を Mac 版と同じく公開の uploads に上げ、`/dl/kantanproex-dt-linux` の転送先を差し替える
+4. `update.json` の Linux 用の `version_linux` と `url_linux` を書き換えて push（`version_linux` が無いと Linux 版にはお知らせが出ない）
+
+### Linux 版の注意
+- AppImage は 1 ファイルで動く。ダウンロード後に実行の許可（`chmod +x` か、ファイルのプロパティ →「プログラムとして実行」）が要る。Ubuntu 22.04 以降は `libfuse2`（Ubuntu 24.04 は `libfuse2t64`）が入っていないと開けない
+- Chromium のサンドボックスは外して起動する（最近の Ubuntu では AppImage でサンドボックスが立たないため。`scripts/after-pack.js`）
+- データは `~/.config/KantanProEX/`、バックアップは XDG の書類フォルダ（日本語環境なら `~/ドキュメント`）の `KantanProEX バックアップ` に置く
