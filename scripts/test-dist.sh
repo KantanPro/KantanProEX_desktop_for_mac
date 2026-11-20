@@ -8,6 +8,8 @@ TEST_DIR="$PWD/work/test-userdata"
 # 前回のテスト用データには読み取り専用のファイル（WordPress の配布物由来）があるので、権限を戻してから消す
 chmod -R u+rwX "$TEST_DIR" 2>/dev/null || true
 rm -rf "$TEST_DIR" && mkdir -p "$TEST_DIR"
+# テストの起動で kantanpro.com の更新確認を叩かない（叩くとダウンロードの統計の「起動した台数」に数えられてしまう）
+echo '{"enabled": false}' > "$TEST_DIR/update-state.json"
 env -u ELECTRON_RUN_AS_NODE KTP_TEST_USER_DATA="$TEST_DIR" KTP_DEBUG_PORT=9556 KTP_TEST_DOWNLOAD_DIR="$PWD/work/app-dl" \
   dist/mac/KantanProEX.app/Contents/MacOS/KantanProEX > work/test-dist.log 2>&1 &
 APP_PID=$!
