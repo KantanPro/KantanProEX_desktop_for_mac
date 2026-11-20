@@ -13,7 +13,8 @@
     "build:mac": "scripts/build-site.sh && (chmod -R u+rwX dist/mac dist/mac-universal* 2>/dev/null; rm -rf dist/mac dist/mac-universal*) && env -u ELECTRON_RUN_AS_NODE electron-builder --mac dmg --universal && mv dist/mac-universal dist/mac && rm -rf dist/mac-universal-*-temp",
     "install:local": "scripts/install-local.sh",
     "build:icon": "node scripts/build-icon.mjs",
-    "build:win": "scripts/fetch-php-win.sh && scripts/build-site.sh && (chmod -R u+rwX dist/win-unpacked 2>/dev/null; rm -rf dist/win-unpacked) && env -u ELECTRON_RUN_AS_NODE electron-builder --win nsis --x64"
+    "build:win": "scripts/fetch-php-win.sh && scripts/build-site.sh && (chmod -R u+rwX dist/win-unpacked 2>/dev/null; rm -rf dist/win-unpacked) && env -u ELECTRON_RUN_AS_NODE electron-builder --win nsis --x64",
+    "build:linux": "scripts/fetch-php-linux.sh && scripts/build-site.sh && (chmod -R u+rwX dist/linux-unpacked 2>/dev/null; rm -rf dist/linux-unpacked) && env -u ELECTRON_RUN_AS_NODE electron-builder --linux AppImage --x64"
   },
   "devDependencies": {
     "electron": "35.7.5",
@@ -122,6 +123,29 @@
       "artifactName": "KantanProEX-Setup-${version}.exe",
       "shortcutName": "KantanProEX",
       "include": "build/installer.nsh"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon/icon-1024.png",
+      "category": "Office",
+      "executableName": "kantanproex",
+      "synopsis": "KantanProEX のデスクトップ版",
+      "extraResources": [
+        {
+          "from": "bin-linux",
+          "to": "bin"
+        }
+      ]
+    },
+    "appImage": {
+      "artifactName": "KantanProEX-${version}-x86_64.AppImage"
     }
   }
 }

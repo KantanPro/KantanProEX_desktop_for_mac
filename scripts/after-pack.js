@@ -22,7 +22,21 @@ function security(args) {
   return execFileSync('security', args, { encoding: 'utf8' });
 }
 
+// Linux: 実行ファイルを kantanproex.bin に改名し、--no-sandbox を付けて起動する小さなスクリプトを kantanproex に置く。
+// Ubuntu 23.10 以降などは非特権のユーザー名前空間が AppArmor で制限され、AppImage では chrome-sandbox に SUID も
+// 付けられないので、Chromium のサンドボックスが立ち上がらず起動できない（画面のプロセスが落ちる）。
+// main.js の app.commandLine.appendSwitch('no-sandbox') では、先に起動する zygote に効かないので、起動時の引数で渡す。
+// 画面が開くのは同梱 PHP の 127.0.0.1 だけで、外部への読み込みは webRequest で止めている。
+function wrapLinuxExecutable(context) {
+  const name = context.packager.executableName;
+  const exe = path.join(context.appOutDir, name);
+  fs.renameSync(exe, `${exe}.bin`);
+  fs.writeFileSync(exe, `#!/bin/sh\nexec "$(dirname "$(readlink -f "$0")")/${name}.bin" --no-sandbox "$@"\n`, { mode: 0o755 });
+  console.log(`  • 起動スクリプトを置きました（--no-sandbox） ${exe}`);
+}
+
 exports.default = async function afterPack(context) {
+  if (context.electronPlatformName === 'linux') return wrapLinuxExecutable(context);
   if (context.electronPlatformName !== 'darwin' || context.appOutDir.endsWith('-temp')) return;
   if (!fs.existsSync(KEYCHAIN)) {
     throw new Error(`署名用のキーチェーンがありません: ${KEYCHAIN}（ad-hoc で配ると利用者が更新のたびに許可を聞かれるので止めます）`);

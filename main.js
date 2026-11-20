@@ -405,6 +405,8 @@ function createWindow() {
     title: 'KantanProEX',
     backgroundColor: '#ffffff',
     show: false,
+    // Linux はウィンドウ・タスクバーのアイコンを窓ごとに渡す（Mac・Windows はアプリのアイコンが使われる）
+    ...(process.platform === 'linux' ? { icon: path.join(__dirname, 'assets', 'icon', 'mark-256.png') } : {}),
     webPreferences: webPreferences(),
   });
   windowRestore = saved;
@@ -702,7 +704,12 @@ async function switchLanguage(next) {
   }
   log(`表示言語を ${next} にして再起動`);
   i18n.save(paths.userData, next);
-  app.relaunch();
+  // Linux の AppImage は、終了と同時に展開先（/tmp/.mount_*）が外れるので、中の実行ファイルではなく AppImage 自体を起動し直す
+  if (process.platform === 'linux' && process.env.APPIMAGE) {
+    app.relaunch({ execPath: process.env.APPIMAGE, args: process.argv.slice(1).filter((a) => a !== '--no-sandbox') });
+  } else {
+    app.relaunch();
+  }
   app.quit();
 }
 

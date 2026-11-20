@@ -20,7 +20,7 @@ require_once __DIR__ . '/ktp-desktop/license.php';
 // 画面ヘッダー・フッターなどに出るアプリ名（EX 本体は未定義のときだけ 'KantanProEX' を定義する）
 if ( ! defined( 'KANTANPRO_PLUGIN_NAME' ) ) {
 	// Electron が実行中の OS（Mac / Windows）を環境変数で渡す
-	define( 'KANTANPRO_PLUGIN_NAME', ( ktp_dt_is_en() ? 'KantanProEX (DT) for ' : 'KantanProEX（DT）for ' ) . ( 'Windows' === getenv( 'KTP_DESKTOP_OS' ) ? 'Windows' : 'Mac' ) );
+	define( 'KANTANPRO_PLUGIN_NAME', ( ktp_dt_is_en() ? 'KantanProEX (DT) for ' : 'KantanProEX（DT）for ' ) . ( in_array( getenv( 'KTP_DESKTOP_OS' ), array( 'Windows', 'Linux' ), true ) ? getenv( 'KTP_DESKTOP_OS' ) : 'Mac' ) );
 }
 
 /**

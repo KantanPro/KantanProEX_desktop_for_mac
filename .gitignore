@@ -7,3 +7,4 @@ site-template/
 NOTES.md
 bin-win/
 build/vc_redist.x64.exe
+bin-linux/
